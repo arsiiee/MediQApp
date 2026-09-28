@@ -20,7 +20,11 @@ import com.example.mediq.ui.components.MediQBottomBar
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
+        enableEdgeToEdge(
+            statusBarStyle = androidx.activity.SystemBarStyle.dark(
+                android.graphics.Color.BLACK
+            )
+        )
         setContent {
             MediQTheme {
                 val navController = rememberNavController()
@@ -32,7 +36,11 @@ class MainActivity : ComponentActivity() {
                     Screen.Doctors.route,
                     Screen.Appointments.route,
                     Screen.Messages.route,
-                    Screen.Profile.route
+                    Screen.Profile.route,
+                    Screen.DoctorDetails.route,
+                    Screen.BookingFlow.route,
+                    Screen.BookingSuccess.route,
+                    Screen.AppointmentDetails.route
                 )
 
                 Scaffold(

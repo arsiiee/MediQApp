@@ -1,20 +1,23 @@
 package com.example.mediq.ui.screens
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.outlined.AccessTime
+import androidx.compose.material.icons.outlined.CalendarMonth
+import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -24,175 +27,714 @@ import com.example.mediq.ui.navigation.Screen
 import com.example.mediq.ui.theme.MediQGreen
 import com.example.mediq.ui.theme.MediQLightGreen
 import com.example.mediq.ui.theme.MediQSurface
+import com.example.mediq.ui.theme.MediQTextPrimary
+import com.example.mediq.ui.theme.MediQTextSecondary
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DoctorDetailsScreen(navController: NavController, doctorId: String?) {
+fun DoctorDetailsScreen(
+    navController: NavController,
+    doctorId: String?
+) {
     var selectedDate by remember { mutableStateOf(0) }
     var selectedTime by remember { mutableStateOf<String?>(null) }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { },
-                navigationIcon = {
-                    IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
+    val dates = listOf(
+        DateOption("Mon", 21, 1),
+        DateOption("Wed", 23, 4),
+        DateOption("Fri", 25, 2),
+        DateOption("Mon", 28, 2),
+        DateOption("Wed", 30, 3)
+    )
+
+    val selectedDateInfo = dates[selectedDate]
+    val slotStatuses = slotStatusesFor(selectedDate)
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFFF5F8F6))
+    ) {
+
+        // ─────────────────────────────
+        // Header
+        // ─────────────────────────────
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(68.dp)
+                .background(MediQGreen)
+                .padding(horizontal = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+
+            IconButton(
+                onClick = { navController.popBackStack() }
+            ) {
+                Icon(
+                    imageVector = Icons.Default.ArrowBack,
+                    contentDescription = "Back",
+                    tint = Color.White
+                )
+            }
+
+            Text(
+                text = "Doctors Profile",
+                color = Color.White,
+                fontSize = 17.sp,
+                fontWeight = FontWeight.Bold
             )
         }
-    ) { innerPadding ->
+
+        // ─────────────────────────────
+        // Scrollable content
+        // ─────────────────────────────
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.White)
-                .padding(innerPadding)
-                .padding(16.dp)
+                .verticalScroll(rememberScrollState())
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    modifier = Modifier
-                        .size(80.dp)
-                        .background(MediQLightGreen, CircleShape),
-                    contentAlignment = Alignment.Center
+
+            // Doctor information
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Color.White)
+                    .padding(
+                        horizontal = 20.dp,
+                        vertical = 18.dp
+                    )
+            ) {
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(text = "MS", color = MediQGreen, fontSize = 28.sp, fontWeight = FontWeight.Bold)
+
+                    Box(
+                        modifier = Modifier
+                            .size(62.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFFE7EEE9)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "ME",
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MediQTextPrimary
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.width(14.dp))
+
+                    Column(
+                        modifier = Modifier.weight(1f)
+                    ) {
+
+                        Text(
+                            text = "Dr. Maria Elena Sandoval",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MediQTextPrimary
+                        )
+
+                        Spacer(modifier = Modifier.height(2.dp))
+
+                        Text(
+                            text = "Internal Medicine",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MediQGreen
+                        )
+
+                        Spacer(modifier = Modifier.height(5.dp))
+
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.LocationOn,
+                                contentDescription = null,
+                                tint = MediQTextSecondary,
+                                modifier = Modifier.size(17.dp)
+                            )
+
+                            Spacer(modifier = Modifier.width(4.dp))
+
+                            Text(
+                                text = "Main Building — 2F · Clinic 204",
+                                fontSize = 12.sp,
+                                color = MediQTextSecondary
+                            )
+                        }
+                    }
                 }
-                Spacer(modifier = Modifier.width(16.dp))
-                Column {
-                    Text(text = "Dr. Maria Elena Sandoval", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-                    Text(text = "Internal Medicine", color = Color.Gray)
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.LocationOn, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(14.dp))
-                        Text(text = "Main Building — 2F — Clinic 204", color = Color.Gray, fontSize = 12.sp)
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Experience + consultation
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+
+                    DoctorInfoCard(
+                        modifier = Modifier.weight(1f),
+                        icon = {
+                            Icon(
+                                imageVector = Icons.Outlined.AccessTime,
+                                contentDescription = null,
+                                tint = MediQTextSecondary,
+                                modifier = Modifier.size(17.dp)
+                            )
+                        },
+                        label = "Experience",
+                        value = "14 years"
+                    )
+
+                    DoctorInfoCard(
+                        modifier = Modifier.weight(1f),
+                        icon = {
+                            Icon(
+                                imageVector = Icons.Outlined.CalendarMonth,
+                                contentDescription = null,
+                                tint = MediQTextSecondary,
+                                modifier = Modifier.size(17.dp)
+                            )
+                        },
+                        label = "Consultation",
+                        value = "₱700"
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(18.dp))
+
+                Text(
+                    text = "Adult internal medicine with focus on diabetes, hypertension, and preventive check-ups. Consults in Filipino, Cebuano, and English.",
+                    fontSize = 13.sp,
+                    lineHeight = 20.sp,
+                    color = MediQTextSecondary
+                )
+
+                Spacer(modifier = Modifier.height(18.dp))
+
+                // Clinic hours card
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(14.dp),
+                    color = Color.White,
+                    border = BorderStroke(
+                        width = 1.dp,
+                        color = Color(0xFFDCE3DE)
+                    )
+                ) {
+
+                    Column(
+                        modifier = Modifier.padding(14.dp)
+                    ) {
+
+                        Text(
+                            text = "Clinic hours",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color(0xFF8A9690)
+                        )
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        ClinicHourRow(
+                            day = "Monday",
+                            time = "9:00 AM – 12:00 PM"
+                        )
+
+                        ClinicHourRow(
+                            day = "Wednesday",
+                            time = "9:00 AM – 12:00 PM"
+                        )
+
+                        ClinicHourRow(
+                            day = "Friday",
+                            time = "1:00 PM – 4:00 PM"
+                        )
+
+                        Spacer(modifier = Modifier.height(6.dp))
+
+                        Text(
+                            text = "License no. PRC 0112843",
+                            fontSize = 12.sp,
+                            color = Color(0xFF98A29D)
+                        )
                     }
                 }
             }
-            
-            Spacer(modifier = Modifier.height(24.dp))
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                InfoBox("Experience", "14 years")
-                InfoBox("Consultation", "₱700")
-            }
-            
-            Spacer(modifier = Modifier.height(24.dp))
-            Text(text = "Adult internal medicine with focus on diabetes, hypertension, and preventive check-ups. Consults in Filipino, Cebuano, and English.", color = Color.Gray)
-            
-            Spacer(modifier = Modifier.height(24.dp))
-            Text(text = "Clinic hours", fontWeight = FontWeight.Bold)
-            ClinicHourRow("Monday", "9:00 AM – 12:00 PM")
-            ClinicHourRow("Wednesday", "9:00 AM – 12:00 PM")
-            ClinicHourRow("Friday", "1:00 PM – 4:00 PM")
-            Text(text = "License no. PRC 0112443", color = Color.Gray, fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp))
-            
-            Spacer(modifier = Modifier.height(24.dp))
-            Text(text = "Choose a time slot", fontWeight = FontWeight.Bold)
-            Text(text = "Reserved and blocked slots cannot be selected — availability updates in real time.", color = Color.Gray, fontSize = 12.sp)
-            
-            Spacer(modifier = Modifier.height(16.dp))
-            DateRow(selectedDate) { selectedDate = it }
-            
-            Spacer(modifier = Modifier.height(16.dp))
-            TimeSlotGrid(selectedTime) { selectedTime = it }
-            
-            Spacer(modifier = Modifier.weight(1f))
-            Button(
-                onClick = { if (selectedTime != null) navController.navigate(Screen.BookingFlow.createRoute(doctorId ?: "1")) },
+
+            // ─────────────────────────────
+            // Time-slot section
+            // ─────────────────────────────
+
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(56.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = if (selectedTime != null) MediQGreen else Color.LightGray),
-                enabled = selectedTime != null
+                    .padding(
+                        horizontal = 20.dp,
+                        vertical = 18.dp
+                    )
             ) {
-                Text(text = if (selectedTime != null) "Continue: $selectedTime" else "Select a slot to continue", fontSize = 18.sp)
-            }
-        }
-    }
-}
 
-@Composable
-fun InfoBox(label: String, value: String) {
-    Surface(
-        color = MediQSurface,
-        shape = RoundedCornerShape(12.dp),
-        modifier = Modifier.width(120.dp)
-    ) {
-        Column(modifier = Modifier.padding(12.dp)) {
-            Text(text = label, fontSize = 12.sp, color = Color.Gray)
-            Text(text = value, fontWeight = FontWeight.Bold, color = MediQGreen)
-        }
-    }
-}
+                Text(
+                    text = "Choose a time slot",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MediQTextPrimary
+                )
 
-@Composable
-fun ClinicHourRow(day: String, time: String) {
-    Row(modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-        Text(text = day, color = Color.Gray)
-        Text(text = time, fontWeight = FontWeight.Medium)
-    }
-}
+                Spacer(modifier = Modifier.height(6.dp))
 
-@Composable
-fun DateRow(selected: Int, onSelect: (Int) -> Unit) {
-    val dates = listOf(21, 23, 25, 28, 30)
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        dates.forEachIndexed { index, date ->
-            Surface(
-                modifier = Modifier
-                    .size(width = 50.dp, height = 60.dp)
-                    .clickable { onSelect(index) },
-                color = if (selected == index) MediQGreen else MediQSurface,
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-                    Text(text = "Sep", color = if (selected == index) Color.White else Color.Gray, fontSize = 12.sp)
-                    Text(text = "$date", color = if (selected == index) Color.White else Color.Black, fontWeight = FontWeight.Bold)
+                Text(
+                    text = "Reserved and blocked slots cannot be selected — availability updates in real time.",
+                    fontSize = 13.sp,
+                    lineHeight = 19.sp,
+                    color = MediQTextSecondary
+                )
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // Date selector
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+
+                    dates.forEachIndexed { index, date ->
+
+                        DateCard(
+                            date = date,
+                            selected = selectedDate == index,
+                            modifier = Modifier.weight(1f),
+                            onClick = {
+                                selectedDate = index
+                                selectedTime = null
+                            }
+                        )
+                    }
                 }
-            }
-        }
-    }
-}
 
-@Composable
-fun TimeSlotGrid(selected: String?, onSelect: (String) -> Unit) {
-    val times = listOf("9:00 AM", "9:30 AM", "10:00 AM", "10:30 AM", "11:00 AM", "11:30 AM")
-    val blocked = listOf("9:30 AM")
-    
-    LazyVerticalGrid(
-        columns = GridCells.Fixed(3),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-        modifier = Modifier.height(100.dp)
-    ) {
-        items(times) { time ->
-            val isBlocked = time in blocked
-            Surface(
-                modifier = Modifier
-                    .height(40.dp)
-                    .clickable(enabled = !isBlocked) { onSelect(time) },
-                color = when {
-                    selected == time -> MediQGreen
-                    isBlocked -> Color.LightGray.copy(alpha = 0.3f)
-                    else -> MediQLightGreen
-                },
-                shape = RoundedCornerShape(8.dp),
-                border = if (selected == time) null else androidx.compose.foundation.BorderStroke(1.dp, MediQGreen.copy(alpha = 0.2f))
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Text(
-                        text = time,
-                        color = when {
-                            selected == time -> Color.White
-                            isBlocked -> Color.Gray
-                            else -> MediQGreen
-                        },
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // Time slots row 1
+                TimeSlotRow(
+                    slots = listOf(
+                        "9:00 AM",
+                        "9:30 AM",
+                        "10:00 AM"
+                    ),
+                    statuses = slotStatuses,
+                    selectedTime = selectedTime,
+                    onSelect = { selectedTime = it }
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Time slots row 2
+                TimeSlotRow(
+                    slots = listOf(
+                        "10:30 AM",
+                        "11:00 AM",
+                        "11:30 AM"
+                    ),
+                    statuses = slotStatuses,
+                    selectedTime = selectedTime,
+                    onSelect = { selectedTime = it }
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Legend
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(18.dp)
+                ) {
+
+                    AvailabilityLegend(
+                        color = Color(0xFF329653),
+                        label = "Available"
+                    )
+
+                    AvailabilityLegend(
+                        color = Color(0xFF919C97),
+                        label = "Reserved"
+                    )
+
+                    AvailabilityLegend(
+                        color = Color(0xFFE14A59),
+                        label = "Blocked"
                     )
                 }
+
+                Spacer(modifier = Modifier.height(18.dp))
+
+                // Continue
+                Button(
+                    onClick = {
+                        selectedTime?.let { time ->
+                            navController.navigate(
+                                Screen.BookingFlow.createRoute(
+                                    doctorId = doctorId ?: "1",
+                                    dateIndex = selectedDate,
+                                    time = time
+                                )
+                            )
+                        }
+                    },
+                    enabled = selectedTime != null,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MediQGreen,
+                        disabledContainerColor = Color(0xFF8CBA99),
+                        disabledContentColor = Color.White
+                    )
+                ) {
+
+                    Text(
+                        text = selectedTime?.let {
+                            "Continue · $it"
+                        } ?: "Select a slot to continue",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(22.dp))
             }
         }
+    }
+}
+
+@Composable
+private fun DoctorInfoCard(
+    modifier: Modifier,
+    icon: @Composable () -> Unit,
+    label: String,
+    value: String
+) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(14.dp),
+        color = MediQSurface
+    ) {
+
+        Column(
+            modifier = Modifier.padding(12.dp)
+        ) {
+
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                icon()
+
+                Spacer(modifier = Modifier.width(6.dp))
+
+                Text(
+                    text = label,
+                    fontSize = 12.sp,
+                    color = MediQTextSecondary
+                )
+            }
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            Text(
+                text = value,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold,
+                color = MediQTextPrimary
+            )
+        }
+    }
+}
+
+@Composable
+private fun ClinicHourRow(
+    day: String,
+    time: String
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 3.dp),
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+
+        Text(
+            text = day,
+            fontSize = 13.sp,
+            color = MediQTextPrimary
+        )
+
+        Text(
+            text = time,
+            fontSize = 13.sp,
+            color = MediQTextSecondary
+        )
+    }
+}
+
+data class DateOption(
+    val day: String,
+    val date: Int,
+    val openSlots: Int
+)
+
+@Composable
+private fun DateCard(
+    date: DateOption,
+    selected: Boolean,
+    modifier: Modifier,
+    onClick: () -> Unit
+) {
+    Surface(
+        modifier = modifier
+            .height(78.dp)
+            .clickable { onClick() },
+        shape = RoundedCornerShape(13.dp),
+        color = if (selected) {
+            MediQGreen
+        } else {
+            Color.White
+        },
+        border = if (selected) {
+            null
+        } else {
+            BorderStroke(
+                width = 1.dp,
+                color = Color(0xFFDCE3DE)
+            )
+        }
+    ) {
+
+        Column(
+            modifier = Modifier.fillMaxSize(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+
+            Text(
+                text = date.day,
+                fontSize = 12.sp,
+                color = if (selected) {
+                    Color.White
+                } else {
+                    MediQTextSecondary
+                }
+            )
+
+            Text(
+                text = date.date.toString(),
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold,
+                color = if (selected) {
+                    Color.White
+                } else {
+                    MediQTextPrimary
+                }
+            )
+
+            Spacer(modifier = Modifier.height(2.dp))
+
+            Text(
+                text = "${date.openSlots} open",
+                fontSize = 10.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = if (selected) {
+                    Color.White
+                } else {
+                    MediQGreen
+                }
+            )
+        }
+    }
+}
+
+enum class TimeSlotStatus {
+    AVAILABLE,
+    RESERVED,
+    BLOCKED
+}
+
+private fun slotStatusesFor(
+    dateIndex: Int
+): Map<String, TimeSlotStatus> {
+
+    return when (dateIndex) {
+
+        // Monday 21 — 1 open
+        0 -> mapOf(
+            "9:00 AM" to TimeSlotStatus.RESERVED,
+            "9:30 AM" to TimeSlotStatus.RESERVED,
+            "10:00 AM" to TimeSlotStatus.AVAILABLE,
+            "10:30 AM" to TimeSlotStatus.RESERVED,
+            "11:00 AM" to TimeSlotStatus.RESERVED,
+            "11:30 AM" to TimeSlotStatus.RESERVED
+        )
+
+        // Wednesday 23 — 4 open
+        1 -> mapOf(
+            "9:00 AM" to TimeSlotStatus.AVAILABLE,
+            "9:30 AM" to TimeSlotStatus.AVAILABLE,
+            "10:00 AM" to TimeSlotStatus.AVAILABLE,
+            "10:30 AM" to TimeSlotStatus.AVAILABLE,
+            "11:00 AM" to TimeSlotStatus.RESERVED,
+            "11:30 AM" to TimeSlotStatus.BLOCKED
+        )
+
+        // Friday 25 — 2 open
+        2 -> mapOf(
+            "9:00 AM" to TimeSlotStatus.RESERVED,
+            "9:30 AM" to TimeSlotStatus.RESERVED,
+            "10:00 AM" to TimeSlotStatus.AVAILABLE,
+            "10:30 AM" to TimeSlotStatus.AVAILABLE,
+            "11:00 AM" to TimeSlotStatus.RESERVED,
+            "11:30 AM" to TimeSlotStatus.BLOCKED
+        )
+
+        // Monday 28 — 2 open
+        3 -> mapOf(
+            "9:00 AM" to TimeSlotStatus.RESERVED,
+            "9:30 AM" to TimeSlotStatus.AVAILABLE,
+            "10:00 AM" to TimeSlotStatus.RESERVED,
+            "10:30 AM" to TimeSlotStatus.RESERVED,
+            "11:00 AM" to TimeSlotStatus.AVAILABLE,
+            "11:30 AM" to TimeSlotStatus.BLOCKED
+        )
+
+        // Wednesday 30 — 3 open
+        else -> mapOf(
+            "9:00 AM" to TimeSlotStatus.AVAILABLE,
+            "9:30 AM" to TimeSlotStatus.RESERVED,
+            "10:00 AM" to TimeSlotStatus.AVAILABLE,
+            "10:30 AM" to TimeSlotStatus.RESERVED,
+            "11:00 AM" to TimeSlotStatus.AVAILABLE,
+            "11:30 AM" to TimeSlotStatus.BLOCKED
+        )
+    }
+}
+
+@Composable
+private fun TimeSlotRow(
+    slots: List<String>,
+    statuses: Map<String, TimeSlotStatus>,
+    selectedTime: String?,
+    onSelect: (String) -> Unit
+) {
+
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+
+        slots.forEach { time ->
+
+            val status = statuses[time] ?: TimeSlotStatus.RESERVED
+
+            TimeSlotButton(
+                time = time,
+                status = status,
+                selected = selectedTime == time,
+                modifier = Modifier.weight(1f),
+                onClick = {
+                    if (status == TimeSlotStatus.AVAILABLE) {
+                        onSelect(time)
+                    }
+                }
+            )
+        }
+    }
+}
+
+@Composable
+private fun TimeSlotButton(
+    time: String,
+    status: TimeSlotStatus,
+    selected: Boolean,
+    modifier: Modifier,
+    onClick: () -> Unit
+) {
+
+    val backgroundColor = when {
+        selected -> MediQGreen
+        status == TimeSlotStatus.AVAILABLE -> Color(0xFFF5FAF6)
+        status == TimeSlotStatus.BLOCKED -> Color(0xFFF0F2F1)
+        else -> Color(0xFFE8EEEA)
+    }
+
+    val textColor = when {
+        selected -> Color.White
+        status == TimeSlotStatus.AVAILABLE -> MediQGreen
+        else -> Color(0xFF96A19B)
+    }
+
+    Surface(
+        modifier = modifier
+            .height(42.dp)
+            .clickable(
+                enabled = status == TimeSlotStatus.AVAILABLE,
+                onClick = onClick
+            ),
+        shape = RoundedCornerShape(12.dp),
+        color = backgroundColor,
+        border = if (
+            status == TimeSlotStatus.AVAILABLE &&
+            !selected
+        ) {
+            BorderStroke(
+                width = 1.dp,
+                color = Color(0xFFB5D9BF)
+            )
+        } else {
+            null
+        }
+    ) {
+
+        Box(
+            contentAlignment = Alignment.Center
+        ) {
+
+            Text(
+                text = time,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Medium,
+                color = textColor
+            )
+        }
+    }
+}
+
+@Composable
+private fun AvailabilityLegend(
+    color: Color,
+    label: String
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+
+        Box(
+            modifier = Modifier
+                .size(9.dp)
+                .clip(CircleShape)
+                .background(color)
+        )
+
+        Spacer(modifier = Modifier.width(5.dp))
+
+        Text(
+            text = label,
+            fontSize = 11.sp,
+            color = MediQTextSecondary
+        )
     }
 }
