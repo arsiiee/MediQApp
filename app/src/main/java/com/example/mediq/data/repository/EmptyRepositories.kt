@@ -4,6 +4,7 @@ import com.example.mediq.domain.model.Appointment
 import com.example.mediq.domain.model.AppointmentFilter
 import com.example.mediq.domain.model.AuthSession
 import com.example.mediq.domain.model.AvailableDate
+import com.example.mediq.domain.model.BackendNotConnectedException
 import com.example.mediq.domain.model.BookingRequest
 import com.example.mediq.domain.model.Doctor
 import com.example.mediq.domain.model.DoctorQuery
@@ -24,21 +25,13 @@ import com.example.mediq.domain.repository.ProfileRepository
 import java.time.LocalDate
 
 /**
- * Raised by the placeholder repositories below.
- *
- * Reads turn this into an empty screen. Writes surface it as an error, because
- * "booked successfully" would be a lie when nothing was booked.
- */
-class BackendNotConnectedException : Exception(
-    "No backend is wired up yet. This repository returns nothing on purpose."
-)
-
-/**
  * Stand-in implementations used until a real backend exists.
  *
  * Reads return empty results, which is what the empty states already draw.
  * Nothing here invents data — that was removed on purpose, because a fake
  * doctor with a plausible licence number is easy to mistake for a real one.
+ * Writes throw [BackendNotConnectedException], because "booked successfully"
+ * would be a lie when nothing was booked.
  *
  * When the backend lands, delete this file and register the real repositories
  * in [com.example.mediq.di.AppContainer] instead. The screens and view models

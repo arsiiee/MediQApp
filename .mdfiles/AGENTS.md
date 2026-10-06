@@ -121,7 +121,9 @@ App side — strict three-layer split, wired by hand (no Hilt, no kapt/ksp):
 ```
 app/src/main/java/com/example/mediq/
   MediQApp.kt         Application subclass; calls AppContainer.init(this) in onCreate
-  domain/model/       plain Kotlin — no Compose, no Android imports
+  domain/model/       plain Kotlin — no Compose, no Android imports.
+                      Holds ApiFailure and BackendNotConnectedException, which
+                      ViewModels catch and so cannot live under data/
   domain/repository/  interfaces only
   data/api/           ApiDtos.kt, ApiMappers.kt, MediQApiService.kt (Retrofit interface),
                       RetrofitClient.kt (OkHttp + AuthInterceptor), TokenStore.kt,
@@ -161,6 +163,7 @@ Rules that are easy to break:
 - **Instants are `Instant`, displayed via `toClinicDate()` / `toClinicTime()`** from `domain/model/ClinicTime.kt`. Clinic zone is pinned to `Asia/Manila` via `CLINIC_ZONE` — do not use device-local zone.
 - **Enum wire values are explicit** (`AppointmentStatus(wireValue = "confirmed")`). Sending the enum name leaks the constant name into the API contract.
 - **No fake/invented data.** All hardcoded mock data was deliberately removed. `EmptyRepositories.kt` returns empty lists and throws `BackendNotConnectedException` for writes. Do not reintroduce placeholder doctors, appointments, or personal details — this is a real-patient app and fabricated records with plausible licence numbers get mistaken for real ones.
+- **`BackendNotConnectedException` lives in `domain/model/`, not `data/repository/`.** ViewModels catch it, and they may not import from `data/`. It was in `data/repository/` until 2026-10-06, which seven ViewModels were breaking the rule for. The compiler cannot catch that violation — the import compiles fine — so `check-boundaries.ps1` does.
 - `BackendNotConnectedException` must map to `LoadState.Success(emptyList())` on reads, **not** `Error` — an unconnected backend is the expected state, not a failure. The Retrofit repositories follow the same contract: list reads catch an unreachable-server `ApiFailure` and return an empty `Paged`; single-entity reads and writes propagate. Note the branch is on `isNetworkFailure`, **not** on a bare exception type — catching `IOException` (or `Exception`) also swallowed HTTP failures, so a 500 on a list read rendered as "you have no appointments." Only a genuinely unreachable server may become an empty state.
 - **Every call to `api.` in a `Retrofit*Repository` must sit inside `call { }`** (`data/api/ApiErrors.kt`). It maps `HttpException` into `ApiFailure`, reading the server's `ErrorDto` body. An unwrapped call returns Retrofit's raw `"HTTP 401 "` as its message, which is what a patient sees. `check-boundaries.ps1` enforces this; it was unenforced when that bug shipped with a green build.
 - **Never surface a framework exception's `message`.** Catch `ApiFailure` and show `e.message` — the server writes those for a patient to read. Retrofit, Gson, and OkHttp messages leak internals or are useless to a user.

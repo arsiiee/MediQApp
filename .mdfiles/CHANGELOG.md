@@ -20,6 +20,8 @@ All notable changes to this project will be documented in this file.
 - **Appointments & Notifications**: Wired `AppointmentsScreen` and `NotificationsScreen` to their respective ViewModels to pull real user data from the API instead of showing static empty states.
 - **Profile Screen**: Wired `ProfileScreen` to display live user details and integrated a fully working "Sign Out" flow that clears the session.
 - **App Configuration**: Updated `AndroidManifest.xml` to include the `INTERNET` permission and allow local cleartext traffic (`10.0.2.2`, `127.0.0.1`) for development testing.
+- **Architecture boundaries enforced**: Added `CONSTRAINTS.md` and `check-boundaries.ps1`. The rules `AGENTS.md` stated in prose — `domain/` imports no Android, `ui/` never imports `data/`, every `api.` call sits inside `call { }` — are now checked by a command rather than remembered. The first run found 7 violations of the second rule, which were fixed rather than ratcheted in.
+- **`BackendNotConnectedException` moved to `domain/model/`**: Seven ViewModels imported it from `data/repository/`, violating "Screens and ViewModels must not reference `data/` directly". The compiler cannot catch this — the import compiles — so the type now lives with the other things ViewModels catch.
 - **Project Rules**: Updated `AGENTS.md` to reflect the new networking architecture, note the token storage decision, and clear out resolved "Known gaps".
 
 ### Fixed

@@ -28,7 +28,7 @@ no command is an aspiration, not a constraint.
 | Dimension | Rule | Checked by | Runs at |
 |-----------|------|-----------|---------|
 | Types | Zero compile errors in `:app` and `:server` | `.\gradlew.bat :app:compileDebugKotlin :server:compileKotlin` | every edit |
-| Architecture | `ui-imports-data` ≤ 7 (see below) | `.\check-boundaries.ps1` | every edit, < 5s |
+| Architecture | `ui-imports-data` = 0 | `.\check-boundaries.ps1` | every edit, < 5s |
 | Architecture | `domain-imports-android` = 0 | `.\check-boundaries.ps1` | every edit, < 5s |
 | Architecture | `api-call-not-wrapped` = 0 | `.\check-boundaries.ps1` | every edit, < 5s |
 | Tests | `:server:test` green, 36 tests minimum | `.\gradlew.bat :server:test` | task end |
@@ -52,9 +52,11 @@ from that, both with fully green builds:
 1. The server published an error contract (`ErrorDto`) that the client never
    read. Patients saw `"HTTP 401"` instead of the message written for them. The
    whole test suite passed throughout.
-2. Seven ViewModels import `BackendNotConnectedException` from `data/repository/`,
-   directly violating *"Screens and ViewModels must not reference `data/`
-   directly"*. Still true at the time this file was written.
+2. Seven ViewModels imported `BackendNotConnectedException` from
+   `data/repository/`, directly violating *"Screens and ViewModels must not
+   reference `data/` directly"*. Found by the first run of `check-boundaries.ps1`
+   and fixed the same day — the exception moved to `domain/model/`, where it
+   belongs, and `ui-imports-data` went from 7 to 0.
 
 Both are the same failure: a rule stated in prose, never checked. That is what
 this file and `check-boundaries.ps1` exist to stop recurring.
@@ -66,30 +68,23 @@ one. Move a number only when the code moves it.
 
 | Metric | Today | Direction | Note |
 |--------|-------|-----------|------|
-| `ui-imports-data` | **7** | must not grow | Every one is `BackendNotConnectedException`. Moving it to `domain/` would make this 0 — do that as its own change, not folded into another. |
+| `ui-imports-data` | 0 | must not grow | Was **7** until 2026-10-06 — every one `BackendNotConnectedException`, caught by ViewModels from `data/repository/`. Moved to `domain/model/`, where it belongs, and the ratchet dropped from 7 to 0. |
 | `domain-imports-android` | 0 | must not grow | Would break `:server`, which compiles `domain/` as `sharedDomain`. |
 | `api-call-not-wrapped` | 0 | must not grow | An unwrapped call is how the `HTTP 401` bug returns. |
 | `:server:test` count | 36 | must not fall | `BookingConcurrencyTest` is 4 of those and cannot be checked by hand. |
 | Suppressions | 0 | must not grow | |
 | Stubs (`TODO(`) | 0 | must not grow | |
 
-## Known debt, deliberately not fixed here
+## Known debt
 
-**Seven `ui-imports-data` violations.** All are the same import. The fix is to
-move `BackendNotConnectedException` from `data/repository/` to `domain/` — it is
-already plain Kotlin with no Android imports, so it belongs there, and it makes
-the rule zero rather than ratcheted. Recorded rather than fixed because it is a
-refactor across 8 files and does not belong in a change that was meant to fix
-error handling.
-
-Until then the ceiling is 7. **Going to 8 is a red build**, even though the rule
-says zero.
+None outstanding. The one item this file was created with — seven
+`ui-imports-data` violations — was fixed the same day by moving
+`BackendNotConnectedException` to `domain/model/`, and the ratchet went from 7
+to 0 rather than being left at a number that permitted the bug.
 
 ## Exceptions
 
-None. Every current violation is recorded as a ratchet above rather than as an
-exception, because a ratchet names the number it must not cross and an exception
-needs an owner and an expiry date.
+None.
 
 ## Not enforced, and why
 

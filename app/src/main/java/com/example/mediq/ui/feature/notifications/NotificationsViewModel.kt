@@ -5,9 +5,9 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
-import com.example.mediq.data.repository.BackendNotConnectedException
 import com.example.mediq.di.AppContainer
 import com.example.mediq.domain.model.ApiFailure
+import com.example.mediq.domain.model.BackendNotConnectedException
 import com.example.mediq.domain.model.LoadState
 import com.example.mediq.domain.model.Notification
 import com.example.mediq.domain.repository.NotificationRepository
