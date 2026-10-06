@@ -8,20 +8,39 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.mediq.di.AppContainer
 import com.example.mediq.domain.model.ApiFailure
 import com.example.mediq.domain.model.Appointment
+import com.example.mediq.domain.model.AppointmentStatus
+import com.example.mediq.domain.model.AvailableDate
 import com.example.mediq.domain.model.BackendNotConnectedException
 import com.example.mediq.domain.model.LoadState
 import com.example.mediq.domain.model.RescheduleRequest
+import com.example.mediq.domain.model.TimeSlot
 import com.example.mediq.domain.repository.AppointmentRepository
+import com.example.mediq.domain.repository.DoctorRepository
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import java.time.LocalDate
+import java.time.YearMonth
 
 data class AppointmentDetailsUiState(
     val appointment: LoadState<Appointment> = LoadState.Loading,
 
     /** The message from a refused or undeliverable cancel/reschedule, if any. */
     val actionError: String? = null,
+
+    // ── Reschedule picker ──────────────────────────────────────────────
+    // Fetched only once the patient opens it. Two requests on every visit to the
+    // screen would be spent on a picker most visits never open.
+
+    val isReschedulePickerOpen: Boolean = false,
+    val availableDates: LoadState<List<AvailableDate>> = LoadState.Loading,
+    val selectedDate: LocalDate? = null,
+    val slots: LoadState<List<TimeSlot>> = LoadState.Loading,
+
+    /** Bookable slots only — the ones the picker is allowed to offer. */
+    val selectedSlot: TimeSlot? = null,
 ) {
     /**
      * Whether Cancel and Reschedule should be on screen at all.
@@ -33,6 +52,10 @@ data class AppointmentDetailsUiState(
      */
     val canCancelOrReschedule: Boolean
         get() = (appointment as? LoadState.Success)?.data?.status?.isActionable == true
+
+    /** The Send button stays disabled until a real slot is chosen. */
+    val canSendRescheduleRequest: Boolean
+        get() = isReschedulePickerOpen && selectedSlot != null
 }
 
 /**
@@ -44,11 +67,22 @@ data class AppointmentDetailsUiState(
  */
 class AppointmentDetailsViewModel(
     private val appointmentRepository: AppointmentRepository,
+    private val doctorRepository: DoctorRepository,
     private val appointmentId: String?,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(AppointmentDetailsUiState())
     val uiState: StateFlow<AppointmentDetailsUiState> = _uiState.asStateFlow()
+
+    /**
+     * The in-flight slots fetch, cancelled when the patient picks another date.
+     *
+     * Without this, a slow response for Tuesday lands after Wednesday was tapped
+     * and replaces Wednesday's list with Tuesday's — while the patient is looking
+     * at Wednesday. `DoctorDetailsViewModel` carries the same guard for the same
+     * reason.
+     */
+    private var slotsJob: Job? = null
 
     init {
         load()
@@ -87,23 +121,132 @@ class AppointmentDetailsViewModel(
         }
     }
 
+    // --- The reschedule picker ----------------------------------------------
+    //
+    // Availability comes from `DoctorRepository`, not `AppointmentRepository`:
+    // `/doctors/{id}/availability` and `/doctors/{id}/slots` belong to the doctor
+    // aggregate, and the domain split keeps them there.
+
     /**
-     * Asks the clinic to move this appointment to [slotId].
+     * Opens the picker and loads this doctor's available dates.
      *
-     * A null [slotId] is refused here rather than sent: the request cannot
-     * succeed without one, so submitting it would show the patient a 4xx for a
-     * button they were never really offered.
-     *
-     * The appointment is deliberately *not* reloaded on success. A reschedule
-     * request is a request; the status does not change until the clinic answers,
-     * and re-reading would show the patient an unchanged appointment that looked
-     * like nothing had happened.
+     * Refused for an appointment that is not actionable, and not merely hidden:
+     * opening it would fetch availability the patient cannot use, and a
+     * reschedule on a cancelled appointment is a request the server rejects.
      */
-    fun requestReschedule(slotId: String?) {
+    fun openReschedulePicker() {
+        if (!_uiState.value.canCancelOrReschedule) return
+
+        val doctorId = currentDoctorId() ?: return
+
+        _uiState.value = _uiState.value.copy(
+            isReschedulePickerOpen = true,
+            availableDates = LoadState.Loading,
+            selectedDate = null,
+            slots = LoadState.Loading,
+            selectedSlot = null,
+            actionError = null,
+        )
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(
+                availableDates = try {
+                    LoadState.Success(
+                        doctorRepository.getAvailableDates(doctorId, YearMonth.now().atDay(1))
+                    )
+                } catch (e: BackendNotConnectedException) {
+                    // A list read: "nothing to show" and "no backend" look the
+                    // same, and an error here would put a red sentence above an
+                    // appointment the patient can still cancel.
+                    LoadState.Success(emptyList())
+                } catch (e: ApiFailure) {
+                    LoadState.Error(e.message)
+                } catch (e: Exception) {
+                    LoadState.Error("Couldn't load available dates.")
+                }
+            )
+        }
+    }
+
+    fun closeReschedulePicker() {
+        slotsJob?.cancel()
+        _uiState.value = _uiState.value.copy(
+            isReschedulePickerOpen = false,
+            selectedDate = null,
+            slots = LoadState.Loading,
+            // A slot chosen in a previous visit to the picker must not be
+            // resubmitted by the next one.
+            selectedSlot = null,
+        )
+    }
+
+    /**
+     * Selects a date and loads its slots, discarding any earlier selection.
+     *
+     * Discarding is the point: otherwise the patient picks 9:00 on Tuesday, taps
+     * Wednesday by mistake, and submits a Tuesday slot while reading Wednesday's
+     * list.
+     */
+    fun onDateSelected(date: LocalDate) {
+        if (!_uiState.value.isReschedulePickerOpen) return
+
+        _uiState.value = _uiState.value.copy(
+            selectedDate = date,
+            selectedSlot = null,
+            slots = LoadState.Loading,
+        )
+        slotsJob?.cancel()
+        slotsJob = viewModelScope.launch { loadSlots(date) }
+    }
+
+    fun onSlotSelected(slot: TimeSlot) {
+        if (!_uiState.value.isReschedulePickerOpen) return
+
+        // Only bookable slots are ever handed to this method — the filter lives
+        // here so a test can pin it rather than trusting the composable.
+        if (!slot.isBookable) return
+
+        _uiState.value = _uiState.value.copy(selectedSlot = slot)
+    }
+
+    private suspend fun loadSlots(date: LocalDate) {
+        val doctorId = currentDoctorId() ?: return
+
+        _uiState.value = _uiState.value.copy(
+            slots = try {
+                LoadState.Success(
+                    doctorRepository.getSlots(doctorId, date).filter { it.isBookable }
+                )
+            } catch (e: BackendNotConnectedException) {
+                LoadState.Success(emptyList())
+            } catch (e: ApiFailure) {
+                LoadState.Error(e.message)
+            } catch (e: Exception) {
+                LoadState.Error("Couldn't load slots for that date.")
+            }
+        )
+    }
+
+    /** The doctor this appointment is with — availability is per doctor. */
+    private fun currentDoctorId(): String? =
+        (_uiState.value.appointment as? LoadState.Success)?.data?.doctor?.id
+
+    /**
+     * Asks the clinic to move this appointment to the slot the patient chose.
+     *
+     * Reads the slot from state rather than taking it as an argument, so the
+     * screen cannot submit a slot the picker never showed them.
+     *
+     * The appointment is deliberately *not* reloaded on success. A reschedule is
+     * a request: nothing changes until the clinic answers, and re-reading would
+     * show the patient an unchanged appointment that looked like nothing had
+     * happened.
+     */
+    fun requestReschedule() {
         val id = appointmentId
         if (id.isNullOrBlank() || !_uiState.value.canCancelOrReschedule) return
 
-        if (slotId.isNullOrBlank()) {
+        val slotId = _uiState.value.selectedSlot?.id
+        if (slotId == null) {
             actionFailed("Choose a new time first.")
             return
         }
@@ -113,7 +256,11 @@ class AppointmentDetailsViewModel(
                 appointmentRepository.requestReschedule(
                     RescheduleRequest(appointmentId = id, requestedSlotId = slotId)
                 )
+                // Cleared here rather than inside `closeReschedulePicker`, which
+                // the patient can also call — and an error that has just been
+                // resolved should not outlive the fix.
                 _uiState.value = _uiState.value.copy(actionError = null)
+                closeReschedulePicker()
             } catch (e: BackendNotConnectedException) {
                 actionFailed("We couldn't reach the clinic, so the request wasn't sent.")
             } catch (e: ApiFailure) {
@@ -166,6 +313,7 @@ class AppointmentDetailsViewModel(
             initializer {
                 AppointmentDetailsViewModel(
                     appointmentRepository = AppContainer.appointmentRepository,
+                    doctorRepository = AppContainer.doctorRepository,
                     appointmentId = appointmentId,
                 )
             }

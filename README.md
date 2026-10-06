@@ -44,15 +44,15 @@ inferred from the source.
 | Check | Command | Result |
 |---|---|---|
 | App compiles | `:app:compileDebugKotlin` | Passes, 1 deprecation warning |
-| App unit tests | `:app:testDebugUnitTest` | 61 pass |
+| App unit tests | `:app:testDebugUnitTest` | 71 pass |
 | Server tests | `:server:test` | 50 pass |
-| Architecture boundaries | `check-boundaries.ps1` | Clean, 51 files |
+| Architecture boundaries | `check-boundaries.ps1` | Clean, 52 files |
 | Colour contrast | `check-contrast.ps1` | Clean, 24 token pairs + 6 status chips |
 | Runs on a device | `:app:installDebug` + launch | Works on the `mediq_api36` AVD and on a physical phone |
 | Server | `:server:run` | Starts, H2 in-memory |
 
 **Size:** 97 Kotlin files (~6,000 lines in `:app` main, ~3,800 in `:server`),
-19 HTTP endpoints, 50 server tests, 61 app tests, 15 screens, 10 ViewModels.
+19 HTTP endpoints, 50 server tests, 71 app tests, 15 screens, 10 ViewModels.
 
 The one remaining compile warning is the deprecated `statusBarColor` in
 `core/designsystem/theme/Theme.kt`.
@@ -99,12 +99,11 @@ This is the honest list. It is long because the work is not finished.
 
 ### Cannot be used at all
 
-- **Reschedule is a request with no slot picker.** Cancel works and is wired;
-  Reschedule asks the patient to type a slot id into a text field. The endpoint
-  and repository call are correct, but nobody can guess a `UUID` slot id. It
-  needs the same date-and-slot picker `DoctorDetailsScreen` already has, fed by
-  `DoctorRepository.getAvailableDates` / `getSlots`. `SchedulePicker.kt` in
-  `ui/feature/booking/` is the existing pattern.
+- **Reschedule only searches the current month.** The picker opens on
+  `YearMonth.now()` and has no month stepper, so a patient whose appointment is
+  next month cannot move it earlier this month — or, once the month rolls over,
+  earlier than the current window. `DoctorDetailsViewModel` has the same
+  limit, so fixing it is one change in two ViewModels, not two independent bugs.
 - **Messages is a stub** that renders the word "Messages".
 - **Forgot password** is a button with an empty click handler.
 
@@ -496,12 +495,12 @@ Two more, over HTTP against a running server:
   (13), `AvailableDatesTest` (4), `BookingConcurrencyTest` (4), `OtpLockoutTest`
   (3), `ProfileUpdateTest` (2). `BookingConcurrencyTest` is the one that cannot
   be checked by hand.
-- **`:app:testDebugUnitTest`** — 61 tests, hand-written fakes, no mocking
+- **`:app:testDebugUnitTest`** - 71 tests, hand-written fakes, no mocking
   framework: `ApiErrorsTest` (11, error-body parsing), `UnknownWireValueTest` (8,
   how unrecognised wire values resolve), `GsonLeniencyTest` (3, JSON parsing
   behaviour), `RegisterViewModelTest` (22, the registration wizard), and
-  `AppointmentDetailsViewModelTest` (17, loading one appointment by id, then
-  cancelling and rescheduling it).
+  `AppointmentDetailsViewModelTest` (27, loading one appointment by id, then
+  cancelling and rescheduling it through a slot picker).
 - **`smoke.ps1`** — the actual HTTP status of every route, the double-booking
   refusal, and that signing out kills the token mid-flight. Needs the server up.
   It has **no OTP or register coverage**; the registration contract is proven

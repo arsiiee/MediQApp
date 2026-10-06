@@ -3,10 +3,13 @@ package com.example.mediq.fake
 import com.example.mediq.domain.model.AuthSession
 import com.example.mediq.domain.model.Appointment
 import com.example.mediq.domain.model.AppointmentStatus
+import com.example.mediq.domain.model.AvailableDate
 import com.example.mediq.domain.model.ClinicLocation
 import com.example.mediq.domain.model.Doctor
 import com.example.mediq.domain.model.Money
+import com.example.mediq.domain.model.SlotStatus
 import com.example.mediq.domain.model.Specialty
+import com.example.mediq.domain.model.TimeSlot
 import com.example.mediq.domain.model.UserProfile
 import com.example.mediq.domain.model.UserRole
 import java.time.Instant
@@ -69,6 +72,36 @@ object TestFixtures {
         languages = emptyList(),
         clinicHours = emptyList(),
     )
+
+    fun availableDate(
+        date: LocalDate = LocalDate.of(2026, 12, 1),
+        openSlotCount: Int = 4,
+    ): AvailableDate = AvailableDate(date = date, openSlotCount = openSlotCount)
+
+    /**
+     * A slot on [date]. Default [SlotStatus.AVAILABLE] so a test that is about
+     * availability does not have to say so; a test about a taken slot names the
+     * status, which is the one thing it wants to vary.
+     */
+    fun timeSlot(
+        id: String = "slot-1",
+        doctorId: String = "doctor-1",
+        date: LocalDate = LocalDate.of(2026, 12, 1),
+        timeOfDay: String = "01:00:00",
+        status: SlotStatus = SlotStatus.AVAILABLE,
+    ): TimeSlot {
+        // `timeOfDay` is a `LocalTime`-shaped string, so "01:00:00" plus the
+        // trailing Z is already an ISO instant — appending another ":00" would
+        // produce `T01:00:00:00Z` and throw.
+        val startsAt = Instant.parse("${date}T${timeOfDay}Z")
+        return TimeSlot(
+            id = id,
+            doctorId = doctorId,
+            startsAt = startsAt,
+            endsAt = startsAt.plusSeconds(1800),
+            status = status,
+        )
+    }
 
     fun appointment(
         id: String = "appointment-1",

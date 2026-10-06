@@ -28,7 +28,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -36,9 +35,6 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -52,8 +48,11 @@ import com.example.mediq.core.designsystem.theme.LocalMediQColors
 import com.example.mediq.domain.model.Appointment
 import com.example.mediq.domain.model.LoadState
 import com.example.mediq.domain.model.Money
+import com.example.mediq.domain.model.TimeSlot
 import com.example.mediq.domain.model.toClinicDate
 import com.example.mediq.domain.model.toClinicTime
+import com.example.mediq.ui.feature.booking.SlotPicker
+import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
 private val appointmentDayFormat: DateTimeFormatter = DateTimeFormatter.ofPattern("EEE, MMM d, yyyy")
@@ -121,10 +120,13 @@ fun AppointmentDetailsScreen(navController: NavController, appointmentId: String
                         .background(MaterialTheme.colorScheme.background)
                         .padding(innerPadding),
                     appointment = current.data,
-                    canCancelOrReschedule = uiState.canCancelOrReschedule,
-                    actionError = uiState.actionError,
+                    state = uiState,
                     onCancel = viewModel::cancel,
-                    onReschedule = viewModel::requestReschedule,
+                    onOpenReschedule = viewModel::openReschedulePicker,
+                    onCloseReschedule = viewModel::closeReschedulePicker,
+                    onDateSelected = viewModel::onDateSelected,
+                    onSlotSelected = viewModel::onSlotSelected,
+                    onSendReschedule = viewModel::requestReschedule,
                 )
             }
         }
@@ -135,18 +137,15 @@ fun AppointmentDetailsScreen(navController: NavController, appointmentId: String
 private fun AppointmentDetailsContent(
     modifier: Modifier = Modifier,
     appointment: Appointment,
-    canCancelOrReschedule: Boolean,
-    actionError: String?,
+    state: AppointmentDetailsUiState,
     onCancel: () -> Unit,
-    onReschedule: (String?) -> Unit,
+    onOpenReschedule: () -> Unit,
+    onCloseReschedule: () -> Unit,
+    onDateSelected: (LocalDate) -> Unit,
+    onSlotSelected: (TimeSlot) -> Unit,
+    onSendReschedule: () -> Unit,
 ) {
     val colors = LocalMediQColors.current
-
-    // Slot picker state lives here rather than in the ViewModel: it is a
-    // short-lived sheet over one screen, and nothing else reads it. What the
-    // ViewModel owns is the decision to submit, which the tests pin.
-    var rescheduling by remember { mutableStateOf(false) }
-    var chosenSlotId by remember { mutableStateOf<String?>(null) }
 
     Column(
         modifier = modifier
@@ -224,79 +223,79 @@ private fun AppointmentDetailsContent(
         // Only for a status the patient can still act on. `isActionable` is
         // false for COMPLETED, CANCELLED, DECLINED, and for UNKNOWN — an
         // unreadable status must not put a mutation on screen.
-        if (canCancelOrReschedule) {
+        if (state.canCancelOrReschedule) {
             Spacer(modifier = Modifier.height(24.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 OutlinedButton(
-                    onClick = {
-                        rescheduling = false
-                        chosenSlotId = null
-                        onCancel()
-                    },
+                    onClick = onCancel,
                     modifier = Modifier.weight(1f),
                 ) {
                     Text("Cancel appointment")
                 }
                 Button(
-                    onClick = { rescheduling = !rescheduling },
+                    // Toggling rather than a sticky flag: `openReschedulePicker`
+                    // and `closeReschedulePicker` also clear the chosen slot, so
+                    // reopening the picker never starts on the slot the patient
+                    // picked last time.
+                    onClick = {
+                        if (state.isReschedulePickerOpen) {
+                            onCloseReschedule()
+                        } else {
+                            onOpenReschedule()
+                        }
+                    },
                     modifier = Modifier.weight(1f),
                 ) {
-                    Text(if (rescheduling) "Close" else "Reschedule")
+                    Text(if (state.isReschedulePickerOpen) "Close" else "Reschedule")
                 }
             }
 
-            if (rescheduling) {
+            if (state.isReschedulePickerOpen) {
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    text = "Ask to move this appointment",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    // The request does not move it by itself: the clinic confirms,
+                    // and the status on screen stays as it is until they do.
+                    text = "Pick a new time below and we'll send the request to the clinic. " +
+                        "They review requests during clinic hours.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colors.secondaryText,
+                )
                 Spacer(modifier = Modifier.height(12.dp))
-                Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = MaterialTheme.colorScheme.surface,
+
+                SlotPicker(
+                    availableDates = state.availableDates,
+                    selectedDate = state.selectedDate,
+                    slots = state.slots,
+                    selectedSlot = state.selectedSlot,
+                    onDateSelected = onDateSelected,
+                    onSlotSelected = onSlotSelected,
+                    datesTitle = "New dates",
+                    slotsTitle = "New times",
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+                Button(
+                    // Disabled until a slot is chosen, so the ViewModel's
+                    // no-slot guard is a second line of defence rather than the
+                    // only one.
+                    onClick = onSendReschedule,
+                    enabled = state.canSendRescheduleRequest,
                     modifier = Modifier.fillMaxWidth(),
                 ) {
-                    Column(modifier = Modifier.padding(14.dp)) {
-                        Text(
-                            text = "Ask to move this appointment",
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.SemiBold,
-                        )
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Text(
-                            // The request does not move it by itself: the clinic
-                            // confirms, and the status on screen stays as it is
-                            // until they do.
-                            text = "The clinic reviews requests during clinic hours. " +
-                                "Enter the new time below and we'll send it to them.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = colors.secondaryText,
-                        )
-                        Spacer(modifier = Modifier.height(10.dp))
-                        OutlinedTextField(
-                            value = chosenSlotId.orEmpty(),
-                            onValueChange = { chosenSlotId = it },
-                            label = { Text("Preferred new slot id") },
-                            singleLine = true,
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                        Spacer(modifier = Modifier.height(10.dp))
-                        Button(
-                            // Disabled until a slot is named, so the ViewModel's
-                            // null guard is a second line of defence rather than
-                            // the only one.
-                            onClick = {
-                                onReschedule(chosenSlotId)
-                                rescheduling = false
-                            },
-                            enabled = !chosenSlotId.isNullOrBlank(),
-                            modifier = Modifier.fillMaxWidth(),
-                        ) {
-                            Text("Send request")
-                        }
-                    }
+                    Text("Send request")
                 }
             }
 
+            val actionError = state.actionError
             if (!actionError.isNullOrBlank()) {
                 Spacer(modifier = Modifier.height(12.dp))
                 Text(

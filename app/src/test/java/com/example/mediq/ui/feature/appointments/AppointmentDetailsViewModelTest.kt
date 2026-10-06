@@ -5,7 +5,9 @@ import com.example.mediq.domain.model.AppointmentStatus
 import com.example.mediq.domain.model.BackendNotConnectedException
 import com.example.mediq.domain.model.LoadState
 import com.example.mediq.domain.model.RescheduleRequest
+import com.example.mediq.domain.model.SlotStatus
 import com.example.mediq.fake.FakeAppointmentRepository
+import com.example.mediq.fake.FakeDoctorRepository
 import com.example.mediq.fake.MainDispatcherRule
 import com.example.mediq.fake.TestFixtures
 import org.junit.Assert.assertEquals
@@ -14,6 +16,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
+import java.time.LocalDate
 
 /**
  * Covers loading one appointment by the id its route carries.
@@ -35,15 +38,22 @@ class AppointmentDetailsViewModelTest {
     val mainDispatcherRule = MainDispatcherRule()
 
     private lateinit var repository: FakeAppointmentRepository
+    private lateinit var doctorRepository: FakeDoctorRepository
     private val appointmentId = "appointment-42"
+    private val doctorId = "doctor-1"
 
     @Before
     fun setUp() {
         repository = FakeAppointmentRepository()
+        doctorRepository = FakeDoctorRepository()
+        // Availability is only fetched when the picker is opened, so these tests
+        // that never open it are unaffected by the fixture below.
+        doctorRepository.availableDates = listOf(TestFixtures.availableDate())
+        doctorRepository.slots = listOf(TestFixtures.timeSlot(id = "slot-9"))
     }
 
     private fun viewModelFor(id: String?) =
-        AppointmentDetailsViewModel(repository, id)
+        AppointmentDetailsViewModel(repository, doctorRepository, id)
 
     // --- Loading -------------------------------------------------------------
 
@@ -267,7 +277,9 @@ class AppointmentDetailsViewModelTest {
         repository.appointment = TestFixtures.appointment(id = appointmentId)
         val viewModel = viewModelFor(appointmentId)
 
-        viewModel.requestReschedule("slot-9")
+        viewModel.openReschedulePicker()
+        viewModel.onSlotSelected(TestFixtures.timeSlot(id = "slot-9"))
+        viewModel.requestReschedule()
 
         assertEquals(
             listOf(RescheduleRequest(appointmentId, "slot-9")),
@@ -282,7 +294,8 @@ class AppointmentDetailsViewModelTest {
         // so the message is ours and the request is not made.
         val viewModel = viewModelFor(appointmentId)
 
-        viewModel.requestReschedule(null)
+        viewModel.openReschedulePicker()
+        viewModel.requestReschedule()
 
         assertFalse(
             "no slot was chosen, so nothing should have been submitted",
@@ -297,7 +310,9 @@ class AppointmentDetailsViewModelTest {
             ApiFailure(409, "slot_taken", "That time was just taken. Please pick another.")
         val viewModel = viewModelFor(appointmentId)
 
-        viewModel.requestReschedule("slot-9")
+        viewModel.openReschedulePicker()
+        viewModel.onSlotSelected(TestFixtures.timeSlot(id = "slot-9"))
+        viewModel.requestReschedule()
 
         assertEquals(
             "That time was just taken. Please pick another.",
@@ -329,8 +344,173 @@ class AppointmentDetailsViewModelTest {
         // A bug that fired both from one tap would show up here and nowhere else.
         val viewModel = viewModelFor(appointmentId)
 
-        viewModel.requestReschedule("slot-9")
+        viewModel.openReschedulePicker()
+        viewModel.onSlotSelected(TestFixtures.timeSlot(id = "slot-9"))
+        viewModel.requestReschedule()
 
         assertTrue(repository.cancelledIds.isEmpty())
+    }
+
+    // --- The slot picker ----------------------------------------------------
+    //
+    // The gap this closes: reschedule was wired to the right endpoint but collected
+    // `requestedSlotId` as a typed string, and a slot id is a
+    // `UUID.nameUUIDFromBytes("$doctorId|$startsAt")`. Nobody can type one, so the
+    // feature was reachable but not usable.
+
+    @Test
+    fun `availability is not fetched until the picker is opened`() {
+        // Every visit to this screen would otherwise spend two requests on a
+        // picker the patient may never open.
+        viewModelFor(appointmentId)
+
+        assertFalse(doctorRepository.wasCalledAtAll)
+    }
+
+    @Test
+    fun `opening the picker loads this doctor's available dates`() {
+        repository.appointment = TestFixtures.appointment(id = appointmentId)
+        val viewModel = viewModelFor(appointmentId)
+
+        viewModel.openReschedulePicker()
+
+        val dates = viewModel.uiState.value.availableDates
+        assertTrue(dates is LoadState.Success)
+        assertEquals(
+            listOf(LocalDate.of(2026, 12, 1)),
+            (dates as LoadState.Success).data.map { it.date },
+        )
+        assertTrue(doctorRepository.requestedDoctorIds.contains(doctorId))
+    }
+
+    @Test
+    fun `choosing a date loads that date's slots`() {
+        val date = LocalDate.of(2026, 12, 1)
+        doctorRepository.slots = listOf(
+            TestFixtures.timeSlot(id = "slot-9", date = date, timeOfDay = "01:00:00"),
+            TestFixtures.timeSlot(id = "slot-10", date = date, timeOfDay = "02:00:00"),
+        )
+        val viewModel = viewModelFor(appointmentId)
+
+        viewModel.openReschedulePicker()
+        viewModel.onDateSelected(date)
+
+        assertEquals(listOf(date), doctorRepository.requestedDates)
+        val slots = viewModel.uiState.value.slots
+        assertEquals(
+            listOf("slot-9", "slot-10"),
+            (slots as LoadState.Success).data.map { it.id },
+        )
+    }
+
+    @Test
+    fun `only bookable slots are offered`() {
+        // Filtered here rather than in the composable, so it is pinned by a test
+        // instead of by whoever reads the UI. `TimeSlot.isBookable` is false for
+        // RESERVED, BLOCKED, and UNKNOWN alike — and UNKNOWN must not be offered
+        // on the chance it is really free.
+        doctorRepository.slots = listOf(
+            TestFixtures.timeSlot(id = "free", timeOfDay = "01:00:00"),
+            TestFixtures.timeSlot(id = "taken", timeOfDay = "02:00:00", status = SlotStatus.RESERVED),
+            TestFixtures.timeSlot(id = "blocked", timeOfDay = "03:00:00", status = SlotStatus.BLOCKED),
+            TestFixtures.timeSlot(id = "mystery", timeOfDay = "04:00:00", status = SlotStatus.UNKNOWN),
+        )
+        val viewModel = viewModelFor(appointmentId)
+
+        viewModel.openReschedulePicker()
+        viewModel.onDateSelected(LocalDate.of(2026, 12, 1))
+
+        val slots = viewModel.uiState.value.slots as LoadState.Success
+        assertEquals(listOf("free"), slots.data.map { it.id })
+    }
+
+    @Test
+    fun `changing the date discards the slot chosen on the previous one`() {
+        // Otherwise the patient picks 9:00 on Tuesday, taps Wednesday by mistake,
+        // and submits a Tuesday slot while looking at Wednesday's list.
+        val viewModel = viewModelFor(appointmentId)
+        viewModel.openReschedulePicker()
+        viewModel.onDateSelected(LocalDate.of(2026, 12, 1))
+        viewModel.onSlotSelected(TestFixtures.timeSlot(id = "slot-9"))
+
+        viewModel.onDateSelected(LocalDate.of(2026, 12, 2))
+
+        assertEquals(null, viewModel.uiState.value.selectedSlot)
+    }
+
+    @Test
+    fun `closing the picker forgets the chosen slot`() {
+        val viewModel = viewModelFor(appointmentId)
+        viewModel.openReschedulePicker()
+        viewModel.onDateSelected(LocalDate.of(2026, 12, 1))
+        viewModel.onSlotSelected(TestFixtures.timeSlot(id = "slot-9"))
+
+        viewModel.closeReschedulePicker()
+
+        val state = viewModel.uiState.value
+        assertFalse("the picker is closed", state.isReschedulePickerOpen)
+        assertEquals(
+            "a slot chosen in a previous visit to the picker must not be resubmitted",
+            null,
+            state.selectedSlot,
+        )
+    }
+
+    @Test
+    fun `a picker on a month with no availability says so instead of looking broken`() {
+        doctorRepository.availableDates = emptyList()
+        val viewModel = viewModelFor(appointmentId)
+
+        viewModel.openReschedulePicker()
+
+        val dates = viewModel.uiState.value.availableDates
+        assertTrue(dates is LoadState.Success)
+        assertTrue((dates as LoadState.Success).data.isEmpty())
+    }
+
+    @Test
+    fun `an unconnected backend leaves the picker empty rather than failing it`() {
+        // Availability is a list read, so an unreachable server means "nothing to
+        // show", which is `Success(emptyList())` — the same mapping the booking
+        // and doctor screens use. `Error` here would put a red sentence above an
+        // appointment the patient can still cancel.
+        doctorRepository.availableDatesError = BackendNotConnectedException()
+        val viewModel = viewModelFor(appointmentId)
+
+        viewModel.openReschedulePicker()
+
+        val dates = viewModel.uiState.value.availableDates
+        assertTrue(
+            "an unreachable backend must not read as an error here",
+            dates is LoadState.Success && (dates as LoadState.Success).data.isEmpty(),
+        )
+    }
+
+    @Test
+    fun `a picker is not opened for an appointment that cannot be changed`() {
+        // The gate applies to opening, not just to rendering the button: a
+        // reschedule on a cancelled appointment is a request the server refuses.
+        repository.appointment =
+            TestFixtures.appointment(id = appointmentId, status = AppointmentStatus.CANCELLED)
+        val viewModel = viewModelFor(appointmentId)
+
+        viewModel.openReschedulePicker()
+
+        assertFalse(viewModel.uiState.value.isReschedulePickerOpen)
+        assertFalse("no availability should be fetched", doctorRepository.wasCalledAtAll)
+    }
+
+    @Test
+    fun `a slow date request cannot overwrite the slots of the date being looked at`() {
+        // `DoctorDetailsViewModel` cancels the previous slots job for exactly this
+        // reason: without it, a slow response for Tuesday lands after Wednesday
+        // was tapped and replaces Wednesday's list with Tuesday's.
+        val viewModel = viewModelFor(appointmentId)
+        viewModel.openReschedulePicker()
+
+        viewModel.onDateSelected(LocalDate.of(2026, 12, 1))
+        viewModel.onDateSelected(LocalDate.of(2026, 12, 2))
+
+        assertEquals(LocalDate.of(2026, 12, 2), viewModel.uiState.value.selectedDate)
     }
 }

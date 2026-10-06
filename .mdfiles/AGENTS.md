@@ -24,7 +24,7 @@ Two caveats. The **machine**-level `JAVA_HOME` still points at `C:\Users\You\Dow
 
 Verify the app with `:app:compileDebugKotlin` (~2s warm, ~3min cold). Full APK: `:app:assembleDebug` (~80s).
 
-`:app` unit tests — 61, runnable with `.\gradlew.bat :app:testDebugUnitTest`:
+`:app` unit tests — 71, runnable with `.\gradlew.bat :app:testDebugUnitTest`:
 
 - `data/api/` — `ApiErrorsTest.kt` (11 tests over error-body parsing),
   `UnknownWireValueTest.kt` (8 pinning how unrecognised wire values resolve), and
@@ -33,12 +33,16 @@ Verify the app with `:app:compileDebugKotlin` (~2s warm, ~3min cold). Full APK: 
   wizard's validation branches, both failure paths per step, that each step
   actually reaches `AuthRepository`, and that a handled navigation event does not
   fire again when the user steps back.
-- `ui/feature/appointments/AppointmentDetailsViewModelTest.kt` (17) — loading:
+- `ui/feature/appointments/AppointmentDetailsViewModelTest.kt` (27) — loading:
   success, server error, the null-id case, and the `LoadState` mapping. Mutating:
   a cancel reaches the repository *and* reloads, a refused cancel surfaces the
   server's sentence without refreshing, an unreachable backend says the change was
   **not** made, the `isActionable` gate per status, and that a reschedule carries
   the real appointment id and a chosen slot — no slot means no request at all.
+  The picker: availability is not fetched until it is opened, a date fetches that
+  date's slots, only bookable slots survive the filter, changing the date discards
+  the chosen slot, and a picker cannot be opened on an appointment that cannot be
+  changed. The bookable filter and the discard were both verified by mutation.
 
 **ViewModels are unit testable now.** They were not, and the reason is worth
 keeping: every one calls `viewModelScope`, which posts to `Dispatchers.Main`, and
@@ -348,12 +352,11 @@ they are observations, not planned work, so they are not in `tasks/todo.md`.
 
 ### Application
 
-- **Reschedule takes a typed slot id.** Cancel is wired end to end and gated on
-  `AppointmentStatus.isActionable`; reschedule reaches the right endpoint but the
-  screen collects `requestedSlotId` as a text field, because `RescheduleRequest`
-  names a slot id and nothing yet offers a picker. `SchedulePicker.kt` in
-  `ui/feature/booking/` already does exactly this for booking — reuse it rather
-  than writing a second one, and read availability through `DoctorRepository`.
+- **Reschedule searches the current month only.** `AppointmentDetailsViewModel`
+  opens its picker on `YearMonth.now().atDay(1)` with no month stepper, so an
+  appointment next month cannot be moved earlier, and once the month rolls over
+  there is no way back. `DoctorDetailsViewModel` has the identical limit, so a
+  month stepper is one change in two ViewModels.
 - **A cancel reloads the appointment; a reschedule request deliberately does
   not.** Cancelling deletes the `slot_claims` row to free the slot and only the
   server can change the status, so `AppointmentDetailsViewModel.cancel()` calls
@@ -364,7 +367,18 @@ they are observations, not planned work, so they are not in `tasks/todo.md`.
 - **`canCancelOrReschedule` is read off `AppointmentStatus.isActionable`, not
   re-decided in the state.** One definition of which statuses permit a change.
   `UNKNOWN` is deliberately not actionable — offering a mutation for a status the
-  app cannot read means guessing which endpoint the appointment would accept.
+  app cannot read means guessing which endpoint the appointment would accept. It
+  also gates *opening* the reschedule picker, not just rendering its button:
+  otherwise a cancelled appointment would spend two requests on availability the
+  patient cannot use.
+- **`SlotPicker` is shared, and the bookable filter is deliberately not in it.**
+  `ui/feature/booking/SlotPicker.kt` is stateless and takes both halves as
+  `LoadState`, extracted from `DoctorDetailsScreen`, which had the date strip and
+  slot grid inline. `AppointmentDetailsViewModel` filters to `isBookable` inside
+  its own state so a test can pin it (`only bookable slots are offered`);
+  `DoctorDetailsScreen` filters at the call site. Repeating the filter inside the
+  composable would let the UI show a slot the ViewModel would then refuse to
+  submit — an offered-but-unsubmittable slot, which is worse than not offering it.
 - **Colour literals are still spread across `ui/`, and only `SplashScreen` is
   exempt.** Every screen has been converted off `Color.White` backgrounds,
   `Color.Black` text, and `Color.Gray`/`Color.LightGray` metadata, so dark mode

@@ -115,12 +115,42 @@ All notable changes to this project will be documented in this file.
 ### Known gaps
 - None outstanding from the registration work. `RegisterDetailsScreen`'s phone
   field gap listed here is fixed above, along with the unwired wizard.
-- **Reschedule has no slot picker.** The endpoint, the repository call, and the
-  `requestedSlotId` are all correct, but the screen collects that id as a typed
-  string — and nobody can guess a slot id. It needs the date-and-slot picker
-  `DoctorDetailsScreen` already uses. `AppointmentDetailsViewModel.requestReschedule`
-  takes a `String?` specifically so swapping the picker does not change the
-  ViewModel or its tests.
+- **Reschedule searches the current month only.** The picker opens on
+  `YearMonth.now()` with no month stepper. `DoctorDetailsScreen` has the same
+  limit, so a month stepper is one change in two ViewModels rather than two
+  independent bugs.
+
+- **Reschedule was wired but unusable.** The endpoint, the repository call, and
+  `RescheduleRequest.requestedSlotId` were all correct, and the screen collected
+  that id from an `OutlinedTextField` — but a slot id is a
+  `UUID.nameUUIDFromBytes("$doctorId|$startsAt")`. No patient can type one, so the
+  feature was reachable and impossible. Same class of bug as the unwired wizard:
+  the call site existed, the thing the user has to do did not.
+  - `SlotPicker` — a stateless date strip and slot grid in
+    `ui/feature/booking/`, **extracted from `DoctorDetailsScreen`**, which had the
+    same markup inline. Two hand-maintained copies of that chip styling is how they
+    drift; the alternative was a second copy, not a shared component.
+  - `AppointmentDetailsViewModel` now takes `DoctorRepository` as well:
+    `/doctors/{id}/availability` and `/doctors/{id}/slots` belong to the doctor
+    aggregate, and the domain split keeps them there.
+  - Availability is fetched **only when the picker is opened.** Two requests on
+    every visit to the screen would be spent on a picker most visits never open.
+  - **Only bookable slots are offered**, filtered in the ViewModel rather than the
+    composable so a test pins it. `RESERVED`, `BLOCKED`, and `UNKNOWN` are all
+    excluded — and `UNKNOWN` especially, since offering a slot because its status
+    might be fine is the exact guess the enum's `UNKNOWN` member exists to prevent.
+  - Changing the date **discards the slot chosen on the previous one**, and closing
+    the picker forgets it. Otherwise a patient picks 9:00 on Tuesday, taps Wednesday
+    by mistake, and submits a Tuesday slot while reading Wednesday's list.
+  - A previous slots request is cancelled when another date is tapped, for the same
+    reason `DoctorDetailsViewModel` does it: a slow Tuesday response would otherwise
+    land after Wednesday was chosen and replace its list with Tuesday's.
+  - An unconnected backend leaves the picker **empty rather than failed** — it is a
+    list read, and an error there would put a red sentence above an appointment the
+    patient can still cancel.
+  - Guard: `AppointmentDetailsViewModelTest`, 10 new tests. Both the bookable
+    filter and the discard-on-date-change were verified by mutation — breaking
+    each fails exactly its own test and nothing else.
 
 ### Changed
 - **Step completion is now a consumable event, not a sticky flag.** The wizard's
