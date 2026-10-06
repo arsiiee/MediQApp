@@ -44,7 +44,7 @@ inferred from the source.
 | Check | Command | Result |
 |---|---|---|
 | App compiles | `:app:compileDebugKotlin` | Passes, 1 deprecation warning |
-| App unit tests | `:app:testDebugUnitTest` | 51 pass |
+| App unit tests | `:app:testDebugUnitTest` | 61 pass |
 | Server tests | `:server:test` | 50 pass |
 | Architecture boundaries | `check-boundaries.ps1` | Clean, 51 files |
 | Colour contrast | `check-contrast.ps1` | Clean, 24 token pairs + 6 status chips |
@@ -52,7 +52,7 @@ inferred from the source.
 | Server | `:server:run` | Starts, H2 in-memory |
 
 **Size:** 97 Kotlin files (~6,000 lines in `:app` main, ~3,800 in `:server`),
-19 HTTP endpoints, 50 server tests, 51 app tests, 15 screens, 10 ViewModels.
+19 HTTP endpoints, 50 server tests, 61 app tests, 15 screens, 10 ViewModels.
 
 The one remaining compile warning is the deprecated `statusBarColor` in
 `core/designsystem/theme/Theme.kt`.
@@ -99,11 +99,12 @@ This is the honest list. It is long because the work is not finished.
 
 ### Cannot be used at all
 
-- **`AppointmentDetailsScreen` cannot cancel or reschedule.** It renders the
-  appointment, but `AppointmentRepository.cancel` and `requestReschedule` are
-  unwired, so a patient who needs to change a booking has no way to do it from
-  the app. `AppointmentStatus.isActionable` already encodes which statuses permit
-  a change.
+- **Reschedule is a request with no slot picker.** Cancel works and is wired;
+  Reschedule asks the patient to type a slot id into a text field. The endpoint
+  and repository call are correct, but nobody can guess a `UUID` slot id. It
+  needs the same date-and-slot picker `DoctorDetailsScreen` already has, fed by
+  `DoctorRepository.getAvailableDates` / `getSlots`. `SchedulePicker.kt` in
+  `ui/feature/booking/` is the existing pattern.
 - **Messages is a stub** that renders the word "Messages".
 - **Forgot password** is a button with an empty click handler.
 
@@ -495,11 +496,12 @@ Two more, over HTTP against a running server:
   (13), `AvailableDatesTest` (4), `BookingConcurrencyTest` (4), `OtpLockoutTest`
   (3), `ProfileUpdateTest` (2). `BookingConcurrencyTest` is the one that cannot
   be checked by hand.
-- **`:app:testDebugUnitTest`** — 51 tests, hand-written fakes, no mocking
+- **`:app:testDebugUnitTest`** — 61 tests, hand-written fakes, no mocking
   framework: `ApiErrorsTest` (11, error-body parsing), `UnknownWireValueTest` (8,
   how unrecognised wire values resolve), `GsonLeniencyTest` (3, JSON parsing
   behaviour), `RegisterViewModelTest` (22, the registration wizard), and
-  `AppointmentDetailsViewModelTest` (7, loading one appointment by id).
+  `AppointmentDetailsViewModelTest` (17, loading one appointment by id, then
+  cancelling and rescheduling it).
 - **`smoke.ps1`** — the actual HTTP status of every route, the double-booking
   refusal, and that signing out kills the token mid-flight. Needs the server up.
   It has **no OTP or register coverage**; the registration contract is proven

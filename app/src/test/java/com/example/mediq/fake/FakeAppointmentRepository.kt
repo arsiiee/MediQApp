@@ -15,9 +15,9 @@ import com.example.mediq.domain.repository.AppointmentRepository
  * test that only asserts on the returned state would not notice that, whereas
  * `requestedIds` being empty makes it unmissable.
  *
- * Only the single-entity read is given a settable result. The interface needs the
- * other methods implemented, so they satisfy the contract and nothing more; when
- * a test needs them, give them a settable result then.
+ * The mutations record what they were asked to change for the same reason: a
+ * cancel that reported success without reaching `cancel(appointmentId)` would be
+ * indistinguishable to a state-only assertion.
  */
 class FakeAppointmentRepository : AppointmentRepository {
 
@@ -25,13 +25,20 @@ class FakeAppointmentRepository : AppointmentRepository {
 
     var appointment: Appointment = TestFixtures.appointment()
     var getAppointmentError: Throwable? = null
+    var cancelError: Throwable? = null
+    var requestRescheduleError: Throwable? = null
 
     // --- What the ViewModel asked for ---------------------------------------
 
     val requestedIds = mutableListOf<String>()
+    val cancelledIds = mutableListOf<String>()
+    val rescheduleRequests = mutableListOf<RescheduleRequest>()
 
     /** True when no read reached the repository at all. */
     val wasCalledAtAll: Boolean get() = requestedIds.isNotEmpty()
+
+    /** True when no mutation reached the repository at all. */
+    val wasMutated: Boolean get() = cancelledIds.isNotEmpty() || rescheduleRequests.isNotEmpty()
 
     override suspend fun getAppointments(filter: AppointmentFilter): Paged<Appointment> =
         Paged(emptyList())
@@ -44,7 +51,13 @@ class FakeAppointmentRepository : AppointmentRepository {
 
     override suspend fun book(request: BookingRequest): Appointment = appointment
 
-    override suspend fun cancel(appointmentId: String) = Unit
+    override suspend fun cancel(appointmentId: String) {
+        cancelledIds += appointmentId
+        cancelError?.let { throw it }
+    }
 
-    override suspend fun requestReschedule(request: RescheduleRequest) = Unit
+    override suspend fun requestReschedule(request: RescheduleRequest) {
+        rescheduleRequests += request
+        requestRescheduleError?.let { throw it }
+    }
 }

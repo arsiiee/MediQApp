@@ -90,9 +90,37 @@ All notable changes to this project will be documented in this file.
   end, but the two cases remain deliberately indistinguishable to a caller for
   anti-enumeration reasons.
 
+- **A patient could not cancel an appointment from the app.**
+  `AppointmentRepository.cancel` existed, `DELETE /appointments/{id}` existed, and
+  `AppointmentStatus.isActionable` already encoded which statuses permit a change —
+  but no screen called any of them, so the actions were unreachable and
+  `isActionable` gated nothing. The repository method being present is not the
+  same as a patient having a button.
+  - Cancel and Reschedule render only when
+    `LoadState.Success.data.status.isActionable`, so they are absent for
+    `COMPLETED`, `CANCELLED`, `DECLINED`, and `UNKNOWN`.
+  - A successful cancel **reloads** the appointment. Cancelling deletes the
+    `slot_claims` row to free the slot and only the server can change the status;
+    without the reload the badge still read "Confirmed" and the screen kept
+    offering a second cancel the server would refuse.
+  - A refused or undeliverable change shows the server's sentence and leaves the
+    displayed appointment untouched — no refresh on failure, because the server
+    refused and what is on screen is still the truth. An unreachable backend says
+    explicitly that the change **was not made**, since a generic "couldn't reach"
+    leaves a patient unsure whether they still hold the booking.
+  - Guard: `AppointmentDetailsViewModelTest`, 10 new tests. The fake repository
+    records the cancelled ids and the `RescheduleRequest`s it was handed, so a
+    cancel that reported success without reaching the repository cannot pass.
+
 ### Known gaps
 - None outstanding from the registration work. `RegisterDetailsScreen`'s phone
   field gap listed here is fixed above, along with the unwired wizard.
+- **Reschedule has no slot picker.** The endpoint, the repository call, and the
+  `requestedSlotId` are all correct, but the screen collects that id as a typed
+  string — and nobody can guess a slot id. It needs the date-and-slot picker
+  `DoctorDetailsScreen` already uses. `AppointmentDetailsViewModel.requestReschedule`
+  takes a `String?` specifically so swapping the picker does not change the
+  ViewModel or its tests.
 
 ### Changed
 - **Step completion is now a consumable event, not a sticky flag.** The wizard's

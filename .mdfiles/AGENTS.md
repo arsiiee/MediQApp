@@ -24,7 +24,7 @@ Two caveats. The **machine**-level `JAVA_HOME` still points at `C:\Users\You\Dow
 
 Verify the app with `:app:compileDebugKotlin` (~2s warm, ~3min cold). Full APK: `:app:assembleDebug` (~80s).
 
-`:app` unit tests — 51, runnable with `.\gradlew.bat :app:testDebugUnitTest`:
+`:app` unit tests — 61, runnable with `.\gradlew.bat :app:testDebugUnitTest`:
 
 - `data/api/` — `ApiErrorsTest.kt` (11 tests over error-body parsing),
   `UnknownWireValueTest.kt` (8 pinning how unrecognised wire values resolve), and
@@ -33,8 +33,12 @@ Verify the app with `:app:compileDebugKotlin` (~2s warm, ~3min cold). Full APK: 
   wizard's validation branches, both failure paths per step, that each step
   actually reaches `AuthRepository`, and that a handled navigation event does not
   fire again when the user steps back.
-- `ui/feature/appointments/AppointmentDetailsViewModelTest.kt` (7) — success,
-  server error, the null-id case, and the `LoadState` mapping.
+- `ui/feature/appointments/AppointmentDetailsViewModelTest.kt` (17) — loading:
+  success, server error, the null-id case, and the `LoadState` mapping. Mutating:
+  a cancel reaches the repository *and* reloads, a refused cancel surfaces the
+  server's sentence without refreshing, an unreachable backend says the change was
+  **not** made, the `isActionable` gate per status, and that a reschedule carries
+  the real appointment id and a chosen slot — no slot means no request at all.
 
 **ViewModels are unit testable now.** They were not, and the reason is worth
 keeping: every one calls `viewModelScope`, which posts to `Dispatchers.Main`, and
@@ -344,12 +348,23 @@ they are observations, not planned work, so they are not in `tasks/todo.md`.
 
 ### Application
 
-- **`AppointmentDetailsScreen` has no cancel or reschedule action.** It renders the
-  appointment — doctor, clinic-zone date and time, location, fee, status, and
-  reason for visit — but `AppointmentRepository.cancel` and `requestReschedule` are
-  still unwired, and `AppointmentStatus.isActionable` gates nothing yet. Note the
-  server-side rule before wiring them: cancelling deletes the `slot_claims` row to
-  free the slot, so it cannot be done by updating the status alone.
+- **Reschedule takes a typed slot id.** Cancel is wired end to end and gated on
+  `AppointmentStatus.isActionable`; reschedule reaches the right endpoint but the
+  screen collects `requestedSlotId` as a text field, because `RescheduleRequest`
+  names a slot id and nothing yet offers a picker. `SchedulePicker.kt` in
+  `ui/feature/booking/` already does exactly this for booking — reuse it rather
+  than writing a second one, and read availability through `DoctorRepository`.
+- **A cancel reloads the appointment; a reschedule request deliberately does
+  not.** Cancelling deletes the `slot_claims` row to free the slot and only the
+  server can change the status, so `AppointmentDetailsViewModel.cancel()` calls
+  `load()` afterwards — without it the badge still reads "Confirmed" and
+  `canCancelOrReschedule` offers a second cancel the server will refuse. A
+  reschedule is a *request*: nothing changes until the clinic answers, so
+  re-reading would show an unchanged appointment that looks like a no-op.
+- **`canCancelOrReschedule` is read off `AppointmentStatus.isActionable`, not
+  re-decided in the state.** One definition of which statuses permit a change.
+  `UNKNOWN` is deliberately not actionable — offering a mutation for a status the
+  app cannot read means guessing which endpoint the appointment would accept.
 - **Colour literals are still spread across `ui/`, and only `SplashScreen` is
   exempt.** Every screen has been converted off `Color.White` backgrounds,
   `Color.Black` text, and `Color.Gray`/`Color.LightGray` metadata, so dark mode

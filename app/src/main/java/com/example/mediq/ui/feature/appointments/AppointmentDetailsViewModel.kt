@@ -10,6 +10,7 @@ import com.example.mediq.domain.model.ApiFailure
 import com.example.mediq.domain.model.Appointment
 import com.example.mediq.domain.model.BackendNotConnectedException
 import com.example.mediq.domain.model.LoadState
+import com.example.mediq.domain.model.RescheduleRequest
 import com.example.mediq.domain.repository.AppointmentRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -18,7 +19,21 @@ import kotlinx.coroutines.launch
 
 data class AppointmentDetailsUiState(
     val appointment: LoadState<Appointment> = LoadState.Loading,
-)
+
+    /** The message from a refused or undeliverable cancel/reschedule, if any. */
+    val actionError: String? = null,
+) {
+    /**
+     * Whether Cancel and Reschedule should be on screen at all.
+     *
+     * Read off [AppointmentStatus.isActionable] rather than re-decided here, so
+     * the rule has exactly one definition. `UNKNOWN` is deliberately not
+     * actionable: offering a mutation on a status the app cannot read would mean
+     * guessing which endpoint the appointment would accept.
+     */
+    val canCancelOrReschedule: Boolean
+        get() = (appointment as? LoadState.Success)?.data?.status?.isActionable == true
+}
 
 /**
  * Loads the one appointment named by [appointmentId].
@@ -41,6 +56,76 @@ class AppointmentDetailsViewModel(
 
     fun refresh() {
         load()
+    }
+
+    /**
+     * Cancels this appointment, then reloads it.
+     *
+     * The reload is not optional. `AppointmentsStore.cancel` frees the slot by
+     * deleting the `slot_claims` row and keeps the appointment row for history,
+     * so the status only changes on the server — without a re-read the badge
+     * would still say "Confirmed" after the patient cancelled, and
+     * `canCancelOrReschedule` would keep offering a second cancel that the server
+     * would refuse.
+     */
+    fun cancel() {
+        val id = appointmentId
+        if (id.isNullOrBlank() || !_uiState.value.canCancelOrReschedule) return
+
+        viewModelScope.launch {
+            try {
+                appointmentRepository.cancel(id)
+                _uiState.value = _uiState.value.copy(actionError = null)
+                load()
+            } catch (e: BackendNotConnectedException) {
+                actionFailed("We couldn't reach the clinic, so this appointment was not cancelled.")
+            } catch (e: ApiFailure) {
+                actionFailed(e.message)
+            } catch (e: Exception) {
+                actionFailed("We couldn't cancel this appointment. Please try again.")
+            }
+        }
+    }
+
+    /**
+     * Asks the clinic to move this appointment to [slotId].
+     *
+     * A null [slotId] is refused here rather than sent: the request cannot
+     * succeed without one, so submitting it would show the patient a 4xx for a
+     * button they were never really offered.
+     *
+     * The appointment is deliberately *not* reloaded on success. A reschedule
+     * request is a request; the status does not change until the clinic answers,
+     * and re-reading would show the patient an unchanged appointment that looked
+     * like nothing had happened.
+     */
+    fun requestReschedule(slotId: String?) {
+        val id = appointmentId
+        if (id.isNullOrBlank() || !_uiState.value.canCancelOrReschedule) return
+
+        if (slotId.isNullOrBlank()) {
+            actionFailed("Choose a new time first.")
+            return
+        }
+
+        viewModelScope.launch {
+            try {
+                appointmentRepository.requestReschedule(
+                    RescheduleRequest(appointmentId = id, requestedSlotId = slotId)
+                )
+                _uiState.value = _uiState.value.copy(actionError = null)
+            } catch (e: BackendNotConnectedException) {
+                actionFailed("We couldn't reach the clinic, so the request wasn't sent.")
+            } catch (e: ApiFailure) {
+                actionFailed(e.message)
+            } catch (e: Exception) {
+                actionFailed("We couldn't send that request. Please try again.")
+            }
+        }
+    }
+
+    private fun actionFailed(message: String) {
+        _uiState.value = _uiState.value.copy(actionError = message)
     }
 
     private fun load() {

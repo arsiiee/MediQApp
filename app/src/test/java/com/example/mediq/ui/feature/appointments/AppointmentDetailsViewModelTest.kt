@@ -1,8 +1,10 @@
 package com.example.mediq.ui.feature.appointments
 
 import com.example.mediq.domain.model.ApiFailure
+import com.example.mediq.domain.model.AppointmentStatus
 import com.example.mediq.domain.model.BackendNotConnectedException
 import com.example.mediq.domain.model.LoadState
+import com.example.mediq.domain.model.RescheduleRequest
 import com.example.mediq.fake.FakeAppointmentRepository
 import com.example.mediq.fake.MainDispatcherRule
 import com.example.mediq.fake.TestFixtures
@@ -156,5 +158,179 @@ class AppointmentDetailsViewModelTest {
         assertEquals(70000, loaded.fee.amountInCentavos)
         assertEquals("Main Building", loaded.location.building)
         assertEquals("Persistent cough", loaded.reasonForVisit)
+    }
+
+    // --- Cancelling ----------------------------------------------------------
+    //
+    // The gap this closes: `AppointmentRepository.cancel` existed and the screen
+    // rendered no way to reach it, so a patient who needed to change a booking had
+    // none. `AppointmentStatus.isActionable` already encodes which statuses permit
+    // a change; these tests pin that the UI obeys it rather than trusting it.
+
+    @Test
+    fun `cancelling asks the server to cancel this appointment`() {
+        repository.appointment = TestFixtures.appointment(
+            id = appointmentId,
+            status = AppointmentStatus.CONFIRMED,
+        )
+
+        viewModelFor(appointmentId).cancel()
+
+        assertEquals(listOf(appointmentId), repository.cancelledIds)
+    }
+
+    @Test
+    fun `a successful cancel reloads so the status badge is not stale`() {
+        // The server frees the slot by deleting the `slot_claims` row and keeps
+        // the appointment for history, so the status only changes on the server.
+        // Without a reload the screen would keep saying "Confirmed" after the
+        // patient cancelled.
+        repository.appointment = TestFixtures.appointment(
+            id = appointmentId,
+            status = AppointmentStatus.CONFIRMED,
+        )
+        val viewModel = viewModelFor(appointmentId)
+
+        viewModel.cancel()
+
+        // One read from init, one from the post-cancel refresh.
+        assertEquals(2, repository.requestedIds.size)
+        assertEquals(appointmentId, repository.requestedIds.last())
+    }
+
+    @Test
+    fun `a refused cancel shows the server's message and leaves the appointment alone`() {
+        // A race the client cannot prevent: the status read says actionable, and
+        // by the time the tap lands the appointment is gone. `DELETE
+        // /appointments/{id}` then answers 400 with a sentence written for the
+        // patient. The status stays CONFIRMED here so the tap is allowed through
+        // — the refusal is the server's, which is the case worth handling.
+        repository.appointment = TestFixtures.appointment(
+            id = appointmentId,
+            status = AppointmentStatus.CONFIRMED,
+        )
+        repository.cancelError = ApiFailure(400, "already_cancelled", "That appointment is already cancelled.")
+        val viewModel = viewModelFor(appointmentId)
+        val readsBefore = repository.requestedIds.size
+
+        viewModel.cancel()
+
+        assertEquals("That appointment is already cancelled.", viewModel.uiState.value.actionError)
+        // No refresh: the server refused, so the appointment on screen is still
+        // the truth and re-reading it would only churn.
+        assertEquals(readsBefore, repository.requestedIds.size)
+    }
+
+    @Test
+    fun `cancel and reschedule are not offered on a status that is not actionable`() {
+        // Pinned per status rather than once for the group, because the four
+        // differ in why: COMPLETED and DECLINED are settled by the clinic,
+        // CANCELLED is what the patient did, and UNKNOWN must not offer a
+        // mutation on the strength of a guess.
+        listOf(
+            AppointmentStatus.COMPLETED,
+            AppointmentStatus.CANCELLED,
+            AppointmentStatus.DECLINED,
+            AppointmentStatus.UNKNOWN,
+        ).forEach { status ->
+            repository.appointment =
+                TestFixtures.appointment(id = appointmentId, status = status)
+            val viewModel = viewModelFor(appointmentId)
+
+            assertFalse(
+                "$status must not offer a change",
+                viewModel.uiState.value.canCancelOrReschedule,
+            )
+        }
+    }
+
+    @Test
+    fun `cancel and reschedule are offered while the appointment is still actionable`() {
+        listOf(
+            AppointmentStatus.PENDING_CONFIRMATION,
+            AppointmentStatus.CONFIRMED,
+        ).forEach { status ->
+            repository.appointment =
+                TestFixtures.appointment(id = appointmentId, status = status)
+
+            assertTrue(
+                "$status should offer a change",
+                viewModelFor(appointmentId).uiState.value.canCancelOrReschedule,
+            )
+        }
+    }
+
+    // --- Rescheduling -------------------------------------------------------
+
+    @Test
+    fun `a reschedule is sent with the real appointment id and the chosen slot`() {
+        repository.appointment = TestFixtures.appointment(id = appointmentId)
+        val viewModel = viewModelFor(appointmentId)
+
+        viewModel.requestReschedule("slot-9")
+
+        assertEquals(
+            listOf(RescheduleRequest(appointmentId, "slot-9")),
+            repository.rescheduleRequests,
+        )
+    }
+
+    @Test
+    fun `rescheduling without a chosen slot never reaches the server`() {
+        // The server would refuse it, but the patient would see a 4xx for a tap
+        // on a button that was never meaningfully enabled. Guarded on the client
+        // so the message is ours and the request is not made.
+        val viewModel = viewModelFor(appointmentId)
+
+        viewModel.requestReschedule(null)
+
+        assertFalse(
+            "no slot was chosen, so nothing should have been submitted",
+            repository.wasMutated,
+        )
+        assertTrue(!viewModel.uiState.value.actionError.isNullOrBlank())
+    }
+
+    @Test
+    fun `a refused reschedule shows the server's message`() {
+        repository.requestRescheduleError =
+            ApiFailure(409, "slot_taken", "That time was just taken. Please pick another.")
+        val viewModel = viewModelFor(appointmentId)
+
+        viewModel.requestReschedule("slot-9")
+
+        assertEquals(
+            "That time was just taken. Please pick another.",
+            viewModel.uiState.value.actionError,
+        )
+    }
+
+    @Test
+    fun `an unreachable backend says the change was not made`() {
+        // The dangerous failure mode for a mutation: a generic "couldn't reach"
+        // with no statement about whether the cancel landed. The patient has to
+        // know they still hold the booking.
+        repository.cancelError = BackendNotConnectedException()
+        val viewModel = viewModelFor(appointmentId)
+
+        viewModel.cancel()
+
+        val message = viewModel.uiState.value.actionError
+        assertTrue("expected an explanation, got null", !message.isNullOrBlank())
+        assertTrue(
+            "the message must say the change did not happen, got: $message",
+            message.orEmpty().contains("not", ignoreCase = true),
+        )
+    }
+
+    @Test
+    fun `starting a reschedule does not cancel anything`() {
+        // A cancel and a reschedule are different requests to different endpoints.
+        // A bug that fired both from one tap would show up here and nowhere else.
+        val viewModel = viewModelFor(appointmentId)
+
+        viewModel.requestReschedule("slot-9")
+
+        assertTrue(repository.cancelledIds.isEmpty())
     }
 }
