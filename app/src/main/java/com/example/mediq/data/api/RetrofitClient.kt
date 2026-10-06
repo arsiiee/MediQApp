@@ -9,19 +9,29 @@ import retrofit2.converter.gson.GsonConverterFactory
 /**
  * Builds the OkHttp + Retrofit stack used by all Retrofit repositories.
  *
- * BASE_URL points at the PC running Android Studio. Currently set for the
- * Android emulator, which reaches the host through 10.0.2.2 and needs no extra
- * setup. Change it to match your test setup:
- *   - Emulator                     : http://10.0.2.2:8099/   <- current
- *   - Physical device (ADB reverse): http://127.0.0.1:8099/
+ * BASE_URL points at the PC running the server. Currently set to this PC's LAN
+ * address, because the LAN address is the only one that works on *every* target
+ * here — emulator and physical phone alike. Change it to match your test setup:
+ *   - Emulator or physical device on this Wi-Fi : http://192.168.100.14:8099/  <- current
+ *   - Emulator only                             : http://10.0.2.2:8099/
+ *   - Physical device over ADB, no Wi-Fi        : http://127.0.0.1:8099/
  *     ...which additionally requires one command:
  *       adb reverse tcp:8099 tcp:8099
- *   - Physical device on LAN       : http://<host-IP>:8099/
  *
- * Only 10.0.2.2, 127.0.0.1 and the LAN host address are permitted for
- * cleartext; see res/xml/network_security_config.xml. A LAN host address
- * needs adding there too, and the phone must be able to reach this PC on
- * the network (Windows Firewall blocks inbound on port 8099 by default).
+ * Why the LAN address rather than 10.0.2.2: 10.0.2.2 is an alias that exists
+ * only inside the emulator's virtual network. On a physical phone it is
+ * unroutable, so every call times out and `call {}` reports "Couldn't reach the
+ * clinic" — which reads like the server is down while the server is answering
+ * 127.0.0.1 perfectly well. Check what `adb devices` actually lists before
+ * trusting a network error: an emulator and a phone are both just "a device",
+ * and moving between them changes nothing else. This exact mismatch is what
+ * made sign-in fail on 2026-10-06 with the server up and healthy.
+ *
+ * Only 10.0.2.2, 127.0.0.1 and this LAN address are permitted for cleartext;
+ * see res/xml/network_security_config.xml. This PC's address is DHCP-assigned
+ * and changes when it joins a different network — `ipconfig` reads the current
+ * one, and the config file must be updated in step, or cleartext is refused and
+ * the app fails with the same misleading message.
  *
  * HTTP logging is injected via [buildLoggingInterceptor], which is defined
  * in two source sets: the debug variant returns a full BODY-level OkHttp
@@ -30,7 +40,7 @@ import retrofit2.converter.gson.GsonConverterFactory
  */
 object RetrofitClient {
 
-    const val BASE_URL = "http://10.0.2.2:8099/"
+    const val BASE_URL = "http://192.168.100.14:8099/"
 
     fun create(tokenStore: TokenStore): MediQApiService {
         val client = OkHttpClient.Builder()
