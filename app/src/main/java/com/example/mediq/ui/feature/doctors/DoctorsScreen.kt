@@ -31,7 +31,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -41,6 +40,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.example.mediq.core.designsystem.component.EmptyState
+import com.example.mediq.core.designsystem.theme.LocalMediQColors
 import com.example.mediq.core.designsystem.theme.MediQGreen
 import com.example.mediq.core.designsystem.theme.MediQLightGreen
 import com.example.mediq.domain.model.Doctor
@@ -53,11 +53,12 @@ import com.example.mediq.ui.navigation.Screen
 fun DoctorsScreen(navController: NavController) {
     val viewModel: DoctorsViewModel = viewModel(factory = DoctorsViewModel.Factory)
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val colors = LocalMediQColors.current
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.White)
+            .background(MaterialTheme.colorScheme.background)
             .padding(16.dp)
     ) {
         Text(
@@ -74,8 +75,8 @@ fun DoctorsScreen(navController: NavController) {
             leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
             shape = RoundedCornerShape(12.dp),
             colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = MediQGreen,
-                unfocusedBorderColor = Color.LightGray
+                focusedBorderColor = colors.accent,
+                unfocusedBorderColor = colors.outline
             )
         )
         Spacer(modifier = Modifier.height(16.dp))
@@ -103,14 +104,18 @@ fun DoctorsScreen(navController: NavController) {
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center
             ) {
-                CircularProgressIndicator(color = MediQGreen)
+                CircularProgressIndicator(color = colors.accent)
             }
 
             is LoadState.Error -> Box(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center
             ) {
-                Text(text = doctors.message, color = Color(0xFFD32F2F), textAlign = TextAlign.Center)
+                Text(
+                    text = doctors.message,
+                    color = MaterialTheme.colorScheme.error,
+                    textAlign = TextAlign.Center
+                )
             }
 
             is LoadState.Success -> {
@@ -143,9 +148,10 @@ fun DoctorsScreen(navController: NavController) {
 
 @Composable
 private fun DoctorListItem(doctor: Doctor, onClick: () -> Unit) {
+    val colors = LocalMediQColors.current
     Surface(
-        color = Color.White,
-        border = androidx.compose.foundation.BorderStroke(1.dp, Color.LightGray),
+        color = MaterialTheme.colorScheme.surface,
+        border = androidx.compose.foundation.BorderStroke(1.dp, colors.outline),
         shape = RoundedCornerShape(16.dp),
         modifier = Modifier
             .fillMaxWidth()
@@ -163,15 +169,15 @@ private fun DoctorListItem(doctor: Doctor, onClick: () -> Unit) {
             Spacer(modifier = Modifier.size(16.dp))
             Column {
                 Text(text = doctor.displayName, fontWeight = FontWeight.Bold)
-                Text(text = doctor.specialty.displayName, color = Color.Gray, fontSize = 14.sp)
+                Text(text = doctor.specialty.displayName, color = colors.secondaryText, fontSize = 14.sp)
                 Text(
                     text = "${doctor.location.building} — ${doctor.location.floor} — ${doctor.location.room}",
-                    color = Color.Gray,
+                    color = colors.secondaryText,
                     fontSize = 12.sp
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(text = "Experience", color = Color.Gray, fontSize = 12.sp)
+                    Text(text = "Experience", color = colors.secondaryText, fontSize = 12.sp)
                     Spacer(modifier = Modifier.size(4.dp))
                     Text(
                         text = "${doctor.yearsOfExperience} years",
@@ -179,7 +185,7 @@ private fun DoctorListItem(doctor: Doctor, onClick: () -> Unit) {
                         fontSize = 12.sp
                     )
                     Spacer(modifier = Modifier.size(16.dp))
-                    Text(text = "Consultation", color = Color.Gray, fontSize = 12.sp)
+                    Text(text = "Consultation", color = colors.secondaryText, fontSize = 12.sp)
                     Spacer(modifier = Modifier.size(4.dp))
                     Text(text = doctor.consultationFee.format(), fontWeight = FontWeight.Bold, fontSize = 12.sp)
                 }

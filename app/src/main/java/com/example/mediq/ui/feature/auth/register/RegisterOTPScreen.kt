@@ -19,11 +19,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.example.mediq.core.designsystem.theme.LocalMediQColors
 import com.example.mediq.core.designsystem.theme.MediQGreen
 import com.example.mediq.ui.navigation.Screen
 
@@ -48,7 +48,7 @@ fun RegisterOTPScreen(navController: NavController) {
             text = "We sent a 6-digit code to your number",
             modifier = Modifier.fillMaxWidth(),
             style = MaterialTheme.typography.bodyMedium,
-            color = Color.Gray
+            color = LocalMediQColors.current.secondaryText
         )
         Spacer(modifier = Modifier.height(32.dp))
 
@@ -59,8 +59,8 @@ fun RegisterOTPScreen(navController: NavController) {
             modifier = Modifier.fillMaxWidth(),
             placeholder = { Text("Resend OTP in 25s") },
             colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = MediQGreen,
-                unfocusedBorderColor = Color.LightGray
+                focusedBorderColor = LocalMediQColors.current.accent,
+                unfocusedBorderColor = LocalMediQColors.current.outline
             )
         )
 

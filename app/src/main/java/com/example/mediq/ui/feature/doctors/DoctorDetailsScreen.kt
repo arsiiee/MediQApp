@@ -43,7 +43,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -51,8 +50,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.example.mediq.core.designsystem.component.EmptyState
+import com.example.mediq.core.designsystem.theme.LocalMediQColors
 import com.example.mediq.core.designsystem.theme.MediQGreen
 import com.example.mediq.core.designsystem.theme.MediQLightGreen
+import com.example.mediq.core.designsystem.theme.MediQOnBrand
 import com.example.mediq.domain.model.AvailableDate
 import com.example.mediq.domain.model.Doctor
 import com.example.mediq.domain.model.LoadState
@@ -90,7 +91,9 @@ fun DoctorDetailsScreen(navController: NavController, doctorId: String?) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background
+                )
             )
         },
         bottomBar = {
@@ -133,7 +136,7 @@ fun DoctorDetailsScreen(navController: NavController, doctorId: String?) {
                         .padding(innerPadding),
                     contentAlignment = Alignment.Center
                 ) {
-                    CircularProgressIndicator(color = MediQGreen)
+                    CircularProgressIndicator(color = LocalMediQColors.current.accent)
                 }
             }
 
@@ -141,7 +144,7 @@ fun DoctorDetailsScreen(navController: NavController, doctorId: String?) {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(Color.White)
+                        .background(MaterialTheme.colorScheme.background)
                         .padding(innerPadding)
                 ) {
                     EmptyState(
@@ -157,7 +160,7 @@ fun DoctorDetailsScreen(navController: NavController, doctorId: String?) {
                 DoctorDetailsContent(
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(Color.White)
+                        .background(MaterialTheme.colorScheme.background)
                         .padding(innerPadding),
                     doctor = doctor,
                     availableDates = uiState.availableDates,
@@ -184,6 +187,7 @@ private fun DoctorDetailsContent(
     onDateSelected: (LocalDate) -> Unit,
     onSlotSelected: (TimeSlot) -> Unit,
 ) {
+    val colors = LocalMediQColors.current
     Column(
         modifier = modifier.verticalScroll(rememberScrollState())
     ) {
@@ -192,7 +196,7 @@ private fun DoctorDetailsContent(
             Text(
                 text = doctor.specialty.displayName,
                 style = MaterialTheme.typography.labelMedium,
-                color = MediQGreen,
+                color = colors.accent,
                 fontWeight = FontWeight.SemiBold,
             )
             Spacer(modifier = Modifier.height(2.dp))
@@ -205,7 +209,7 @@ private fun DoctorDetailsContent(
             Text(
                 text = "${doctor.yearsOfExperience} yrs experience  ·  ${doctor.licenseNumber}",
                 style = MaterialTheme.typography.bodySmall,
-                color = Color.Gray,
+                color = colors.secondaryText,
             )
             Spacer(modifier = Modifier.height(8.dp))
 
@@ -214,14 +218,14 @@ private fun DoctorDetailsContent(
                 Icon(
                     Icons.Outlined.LocationOn,
                     contentDescription = null,
-                    tint = MediQGreen,
+                    tint = colors.accent,
                     modifier = Modifier.size(16.dp),
                 )
                 Spacer(modifier = Modifier.width(4.dp))
                 Text(
                     text = "${doctor.location.building} · Floor ${doctor.location.floor} · ${doctor.location.room}",
                     style = MaterialTheme.typography.bodySmall,
-                    color = Color.Gray,
+                    color = colors.secondaryText,
                 )
             }
             Spacer(modifier = Modifier.height(4.dp))
@@ -231,7 +235,7 @@ private fun DoctorDetailsContent(
                 text = "Consultation fee: ₱${doctor.consultationFee.amountInCentavos / 100}",
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.SemiBold,
-                color = Color.Black,
+                color = MaterialTheme.colorScheme.onSurface,
             )
         }
 
@@ -247,7 +251,7 @@ private fun DoctorDetailsContent(
                 Text(
                     text = doctor.bio,
                     style = MaterialTheme.typography.bodyMedium,
-                    color = Color.DarkGray,
+                    color = colors.secondaryText,
                 )
             }
             Spacer(modifier = Modifier.height(16.dp))
@@ -276,13 +280,13 @@ private fun DoctorDetailsContent(
                                 Icons.Outlined.AccessTime,
                                 contentDescription = null,
                                 modifier = Modifier.size(12.dp),
-                                tint = Color.Gray,
+                                tint = colors.secondaryText,
                             )
                             Spacer(modifier = Modifier.width(4.dp))
                             Text(
                                 text = "${hours.opensAt} – ${hours.closesAt}",
                                 style = MaterialTheme.typography.bodySmall,
-                                color = Color.Gray,
+                                color = colors.secondaryText,
                             )
                         }
                     }
@@ -303,7 +307,7 @@ private fun DoctorDetailsContent(
             when (availableDates) {
                 is LoadState.Loading -> CircularProgressIndicator(
                     modifier = Modifier.size(24.dp),
-                    color = MediQGreen,
+                    color = colors.accent,
                     strokeWidth = 2.dp,
                 )
 
@@ -318,7 +322,7 @@ private fun DoctorDetailsContent(
                         Text(
                             text = "No available dates this month.",
                             style = MaterialTheme.typography.bodySmall,
-                            color = Color.Gray,
+                            color = colors.secondaryText,
                         )
                     } else {
                         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -335,9 +339,11 @@ private fun DoctorDetailsContent(
                                             style = MaterialTheme.typography.bodySmall,
                                         )
                                     },
+                                    // A fixed light pair: white on the brand green is 6.63:1, and stays so in
+                                    // either mode.
                                     colors = FilterChipDefaults.filterChipColors(
                                         selectedContainerColor = MediQGreen,
-                                        selectedLabelColor     = Color.White,
+                                        selectedLabelColor     = MediQOnBrand,
                                     ),
                                 )
                             }
@@ -378,7 +384,7 @@ private fun DoctorDetailsContent(
                             Text(
                                 text = "No open slots on this date.",
                                 style = MaterialTheme.typography.bodySmall,
-                                color = Color.Gray,
+                                color = colors.secondaryText,
                             )
                         } else {
                             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -388,9 +394,10 @@ private fun DoctorDetailsContent(
                                         shape  = RoundedCornerShape(8.dp),
                                         border = BorderStroke(
                                             1.dp,
-                                            if (isSelected) MediQGreen else Color.LightGray,
+                                            if (isSelected) MediQGreen else colors.outline,
                                         ),
-                                        color = if (isSelected) MediQLightGreen else Color.White,
+                                        color = if (isSelected) MediQLightGreen
+                                                else MaterialTheme.colorScheme.surface,
                                         modifier = Modifier
                                             .padding(vertical = 4.dp)
                                             .clickable { onSlotSelected(slot) },
@@ -399,7 +406,9 @@ private fun DoctorDetailsContent(
                                             text     = slot.startsAt.toClinicTime().toString(),
                                             modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
                                             style    = MaterialTheme.typography.bodySmall,
-                                            color    = if (isSelected) MediQGreen else Color.DarkGray,
+                                            // Selected is a fixed pair: brand green on
+                                            // the light green chip is 5.89:1.
+                                            color    = if (isSelected) MediQGreen else colors.secondaryText,
                                             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
                                         )
                                     }

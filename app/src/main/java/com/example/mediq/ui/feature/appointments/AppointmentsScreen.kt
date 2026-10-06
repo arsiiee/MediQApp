@@ -34,9 +34,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.example.mediq.core.designsystem.component.EmptyState
+import com.example.mediq.core.designsystem.theme.LocalMediQColors
 import com.example.mediq.core.designsystem.theme.MediQGreen
 import com.example.mediq.core.designsystem.theme.MediQLightGreen
-import com.example.mediq.core.designsystem.theme.MediQSurface
 import com.example.mediq.domain.model.Appointment
 import com.example.mediq.domain.model.AppointmentStatus
 import com.example.mediq.domain.model.LoadState
@@ -51,11 +51,12 @@ fun AppointmentsScreen(navController: NavController) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     val tabs = listOf("Upcoming", "History")
+    val colors = LocalMediQColors.current
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.White)
+            .background(MaterialTheme.colorScheme.background)
             .padding(16.dp)
     ) {
         Text(
@@ -68,7 +69,7 @@ fun AppointmentsScreen(navController: NavController) {
         PrimaryTabRow(
             selectedTabIndex = uiState.selectedTab,
             containerColor = Color.Transparent,
-            contentColor = MediQGreen,
+            contentColor = colors.accent,
         ) {
             tabs.forEachIndexed { index, title ->
                 Tab(
@@ -87,7 +88,7 @@ fun AppointmentsScreen(navController: NavController) {
                     modifier = Modifier
                         .size(36.dp)
                         .align(Alignment.CenterHorizontally),
-                    color = MediQGreen,
+                    color = colors.accent,
                 )
             }
 
@@ -136,6 +137,7 @@ fun AppointmentsScreen(navController: NavController) {
 
 @Composable
 private fun AppointmentCard(appointment: Appointment, onClick: () -> Unit) {
+    val colors = LocalMediQColors.current
     val date = appointment.startsAt.toClinicDate()
     val time = appointment.startsAt.toClinicTime()
 
@@ -144,7 +146,7 @@ private fun AppointmentCard(appointment: Appointment, onClick: () -> Unit) {
             .fillMaxWidth()
             .clickable(onClick = onClick),
         shape     = RoundedCornerShape(12.dp),
-        color     = MediQSurface,
+        color     = MaterialTheme.colorScheme.surface,
     ) {
         Row(
             modifier = Modifier.padding(16.dp),
@@ -185,12 +187,12 @@ private fun AppointmentCard(appointment: Appointment, onClick: () -> Unit) {
                 Text(
                     text  = appointment.doctor.specialty.displayName,
                     style = MaterialTheme.typography.bodySmall,
-                    color = Color.Gray,
+                    color = colors.secondaryText,
                 )
                 Text(
                     text  = time.format(DateTimeFormatter.ofPattern("h:mm a")),
                     style = MaterialTheme.typography.bodySmall,
-                    color = Color.Gray,
+                    color = colors.secondaryText,
                 )
             }
 
@@ -202,9 +204,12 @@ private fun AppointmentCard(appointment: Appointment, onClick: () -> Unit) {
 
 @Composable
 private fun StatusChip(status: AppointmentStatus) {
+    // Both halves of every pair are hardcoded, so these chips keep the same
+    // measured contrast in either mode. The amber was #F9A825 on #FFF8E1,
+    // which is 1.85:1 - unreadable at 10sp.
     val (bg, fg) = when (status) {
         AppointmentStatus.CONFIRMED           -> Color(0xFFE8F5E9) to Color(0xFF2E7D32)
-        AppointmentStatus.PENDING_CONFIRMATION -> Color(0xFFFFF8E1) to Color(0xFFF9A825)
+        AppointmentStatus.PENDING_CONFIRMATION -> Color(0xFFFFF8E1) to Color(0xFF8F5000)
         AppointmentStatus.COMPLETED           -> Color(0xFFE3F2FD) to Color(0xFF1565C0)
         AppointmentStatus.CANCELLED           -> Color(0xFFFFEBEE) to Color(0xFFC62828)
         AppointmentStatus.DECLINED            -> Color(0xFFFFEBEE) to Color(0xFFC62828)

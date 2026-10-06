@@ -19,12 +19,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.example.mediq.core.designsystem.theme.LocalMediQColors
 import com.example.mediq.core.designsystem.theme.MediQGreen
 import com.example.mediq.ui.navigation.Screen
 
@@ -51,7 +51,7 @@ fun RegisterCredentialsScreen(navController: NavController) {
             text = "Choose the username and password you will use to sign in.",
             modifier = Modifier.fillMaxWidth(),
             style = MaterialTheme.typography.bodyMedium,
-            color = Color.Gray
+            color = LocalMediQColors.current.secondaryText
         )
         Spacer(modifier = Modifier.height(32.dp))
 
@@ -61,8 +61,8 @@ fun RegisterCredentialsScreen(navController: NavController) {
             onValueChange = { username = it },
             modifier = Modifier.fillMaxWidth(),
             colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = MediQGreen,
-                unfocusedBorderColor = Color.LightGray
+                focusedBorderColor = LocalMediQColors.current.accent,
+                unfocusedBorderColor = LocalMediQColors.current.outline
             )
         )
         Spacer(modifier = Modifier.height(16.dp))
@@ -74,14 +74,14 @@ fun RegisterCredentialsScreen(navController: NavController) {
             modifier = Modifier.fillMaxWidth(),
             visualTransformation = PasswordVisualTransformation(),
             colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = MediQGreen,
-                unfocusedBorderColor = Color.LightGray
+                focusedBorderColor = LocalMediQColors.current.accent,
+                unfocusedBorderColor = LocalMediQColors.current.outline
             )
         )
         Text(
             text = "At least 8 characters. Stored securely as a hash.",
             style = MaterialTheme.typography.bodySmall,
-            color = Color.Gray,
+            color = LocalMediQColors.current.secondaryText,
             modifier = Modifier.padding(top = 4.dp)
         )
         Spacer(modifier = Modifier.height(16.dp))
@@ -93,8 +93,8 @@ fun RegisterCredentialsScreen(navController: NavController) {
             modifier = Modifier.fillMaxWidth(),
             visualTransformation = PasswordVisualTransformation(),
             colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = MediQGreen,
-                unfocusedBorderColor = Color.LightGray
+                focusedBorderColor = LocalMediQColors.current.accent,
+                unfocusedBorderColor = LocalMediQColors.current.outline
             )
         )
 

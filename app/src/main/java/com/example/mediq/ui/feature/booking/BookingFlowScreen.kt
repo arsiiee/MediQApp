@@ -48,8 +48,11 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.example.mediq.core.designsystem.component.EmptyState
+import com.example.mediq.core.designsystem.theme.LocalMediQColors
 import com.example.mediq.core.designsystem.theme.MediQGreen
 import com.example.mediq.core.designsystem.theme.MediQLightGreen
+import com.example.mediq.core.designsystem.theme.MediQOnBrand
+import com.example.mediq.core.designsystem.theme.MediQTextSecondary
 import com.example.mediq.domain.model.toClinicDate
 import com.example.mediq.domain.model.toClinicTime
 import com.example.mediq.ui.navigation.Screen
@@ -81,21 +84,23 @@ fun BookingFlowScreen(navController: NavController, doctorId: String?) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background
+                )
             )
         }
     ) { innerPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.White)
+                .background(MaterialTheme.colorScheme.background)
                 .padding(innerPadding)
                 .padding(24.dp)
         ) {
             Text(
                 text = "BOOKING DETAILS",
                 style = MaterialTheme.typography.labelSmall,
-                color = Color.Gray,
+                color = LocalMediQColors.current.secondaryText,
             )
             Spacer(modifier = Modifier.height(8.dp))
 
@@ -158,8 +163,8 @@ fun BookingFlowScreen(navController: NavController, doctorId: String?) {
                 enabled = !uiState.isSubmitting,
                 minLines = 3,
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor   = MediQGreen,
-                    unfocusedBorderColor = Color.LightGray
+                    focusedBorderColor   = LocalMediQColors.current.accent,
+                    unfocusedBorderColor = LocalMediQColors.current.outline
                 )
             )
 
@@ -172,7 +177,7 @@ fun BookingFlowScreen(navController: NavController, doctorId: String?) {
                     checked  = uiState.confirmedByPatient,
                     onCheckedChange = { viewModel.onConfirmedChanged(it) },
                     enabled  = !uiState.isSubmitting,
-                    colors   = CheckboxDefaults.colors(checkedColor = MediQGreen),
+                    colors   = CheckboxDefaults.colors(checkedColor = LocalMediQColors.current.accent),
                 )
                 Text(
                     text  = "I confirm that the details above are correct and I wish to book this appointment.",
@@ -202,7 +207,7 @@ fun BookingFlowScreen(navController: NavController, doctorId: String?) {
                 if (uiState.isSubmitting) {
                     CircularProgressIndicator(
                         modifier    = Modifier.size(24.dp),
-                        color       = Color.White,
+                        color       = MediQOnBrand,
                         strokeWidth = 2.dp,
                     )
                 } else {
@@ -232,7 +237,11 @@ private fun BookingDetailRow(
                 Text(
                     text = sub,
                     style = MaterialTheme.typography.bodySmall,
-                    color = Color.Gray,
+                    // The light secondary token, not the mode-aware one: this
+                    // row always sits on the hardcoded MediQLightGreen card,
+                    // which stays light in dark mode. Was Color.Gray, which
+                    // measured 3.51:1 on that card.
+                    color = MediQTextSecondary,
                 )
             }
         }

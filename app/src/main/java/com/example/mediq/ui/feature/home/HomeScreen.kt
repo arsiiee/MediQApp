@@ -43,9 +43,9 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.example.mediq.core.designsystem.component.EmptyState
 import com.example.mediq.core.designsystem.component.EmptyStateInline
+import com.example.mediq.core.designsystem.theme.LocalMediQColors
 import com.example.mediq.core.designsystem.theme.MediQGreen
 import com.example.mediq.core.designsystem.theme.MediQLightGreen
-import com.example.mediq.core.designsystem.theme.MediQSurface
 import com.example.mediq.domain.model.Appointment
 import com.example.mediq.domain.model.Doctor
 import com.example.mediq.domain.model.LoadState
@@ -67,7 +67,7 @@ fun HomeScreen(navController: NavController) {
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.White)
+            .background(MaterialTheme.colorScheme.background)
             .padding(16.dp)
     ) {
         item {
@@ -86,13 +86,14 @@ fun HomeScreen(navController: NavController) {
 
 @Composable
 private fun HomeHeader(navController: NavController, nextAppointment: LoadState<Appointment?>) {
+    val colors = LocalMediQColors.current
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column {
-            Text(text = "Good day", style = MaterialTheme.typography.bodyMedium, color = Color.Gray)
+            Text(text = "Good day", style = MaterialTheme.typography.bodyMedium, color = colors.secondaryText)
             Text(
                 text = "Welcome back",
                 style = MaterialTheme.typography.headlineSmall,
@@ -103,18 +104,19 @@ private fun HomeHeader(navController: NavController, nextAppointment: LoadState<
             onClick = { navController.navigate(Screen.Notifications.route) },
             modifier = Modifier
                 .clip(CircleShape)
-                .background(MediQSurface)
+                .background(MaterialTheme.colorScheme.surface)
         ) {
-            Icon(Icons.Default.Notifications, contentDescription = "Notifications", tint = MediQGreen)
+            Icon(Icons.Default.Notifications, contentDescription = "Notifications", tint = colors.accent)
         }
     }
 }
 
 @Composable
 private fun NextConsultationCard(navController: NavController, state: LoadState<Appointment?>) {
+    val colors = LocalMediQColors.current
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MediQSurface),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         shape = RoundedCornerShape(16.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
@@ -127,12 +129,16 @@ private fun NextConsultationCard(navController: NavController, state: LoadState<
                         modifier = Modifier.fillMaxWidth(),
                         contentAlignment = Alignment.Center,
                     ) {
-                        CircularProgressIndicator(color = MediQGreen)
+                        CircularProgressIndicator(color = colors.accent)
                     }
                 }
 
                 is LoadState.Error -> {
-                    Text(text = state.message, color = Color(0xFFD32F2F), fontSize = 14.sp)
+                    Text(
+                        text = state.message,
+                        color = MaterialTheme.colorScheme.error,
+                        fontSize = 14.sp
+                    )
                 }
 
                 is LoadState.Success -> {
@@ -152,7 +158,7 @@ private fun NextConsultationCard(navController: NavController, state: LoadState<
             Spacer(modifier = Modifier.height(16.dp))
             Text(
                 text = "Manage appointment >",
-                color = MediQGreen,
+                color = colors.accent,
                 modifier = Modifier
                     .clickable { navController.navigate(Screen.Appointments.route) }
             )
@@ -162,21 +168,26 @@ private fun NextConsultationCard(navController: NavController, state: LoadState<
 
 @Composable
 private fun AppointmentSummary(appointment: Appointment) {
+    val colors = LocalMediQColors.current
     val date = appointment.startsAt.toClinicDate()
     val time = appointment.startsAt.toClinicTime()
 
     Column {
-        Text(text = time.format(TIME_FORMAT), fontSize = 24.sp, fontWeight = FontWeight.Bold, color = MediQGreen)
-        Text(text = date.format(DATE_FORMAT), color = Color.Gray)
+        Text(text = time.format(TIME_FORMAT), fontSize = 24.sp, fontWeight = FontWeight.Bold, color = colors.accent)
+        Text(text = date.format(DATE_FORMAT), color = colors.secondaryText)
         Spacer(modifier = Modifier.height(16.dp))
         Text(text = appointment.doctor.displayName, fontWeight = FontWeight.Bold)
-        Text(text = appointment.doctor.specialty.displayName, color = Color.Gray)
+        Text(text = appointment.doctor.specialty.displayName, color = colors.secondaryText)
         Text(
             text = "${appointment.location.building} — ${appointment.location.floor} — ${appointment.location.room}",
-            color = Color.Gray
+            color = colors.secondaryText
         )
         Spacer(modifier = Modifier.height(8.dp))
-        Text(text = "Arrive 15 minutes early for registration", color = MediQGreen, fontSize = 12.sp)
+        Text(
+            text = "Arrive 15 minutes early for registration",
+            color = colors.accent,
+            fontSize = 12.sp
+        )
     }
 }
 
@@ -211,14 +222,19 @@ private fun BrowseBySpecialty(navController: NavController) {
 
 @Composable
 private fun MostOpenSlots(state: LoadState<List<Doctor>>) {
+    val colors = LocalMediQColors.current
     Column {
         Text(text = "Most open slots this week", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
         Spacer(modifier = Modifier.height(16.dp))
 
         when (state) {
-            is LoadState.Loading -> CircularProgressIndicator(color = MediQGreen)
+            is LoadState.Loading -> CircularProgressIndicator(color = colors.accent)
 
-            is LoadState.Error -> Text(text = state.message, color = Color(0xFFD32F2F), fontSize = 14.sp)
+            is LoadState.Error -> Text(
+                text = state.message,
+                color = MaterialTheme.colorScheme.error,
+                fontSize = 14.sp
+            )
 
             is LoadState.Success -> {
                 if (state.data.isEmpty()) {
@@ -240,10 +256,11 @@ private fun MostOpenSlots(state: LoadState<List<Doctor>>) {
 
 @Composable
 private fun DoctorSlotRow(doctor: Doctor) {
+    val colors = LocalMediQColors.current
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Color.White, RoundedCornerShape(12.dp))
+            .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(12.dp))
             .padding(16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -260,7 +277,7 @@ private fun DoctorSlotRow(doctor: Doctor) {
             Text(text = doctor.displayName, fontWeight = FontWeight.Bold)
             Text(
                 text = "${doctor.specialty.displayName} — ${doctor.location.building} — ${doctor.location.floor}",
-                color = Color.Gray,
+                color = colors.secondaryText,
                 fontSize = 12.sp
             )
         }

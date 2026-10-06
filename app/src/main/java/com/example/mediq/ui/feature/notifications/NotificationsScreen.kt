@@ -37,7 +37,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.example.mediq.core.designsystem.component.EmptyState
-import com.example.mediq.core.designsystem.theme.MediQGreen
+import com.example.mediq.core.designsystem.theme.LocalMediQColors
 import com.example.mediq.core.designsystem.theme.MediQLightGreen
 import com.example.mediq.domain.model.LoadState
 import com.example.mediq.domain.model.Notification
@@ -59,7 +59,9 @@ fun NotificationsScreen(navController: NavController) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background
+                )
             )
         }
     ) { innerPadding ->
@@ -71,7 +73,7 @@ fun NotificationsScreen(navController: NavController) {
                         .padding(innerPadding)
                         .padding(top = 48.dp)
                         .size(36.dp),
-                    color = MediQGreen,
+                    color = LocalMediQColors.current.accent,
                 )
             }
 
@@ -94,7 +96,7 @@ fun NotificationsScreen(navController: NavController) {
                     LazyColumn(
                         modifier = Modifier
                             .fillMaxSize()
-                            .background(Color.White)
+                            .background(MaterialTheme.colorScheme.background)
                             .padding(innerPadding)
                             .padding(horizontal = 16.dp, vertical = 8.dp)
                     ) {
@@ -130,7 +132,7 @@ private fun NotificationRow(notification: Notification) {
                         .padding(top = 4.dp)
                         .size(8.dp),
                     shape = CircleShape,
-                    color = MediQGreen,
+                    color = LocalMediQColors.current.accent,
                 ) {}
                 Spacer(modifier = Modifier.width(8.dp))
             } else {
@@ -146,13 +148,15 @@ private fun NotificationRow(notification: Notification) {
                 Text(
                     text  = notification.body,
                     style = MaterialTheme.typography.bodySmall,
-                    color = Color.Gray,
+                    color = LocalMediQColors.current.secondaryText,
                 )
                 Text(
                     text  = notification.createdAt.toClinicDate()
                         .format(DateTimeFormatter.ofPattern("MMM d, yyyy")),
                     style = MaterialTheme.typography.labelSmall,
-                    color = Color.LightGray,
+                    // Was Color.LightGray, which is 1.50:1 on white and was
+                    // effectively invisible at 12sp.
+                    color = LocalMediQColors.current.secondaryText,
                 )
             }
         }

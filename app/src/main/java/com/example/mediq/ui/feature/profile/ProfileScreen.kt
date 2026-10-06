@@ -43,6 +43,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import com.example.mediq.core.designsystem.theme.LocalMediQColors
 import com.example.mediq.domain.model.AuthSession
 import com.example.mediq.domain.model.LoadState
 import com.example.mediq.ui.navigation.Screen
@@ -214,6 +215,7 @@ private fun ProfileHeader(session: AuthSession) {
 
 @Composable
 private fun ProfileDetailRow(icon: ImageVector, label: String, value: String) {
+    val colors = LocalMediQColors.current
     Surface(
         modifier = Modifier
             .fillMaxWidth()
@@ -228,7 +230,9 @@ private fun ProfileDetailRow(icon: ImageVector, label: String, value: String) {
             Icon(
                 icon,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
+                // The accent, not `primary`: primary stays the dark brand green
+                // in both schemes, which is 1.41:1 on the dark raised surface.
+                tint = colors.accent,
                 modifier = Modifier.size(20.dp)
             )
             Column(modifier = Modifier.padding(start = 12.dp)) {
@@ -254,6 +258,7 @@ private fun ProfileOption(
     isCritical: Boolean = false,
     onClick: () -> Unit,
 ) {
+    val colors = LocalMediQColors.current
     Surface(
         modifier = Modifier
             .fillMaxWidth()
@@ -269,7 +274,7 @@ private fun ProfileOption(
                 icon,
                 contentDescription = null,
                 tint = if (isCritical) MaterialTheme.colorScheme.error
-                       else MaterialTheme.colorScheme.primary
+                       else colors.accent
             )
             Spacer(modifier = Modifier.padding(horizontal = 16.dp))
             Text(

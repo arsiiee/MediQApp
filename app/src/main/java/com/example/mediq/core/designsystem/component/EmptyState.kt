@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -18,14 +19,13 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.mediq.core.designsystem.theme.LocalMediQColors
 import com.example.mediq.core.designsystem.theme.MediQGreen
-import com.example.mediq.core.designsystem.theme.MediQSurface
 
 /**
  * Shown where a screen has nothing to display yet.
@@ -45,6 +45,7 @@ fun EmptyState(
     actionLabel: String? = null,
     onAction: (() -> Unit)? = null,
 ) {
+    val colors = LocalMediQColors.current
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -55,13 +56,13 @@ fun EmptyState(
         Box(
             modifier = Modifier
                 .size(72.dp)
-                .background(MediQGreen.copy(alpha = 0.08f), CircleShape),
+                .background(colors.accent.copy(alpha = 0.08f), CircleShape),
             contentAlignment = Alignment.Center,
         ) {
             Icon(
                 imageVector = icon,
                 contentDescription = null,
-                tint = MediQGreen,
+                tint = colors.accent,
                 modifier = Modifier.size(32.dp),
             )
         }
@@ -76,7 +77,7 @@ fun EmptyState(
         Text(
             text = description,
             style = MaterialTheme.typography.bodyMedium,
-            color = Color.Gray,
+            color = colors.secondaryText,
             textAlign = TextAlign.Center,
         )
         if (actionLabel != null && onAction != null) {
@@ -101,10 +102,11 @@ fun EmptyStateInline(
     description: String,
     modifier: Modifier = Modifier,
 ) {
+    val colors = LocalMediQColors.current
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .background(MediQSurface, androidx.compose.foundation.shape.RoundedCornerShape(12.dp))
+            .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(12.dp))
             .padding(20.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
@@ -116,7 +118,7 @@ fun EmptyStateInline(
         Spacer(modifier = Modifier.height(4.dp))
         Text(
             text = description,
-            color = Color.Gray,
+            color = colors.secondaryText,
             fontSize = 14.sp,
             textAlign = TextAlign.Center,
         )

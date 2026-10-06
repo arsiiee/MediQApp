@@ -9,6 +9,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
@@ -30,8 +32,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
@@ -39,7 +43,9 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import com.example.mediq.core.designsystem.theme.LocalMediQColors
 import com.example.mediq.core.designsystem.theme.MediQGreen
+import com.example.mediq.core.designsystem.theme.MediQOnBrand
 import com.example.mediq.ui.navigation.Screen
 
 @Composable
@@ -68,7 +74,7 @@ fun SignInScreen(
         Spacer(modifier = Modifier.height(48.dp))
         Text(
             text = "MediQ",
-            color = MediQGreen,
+            color = LocalMediQColors.current.accent,
             fontSize = 32.sp,
             fontWeight = FontWeight.Bold
         )
@@ -83,7 +89,7 @@ fun SignInScreen(
             text = "Your role is detected automatically after authentication.",
             modifier = Modifier.fillMaxWidth(),
             style = MaterialTheme.typography.bodyMedium,
-            color = Color.Gray
+            color = LocalMediQColors.current.secondaryText
         )
         Spacer(modifier = Modifier.height(32.dp))
 
@@ -94,10 +100,20 @@ fun SignInScreen(
             modifier = Modifier.fillMaxWidth(),
             placeholder = { Text("e.g. maria.santos") },
             enabled = !uiState.isLoading,
+            // A username is not prose. Autocorrect rewrites the underscore in
+            // `demo_patient` into a space, and capitalisation turns it into
+            // `Demo_patient`; either mangles correct credentials into a 401 the
+            // server cannot distinguish from a wrong password.
+            keyboardOptions = KeyboardOptions(
+                keyboardType = KeyboardType.Text,
+                capitalization = KeyboardCapitalization.None,
+                autoCorrect = false,
+                imeAction = ImeAction.Next,
+            ),
             colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = MediQGreen,
-                unfocusedBorderColor = Color.LightGray,
-                focusedLabelColor = MediQGreen
+                focusedBorderColor = LocalMediQColors.current.accent,
+                unfocusedBorderColor = LocalMediQColors.current.outline,
+                focusedLabelColor = LocalMediQColors.current.accent
             )
         )
         Spacer(modifier = Modifier.height(16.dp))
@@ -110,6 +126,21 @@ fun SignInScreen(
             placeholder = { Text("Enter your password") },
             enabled = !uiState.isLoading,
             visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+            // Without `KeyboardType.Password` Android keeps autocorrect and
+            // suggestions live on this field, so it may rewrite the characters
+            // as they are typed. `KeyboardType.Password` is also what switches
+            // the keyboard to the non-predictive layout. Together these stop a
+            // correct password reaching the server as a different string.
+            keyboardOptions = KeyboardOptions(
+                keyboardType = KeyboardType.Password,
+                capitalization = KeyboardCapitalization.None,
+                autoCorrect = false,
+                imeAction = ImeAction.Done,
+            ),
+            keyboardActions = KeyboardActions(
+                onDone = { viewModel.signIn() }
+            ),
+            singleLine = true,
             trailingIcon = {
                 IconButton(onClick = { passwordVisible = !passwordVisible }) {
                     Icon(
@@ -119,9 +150,9 @@ fun SignInScreen(
                 }
             },
             colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = MediQGreen,
-                unfocusedBorderColor = Color.LightGray,
-                focusedLabelColor = MediQGreen
+                focusedBorderColor = LocalMediQColors.current.accent,
+                unfocusedBorderColor = LocalMediQColors.current.outline,
+                focusedLabelColor = LocalMediQColors.current.accent
             )
         )
 
@@ -131,7 +162,7 @@ fun SignInScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             TextButton(onClick = { /* Forgot Password — not yet implemented */ }) {
-                Text("Forgot Password?", color = MediQGreen)
+                Text("Forgot Password?", color = LocalMediQColors.current.accent)
             }
         }
 
@@ -158,7 +189,7 @@ fun SignInScreen(
             if (uiState.isLoading) {
                 CircularProgressIndicator(
                     modifier = Modifier.size(24.dp),
-                    color = Color.White,
+                    color = MediQOnBrand,
                     strokeWidth = 2.dp
                 )
             } else {
@@ -168,7 +199,7 @@ fun SignInScreen(
 
         Spacer(modifier = Modifier.weight(1f))
         TextButton(onClick = { navController.navigate(Screen.RegisterDetails.route) }) {
-            Text("Create Account / Register", color = MediQGreen)
+            Text("Create Account / Register", color = LocalMediQColors.current.accent)
         }
     }
 }

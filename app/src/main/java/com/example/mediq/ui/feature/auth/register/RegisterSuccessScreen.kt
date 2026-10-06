@@ -18,12 +18,12 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.example.mediq.core.designsystem.theme.LocalMediQColors
 import com.example.mediq.core.designsystem.theme.MediQGreen
 import com.example.mediq.ui.navigation.Screen
 
@@ -39,7 +39,7 @@ fun RegisterSuccessScreen(navController: NavController) {
             Icon(
                 imageVector = Icons.Filled.CheckCircle,
                 contentDescription = null,
-                tint = MediQGreen,
+                tint = LocalMediQColors.current.accent,
                 modifier = Modifier.size(100.dp)
             )
             Spacer(modifier = Modifier.height(32.dp))
@@ -52,7 +52,7 @@ fun RegisterSuccessScreen(navController: NavController) {
             Text(
                 text = "Welcome to MediQ, Jesse. Your account is verified and ready — sign in to search doctors and book your first consultation.",
                 textAlign = TextAlign.Center,
-                color = Color.Gray
+                color = LocalMediQColors.current.secondaryText
             )
             Spacer(modifier = Modifier.height(48.dp))
             Button(

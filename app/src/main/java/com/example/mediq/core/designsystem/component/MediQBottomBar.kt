@@ -7,6 +7,7 @@ import androidx.compose.material.icons.filled.MedicalServices
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
@@ -18,8 +19,7 @@ import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.currentBackStackEntryAsState
-import com.example.mediq.core.designsystem.theme.MediQGreen
-import com.example.mediq.core.designsystem.theme.MediQSurface
+import com.example.mediq.core.designsystem.theme.LocalMediQColors
 import com.example.mediq.ui.navigation.Screen
 
 data class BottomNavItem(
@@ -38,9 +38,10 @@ val bottomNavItems = listOf(
 
 @Composable
 fun MediQBottomBar(navController: NavHostController) {
+    val colors = LocalMediQColors.current
     NavigationBar(
-        containerColor = MediQSurface,
-        contentColor = MediQGreen
+        containerColor = MaterialTheme.colorScheme.surface,
+        contentColor = colors.accent
     ) {
         val navBackStackEntry by navController.currentBackStackEntryAsState()
         val currentDestination = navBackStackEntry?.destination
@@ -61,11 +62,11 @@ fun MediQBottomBar(navController: NavHostController) {
                     }
                 },
                 colors = NavigationBarItemDefaults.colors(
-                    selectedIconColor = MediQGreen,
-                    unselectedIconColor = MediQGreen.copy(alpha = 0.6f),
-                    selectedTextColor = MediQGreen,
-                    unselectedTextColor = MediQGreen.copy(alpha = 0.6f),
-                    indicatorColor = MediQGreen.copy(alpha = 0.1f)
+                    selectedIconColor = colors.accent,
+                    unselectedIconColor = colors.secondaryText,
+                    selectedTextColor = colors.accent,
+                    unselectedTextColor = colors.secondaryText,
+                    indicatorColor = colors.accent.copy(alpha = 0.1f)
                 )
             )
         }

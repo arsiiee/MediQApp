@@ -19,11 +19,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.example.mediq.core.designsystem.theme.LocalMediQColors
 import com.example.mediq.core.designsystem.theme.MediQGreen
 import com.example.mediq.ui.navigation.Screen
 
@@ -49,7 +49,7 @@ fun RegisterDetailsScreen(navController: NavController) {
             text = "We only collect what is needed to schedule your consultations.",
             modifier = Modifier.fillMaxWidth(),
             style = MaterialTheme.typography.bodyMedium,
-            color = Color.Gray
+            color = LocalMediQColors.current.secondaryText
         )
         Spacer(modifier = Modifier.height(32.dp))
 
@@ -60,8 +60,8 @@ fun RegisterDetailsScreen(navController: NavController) {
             modifier = Modifier.fillMaxWidth(),
             placeholder = { Text("e.g. Maria Santos") },
             colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = MediQGreen,
-                unfocusedBorderColor = Color.LightGray
+                focusedBorderColor = LocalMediQColors.current.accent,
+                unfocusedBorderColor = LocalMediQColors.current.outline
             )
         )
         Spacer(modifier = Modifier.height(16.dp))
@@ -73,14 +73,14 @@ fun RegisterDetailsScreen(navController: NavController) {
             modifier = Modifier.fillMaxWidth(),
             placeholder = { Text("+63 917 555 0142") },
             colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = MediQGreen,
-                unfocusedBorderColor = Color.LightGray
+                focusedBorderColor = LocalMediQColors.current.accent,
+                unfocusedBorderColor = LocalMediQColors.current.outline
             )
         )
         Text(
             text = "Used for the verification code and appointment reminders.",
             style = MaterialTheme.typography.bodySmall,
-            color = Color.Gray,
+            color = LocalMediQColors.current.secondaryText,
             modifier = Modifier.padding(top = 4.dp)
         )
 
