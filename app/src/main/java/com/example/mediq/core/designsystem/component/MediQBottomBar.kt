@@ -1,11 +1,11 @@
-package com.example.mediq.ui.components
+package com.example.mediq.core.designsystem.component
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CalendarMonth
-import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.MedicalServices
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -18,9 +18,9 @@ import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.currentBackStackEntryAsState
+import com.example.mediq.core.designsystem.theme.MediQGreen
+import com.example.mediq.core.designsystem.theme.MediQSurface
 import com.example.mediq.ui.navigation.Screen
-import com.example.mediq.ui.theme.MediQGreen
-import com.example.mediq.ui.theme.MediQSurface
 
 data class BottomNavItem(
     val screen: Screen,
@@ -32,7 +32,7 @@ val bottomNavItems = listOf(
     BottomNavItem(Screen.Home, Icons.Filled.Home, "Home"),
     BottomNavItem(Screen.Doctors, Icons.Filled.MedicalServices, "Doctors"),
     BottomNavItem(Screen.Appointments, Icons.Filled.CalendarMonth, "Appointments"),
-    BottomNavItem(Screen.Messages, Icons.Filled.Chat, "Messages"),
+    BottomNavItem(Screen.Messages, Icons.AutoMirrored.Filled.Chat, "Messages"),
     BottomNavItem(Screen.Profile, Icons.Filled.Person, "Profile")
 )
 

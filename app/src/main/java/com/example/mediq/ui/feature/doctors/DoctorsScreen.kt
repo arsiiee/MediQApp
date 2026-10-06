@@ -1,32 +1,58 @@
-package com.example.mediq.ui.screens
+package com.example.mediq.ui.feature.doctors
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material3.Surface
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.outlined.PersonSearch
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import com.example.mediq.core.designsystem.component.EmptyState
+import com.example.mediq.core.designsystem.theme.MediQGreen
+import com.example.mediq.core.designsystem.theme.MediQLightGreen
+import com.example.mediq.domain.model.Doctor
+import com.example.mediq.domain.model.LoadState
+import com.example.mediq.domain.model.Money
+import com.example.mediq.domain.model.Specialty
 import com.example.mediq.ui.navigation.Screen
-import com.example.mediq.ui.theme.MediQGreen
-import com.example.mediq.ui.theme.MediQLightGreen
-import com.example.mediq.ui.theme.MediQSurface
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DoctorsScreen(navController: NavController) {
-    var searchQuery by remember { mutableStateOf("") }
+    val viewModel: DoctorsViewModel = viewModel(factory = DoctorsViewModel.Factory)
+    val state by viewModel.uiState.collectAsStateWithLifecycle()
 
     Column(
         modifier = Modifier
@@ -34,11 +60,15 @@ fun DoctorsScreen(navController: NavController) {
             .background(Color.White)
             .padding(16.dp)
     ) {
-        Text(text = "Search doctor name or specialty", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        Text(
+            text = "Search doctor name or specialty",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold
+        )
         Spacer(modifier = Modifier.height(16.dp))
         OutlinedTextField(
-            value = searchQuery,
-            onValueChange = { searchQuery = it },
+            value = state.searchText,
+            onValueChange = viewModel::onSearchTextChange,
             modifier = Modifier.fillMaxWidth(),
             placeholder = { Text("Search...") },
             leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
@@ -50,31 +80,69 @@ fun DoctorsScreen(navController: NavController) {
         )
         Spacer(modifier = Modifier.height(16.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            FilterChip(selected = true, onClick = {}, label = { Text("Filter by specialty") })
-            FilterChip(selected = false, onClick = {}, label = { Text("Filter by clinic location") })
+            FilterChip(
+                selected = state.selectedSpecialty != null,
+                onClick = {
+                    // Tapping an active chip clears it, so there's a way back to
+                    // the unfiltered list.
+                    val next = if (state.selectedSpecialty != null) null else Specialty.PEDIATRICS
+                    viewModel.onSpecialtySelected(next)
+                },
+                label = { Text("Filter by specialty") }
+            )
+            FilterChip(
+                selected = false,
+                onClick = {},
+                enabled = false,
+                label = { Text("Filter by clinic location") }
+            )
         }
-        Spacer(modifier = Modifier.height(16.dp))
-        
-        val doctors = listOf(
-            DoctorInfo("Dr. Maria Elena Sandoval", "Internal Medicine", 14, 700, "Main Building — 2F — Clinic 204"),
-            DoctorInfo("Dr. Joel Marquez", "Pediatrics", 18, 500, "Annex Wing — 1F — Clinic 106"),
-            DoctorInfo("Dr. Antonio Reyes Jr.", "Cardiology", 20, 1000, "Annex Wing — 3F — Heart Station 301"),
-            DoctorInfo("Dr. Grace Villanueva", "Ob-Gynecology", 15, 800, "Annex Wing — 4F — Clinic 402"),
-            DoctorInfo("Dr. Ramon Dela Cruz", "Orthopedics", 13, 900, "Main Building — 3F — Clinic 312")
-        )
 
-        LazyColumn(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            items(doctors) { doctor ->
-                DoctorListItem(doctor, onClick = { navController.navigate(Screen.DoctorDetails.createRoute("1")) })
+        when (val doctors = state.doctors) {
+            is LoadState.Loading -> Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator(color = MediQGreen)
+            }
+
+            is LoadState.Error -> Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(text = doctors.message, color = Color(0xFFD32F2F), textAlign = TextAlign.Center)
+            }
+
+            is LoadState.Success -> {
+                if (doctors.data.isEmpty()) {
+                    EmptyState(
+                        icon = Icons.Outlined.PersonSearch,
+                        title = if (state.searchText.isBlank()) "No doctors yet" else "No matches",
+                        description = if (state.searchText.isBlank()) {
+                            "Doctors will appear here once the directory is available."
+                        } else {
+                            "Nothing matched \"${state.searchText}\". Try a different name or specialty."
+                        },
+                    )
+                } else {
+                    LazyColumn(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                        items(doctors.data) { doctor ->
+                            DoctorListItem(
+                                doctor = doctor,
+                                onClick = {
+                                    navController.navigate(Screen.DoctorDetails.createRoute(doctor.id))
+                                }
+                            )
+                        }
+                    }
+                }
             }
         }
     }
 }
 
-data class DoctorInfo(val name: String, val specialty: String, val experience: Int, val fee: Int, val location: String)
-
 @Composable
-fun DoctorListItem(doctor: DoctorInfo, onClick: () -> Unit) {
+private fun DoctorListItem(doctor: Doctor, onClick: () -> Unit) {
     Surface(
         color = Color.White,
         border = androidx.compose.foundation.BorderStroke(1.dp, Color.LightGray),
@@ -90,25 +158,35 @@ fun DoctorListItem(doctor: DoctorInfo, onClick: () -> Unit) {
                     .background(MediQLightGreen, CircleShape),
                 contentAlignment = Alignment.Center
             ) {
-                Text(text = doctor.name.split(" ").last().take(1) + doctor.name.split(" ").drop(1).firstOrNull()?.take(1), 
-                    color = MediQGreen, fontWeight = FontWeight.Bold, fontSize = 20.sp)
+                Text(text = doctor.initials, color = MediQGreen, fontWeight = FontWeight.Bold, fontSize = 20.sp)
             }
-            Spacer(modifier = Modifier.width(16.dp))
+            Spacer(modifier = Modifier.size(16.dp))
             Column {
-                Text(text = doctor.name, fontWeight = FontWeight.Bold)
-                Text(text = doctor.specialty, color = Color.Gray, fontSize = 14.sp)
-                Text(text = doctor.location, color = Color.Gray, fontSize = 12.sp)
+                Text(text = doctor.displayName, fontWeight = FontWeight.Bold)
+                Text(text = doctor.specialty.displayName, color = Color.Gray, fontSize = 14.sp)
+                Text(
+                    text = "${doctor.location.building} — ${doctor.location.floor} — ${doctor.location.room}",
+                    color = Color.Gray,
+                    fontSize = 12.sp
+                )
                 Spacer(modifier = Modifier.height(8.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(text = "Experience", color = Color.Gray, fontSize = 12.sp)
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(text = "${doctor.experience} years", fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                    Spacer(modifier = Modifier.width(16.dp))
+                    Spacer(modifier = Modifier.size(4.dp))
+                    Text(
+                        text = "${doctor.yearsOfExperience} years",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 12.sp
+                    )
+                    Spacer(modifier = Modifier.size(16.dp))
                     Text(text = "Consultation", color = Color.Gray, fontSize = 12.sp)
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(text = "₱${doctor.fee}", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                    Spacer(modifier = Modifier.size(4.dp))
+                    Text(text = doctor.consultationFee.format(), fontWeight = FontWeight.Bold, fontSize = 12.sp)
                 }
             }
         }
     }
 }
+
+/** Formats centavos as pesos. Lives here because display is the UI's job. */
+private fun Money.format(): String = "₱$pesos"

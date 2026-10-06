@@ -1,4 +1,4 @@
-package com.example.mediq.ui.theme
+package com.example.mediq.core.designsystem.theme
 
 import androidx.compose.material3.Typography
 import androidx.compose.ui.text.TextStyle

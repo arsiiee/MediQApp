@@ -1,32 +1,76 @@
-package com.example.mediq.ui.screens
+package com.example.mediq.ui.feature.booking
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.outlined.AccessTime
+import androidx.compose.material.icons.outlined.CalendarMonth
+import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.outlined.LocationOn
+import androidx.compose.material.icons.outlined.MedicalServices
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CheckboxDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import com.example.mediq.core.designsystem.component.EmptyState
+import com.example.mediq.core.designsystem.theme.MediQGreen
+import com.example.mediq.core.designsystem.theme.MediQLightGreen
+import com.example.mediq.domain.model.toClinicDate
+import com.example.mediq.domain.model.toClinicTime
 import com.example.mediq.ui.navigation.Screen
-import com.example.mediq.ui.theme.MediQGreen
-import com.example.mediq.ui.theme.MediQLightGreen
-import com.example.mediq.ui.theme.MediQSurface
+import java.time.format.DateTimeFormatter
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BookingFlowScreen(navController: NavController, doctorId: String?) {
-    var reason by remember { mutableStateOf("") }
-    var confirmed by remember { mutableStateOf(false) }
+    val viewModel: BookingViewModel = viewModel(factory = BookingViewModel.Factory)
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val selection = BookingSelection.selection
+
+    // Navigate to BookingSuccess as soon as the booking is confirmed by the server.
+    LaunchedEffect(uiState.booked) {
+        if (uiState.booked) {
+            navController.navigate(Screen.BookingSuccess.route) {
+                // Pop back to Doctors so pressing Back from Success goes to the list.
+                popUpTo(Screen.Doctors.route)
+            }
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -34,7 +78,7 @@ fun BookingFlowScreen(navController: NavController, doctorId: String?) {
                 title = { Text("Book Appointment", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
@@ -48,45 +92,148 @@ fun BookingFlowScreen(navController: NavController, doctorId: String?) {
                 .padding(innerPadding)
                 .padding(24.dp)
         ) {
-            Text(text = "BOOKING DETAILS", style = MaterialTheme.typography.labelSmall, color = Color.Gray)
+            Text(
+                text = "BOOKING DETAILS",
+                style = MaterialTheme.typography.labelSmall,
+                color = Color.Gray,
+            )
             Spacer(modifier = Modifier.height(8.dp))
-            Text(text = "Dr. Maria Elena Sandoval", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-            Text(text = "Internal Medicine", color = Color.Gray)
-            
+
+            if (selection == null) {
+                // Should not normally happen — DoctorDetailsScreen always sets
+                // a selection before navigating here.
+                Text(
+                    text = "No slot selected. Please go back and choose a date and time.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.error,
+                )
+            } else {
+                // ── Booking summary card ──────────────────────────────────
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = MediQLightGreen,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        BookingDetailRow(
+                            icon  = Icons.Outlined.MedicalServices,
+                            label = selection.doctorDisplayName,
+                            sub   = selection.specialtyDisplayName,
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        BookingDetailRow(
+                            icon  = Icons.Outlined.CalendarMonth,
+                            label = selection.startsAt.toClinicDate()
+                                .format(DateTimeFormatter.ofPattern("EEEE, MMMM d, yyyy")),
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        BookingDetailRow(
+                            icon  = Icons.Outlined.AccessTime,
+                            label = selection.startsAt.toClinicTime()
+                                .format(DateTimeFormatter.ofPattern("h:mm a")),
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        BookingDetailRow(
+                            icon  = Icons.Outlined.LocationOn,
+                            label = selection.locationDisplay,
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text  = "Fee: ₱${selection.feeCentavos / 100}",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MediQGreen,
+                        )
+                    }
+                }
+            }
+
             Spacer(modifier = Modifier.height(24.dp))
-            Text(text = "Monday, Sep 14, 2026", fontWeight = FontWeight.Bold, fontSize = 18.sp)
-            Text(text = "9:30 AM", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = MediQGreen)
-            Text(text = "Main Building — 2F — Clinic 204", color = Color.Gray)
-            
-            Spacer(modifier = Modifier.height(32.dp))
-            Text(text = "Reason for visit", fontWeight = FontWeight.SemiBold)
+            Text(text = "Reason for visit (optional)", fontWeight = FontWeight.SemiBold)
             OutlinedTextField(
-                value = reason,
-                onValueChange = { reason = it },
-                modifier = Modifier.fillMaxWidth().height(120.dp),
+                value = uiState.reasonForVisit,
+                onValueChange = { viewModel.onReasonChanged(it) },
+                modifier = Modifier.fillMaxWidth(),
                 placeholder = { Text("Enter the reason for your consultation...") },
+                enabled = !uiState.isSubmitting,
+                minLines = 3,
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = MediQGreen,
+                    focusedBorderColor   = MediQGreen,
                     unfocusedBorderColor = Color.LightGray
                 )
             )
-            
-            Spacer(modifier = Modifier.height(24.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Checkbox(checked = confirmed, onCheckedChange = { confirmed = it })
-                Text(text = "I confirm this booking and will arrive 15 minutes early.", style = MaterialTheme.typography.bodySmall)
+
+            Spacer(modifier = Modifier.height(16.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Checkbox(
+                    checked  = uiState.confirmedByPatient,
+                    onCheckedChange = { viewModel.onConfirmedChanged(it) },
+                    enabled  = !uiState.isSubmitting,
+                    colors   = CheckboxDefaults.colors(checkedColor = MediQGreen),
+                )
+                Text(
+                    text  = "I confirm that the details above are correct and I wish to book this appointment.",
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.weight(1f),
+                )
             }
-            
+
+            if (uiState.error != null) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text  = uiState.error!!,
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+
             Spacer(modifier = Modifier.weight(1f))
             Button(
-                onClick = { navController.navigate(Screen.BookingSuccess.route) },
+                onClick  = { viewModel.submit() },
+                enabled  = uiState.canSubmit,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(56.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = if (confirmed) MediQGreen else Color.LightGray),
-                enabled = confirmed
+                colors = ButtonDefaults.buttonColors(containerColor = MediQGreen)
             ) {
-                Text(text = "Confirm Booking", fontSize = 18.sp)
+                if (uiState.isSubmitting) {
+                    CircularProgressIndicator(
+                        modifier    = Modifier.size(24.dp),
+                        color       = Color.White,
+                        strokeWidth = 2.dp,
+                    )
+                } else {
+                    Text("Confirm Booking", fontSize = 18.sp)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun BookingDetailRow(
+    icon: ImageVector,
+    label: String,
+    sub: String? = null,
+) {
+    Row(verticalAlignment = Alignment.Top) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = MediQGreen,
+            modifier = Modifier.size(18.dp),
+        )
+        Column(modifier = Modifier.padding(start = 8.dp)) {
+            Text(text = label, style = MaterialTheme.typography.bodyMedium)
+            if (sub != null) {
+                Text(
+                    text = sub,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.Gray,
+                )
             }
         }
     }
@@ -100,49 +247,12 @@ fun BookingSuccessScreen(navController: NavController) {
             .padding(24.dp),
         contentAlignment = Alignment.Center
     ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Icon(
-                imageVector = Icons.Default.CheckCircle,
-                contentDescription = null,
-                tint = MediQGreen,
-                modifier = Modifier.size(100.dp)
-            )
-            Spacer(modifier = Modifier.height(32.dp))
-            Text(
-                text = "Booking Successful",
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-            Text(
-                text = "Dr. Maria Elena Sandoval",
-                fontWeight = FontWeight.Bold,
-                fontSize = 18.sp
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = "Monday, September 14 — Monday, September 21, 2026 at 10:00 AM. The clinic secretary will confirm your appointment, and you will receive a reminder a day before.",
-                textAlign = TextAlign.Center,
-                color = Color.Gray
-            )
-            Spacer(modifier = Modifier.height(48.dp))
-            Button(
-                onClick = { 
-                    navController.navigate(Screen.Appointments.route) {
-                        popUpTo(Screen.Home.route)
-                    }
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = MediQGreen)
-            ) {
-                Text("View my appointments", fontSize = 18.sp)
-            }
-            Spacer(modifier = Modifier.height(16.dp))
-            TextButton(onClick = { /* Add to calendar */ }) {
-                Text("Add to Google Calendar", color = MediQGreen)
-            }
-        }
+        EmptyState(
+            icon = Icons.Outlined.CheckCircle,
+            title = "Appointment booked!",
+            description = "Your appointment has been confirmed. Check your appointments for details.",
+            actionLabel = "View appointments",
+            onAction = { navController.navigate(Screen.Appointments.route) },
+        )
     }
 }

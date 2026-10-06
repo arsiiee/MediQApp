@@ -12,10 +12,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.example.mediq.core.designsystem.component.MediQBottomBar
+import com.example.mediq.core.designsystem.theme.MediQTheme
 import com.example.mediq.ui.navigation.MediQNavHost
 import com.example.mediq.ui.navigation.Screen
-import com.example.mediq.ui.theme.MediQTheme
-import com.example.mediq.ui.components.MediQBottomBar
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
