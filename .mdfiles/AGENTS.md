@@ -21,7 +21,7 @@ Two caveats. The **machine**-level `JAVA_HOME` still points at `C:\Users\You\Dow
 
 Verify the app with `:app:compileDebugKotlin` (~2s warm, ~3min cold). Full APK: `:app:assembleDebug` (~80s).
 
-`:app` unit tests live in `data/api/` — `ApiErrorsTest.kt` (11 tests over error-body parsing) and `UnknownWireValueTest.kt` (8 tests pinning how unrecognised wire values resolve) — runnable with `.\gradlew.bat :app:testDebugUnitTest`. That is the whole harness: `ExampleUnitTest`/`ExampleInstrumentedTest` are still untouched Android Studio templates, there is no coroutine test dependency, and there are no fake repositories, so **ViewModel logic cannot be unit tested yet**. Any ViewModel calls `viewModelScope` and needs `Dispatchers.Main`, which throws on the JVM unless `kotlinx-coroutines-test` swaps it. The substantial test suite is `:server:test` (36 tests, see below).
+`:app` unit tests live in `data/api/` — `ApiErrorsTest.kt` (11 tests over error-body parsing), `UnknownWireValueTest.kt` (8 tests pinning how unrecognised wire values resolve), and `GsonLeniencyTest.kt` (3 tests pinning JSON parsing behaviour) — runnable with `.\gradlew.bat :app:testDebugUnitTest`. That is the whole harness: `ExampleUnitTest`/`ExampleInstrumentedTest` are still untouched Android Studio templates, there is no coroutine test dependency, and there are no fake repositories, so **ViewModel logic cannot be unit tested yet**. Any ViewModel calls `viewModelScope` and needs `Dispatchers.Main`, which throws on the JVM unless `kotlinx-coroutines-test` swaps it. The substantial test suite is `:server:test` (36 tests, see below).
 
 ## Running on a device
 
@@ -242,9 +242,18 @@ documented under "Error contract" above, and the enum-resolution issue is fixed
 and documented under "Networking". The remaining nine are **unstarted** —
 they are observations, not planned work, so they are not in `tasks/todo.md`.
 
-- **`ignoreUnknownKeys = false` makes every response field a breaking change.**
-  Sound for inbound bodies, inverted for responses: adding a field to `DoctorDto`
-  breaks every installed build. Needs asymmetric config — strict in, lenient out.
+- **A renamed response field fails silently, and nothing detects it.** *This
+  replaced an earlier, wrong claim: that `ignoreUnknownKeys = false` makes every
+  added response field a breaking change.* It does not. That setting is on the
+  server (`Main.kt`) and governs how the **server** parses an inbound request
+  body; the client parses responses with Gson through
+  `GsonConverterFactory.create()`, whose default ignores unknown fields, so
+  adding a field is safe for installed builds. `GsonLeniencyTest` pins this,
+  because the claim looked plausible and was wrong. The real risk is the mirror
+  one: Gson cannot distinguish "the server never sent this" from "the field was
+  renamed" — both arrive as `null`, with no error either way, and a Kotlin
+  non-null field declared on the DTO will read as null at runtime without
+  throwing. Renames need a contract test; added fields need nothing.
 - **Pagination is fully specified server-side and entirely unused.** `Routes.kt`
   has cursors and `MAX_PAGE_SIZE`; `MediQApiService` sends no `limit` or `cursor`,
   and `AppointmentsViewModel` drops `nextCursor` by taking `.items`. A patient
