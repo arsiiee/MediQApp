@@ -39,7 +39,7 @@ class AuthService(
     private val random = SecureRandom()
 
     fun signIn(username: String, password: String): Pair<AccessToken, UserRow> {
-        val user = users.findByUsername(username)
+        val user = users.findByUsername(normalizeUsername(username))
 
         // Always run the hash comparison, even when there is no such user, so a
         // wrong username and a wrong password take the same time. Bailing out
@@ -226,6 +226,9 @@ class AuthService(
         sex: com.example.mediq.domain.model.Sex?,
         email: String?,
     ): Pair<AccessToken, UserRow> {
+        // Normalized once here so the uniqueness check and the stored row are
+        // guaranteed to agree with what [signIn] later looks up.
+        val normalizedUsername = normalizeUsername(username)
         val codeRowId = registrationId.removePrefix("reg_")
         val mobileNumber = db.tx { c ->
             val row = c.prepareStatement(
@@ -239,7 +242,7 @@ class AuthService(
                 st.executeQuery().use { rs -> if (rs.next()) rs.getString("mobile_number") else null }
             } ?: throw ApiError.badRequest("Verify your number first, or start again.")
 
-            if (users.usernameExists(username)) {
+            if (users.usernameExists(normalizedUsername)) {
                 throw ApiError.badRequest("That username is already taken.")
             }
             if (email != null && users.emailExists(email)) {
@@ -258,7 +261,7 @@ class AuthService(
         }
 
         val user = users.create(
-            username = username,
+            username = normalizedUsername,
             password = password,
             fullName = fullName,
             email = email,
@@ -283,6 +286,29 @@ class AuthService(
             throw ApiError.badRequest("Enter a valid mobile number in international format.")
         }
         return if (trimmed.startsWith("+")) trimmed else "+$trimmed"
+    }
+
+    /**
+     * Normalizes a username for storage and lookup alike.
+     *
+     * Applied on both sides so the two can never disagree: [register] stores
+     * this form and [signIn] looks up this form.
+     *
+     * Trimming matters more than case. A phone keyboard that autocorrects or
+     * autocompletes a username can leave a trailing space or an uppercase first
+     * letter, and matching raw meant correct credentials produced the same
+     * opaque "Those details don't match an account." as a genuinely wrong
+     * password — with no way for a patient to tell the two apart.
+     *
+     * An empty result is rejected rather than looked up: an empty username must
+     * not fall through to matching nothing while appearing to be tried.
+     */
+    private fun normalizeUsername(raw: String): String {
+        val trimmed = raw.trim().lowercase()
+        if (trimmed.isEmpty()) {
+            throw ApiError.badRequest("Enter your username.")
+        }
+        return trimmed
     }
 
     /** Stub for the SMS gateway. Must send the code before real use. */

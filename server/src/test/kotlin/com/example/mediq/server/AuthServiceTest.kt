@@ -272,6 +272,103 @@ class AuthServiceTest {
     }
 
     // -------------------------------------------------------------------------
+    // Username normalization
+    //
+    // The bug these guard: a phone keyboard that autocorrects or autocompletes
+    // can send `Demo_patient ` where `demo_patient` was typed. Matching raw made
+    // correct credentials fail with the same opaque "Those details don't match
+    // an account." as a wrong password, leaving a patient with no way to tell a
+    // typo from a bad password.
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun `signIn accepts a username with a trailing space`() {
+        val password = "correct-horse-battery"
+        val user = createUserWithPassword("norm_user_32", password)
+
+        val (_, profile) = auth.signIn("norm_user_32   ", password)
+
+        assertEquals(user.id, profile.id)
+    }
+
+    @Test
+    fun `signIn accepts a username with a leading space`() {
+        val password = "correct-horse-battery"
+        val user = createUserWithPassword("norm_user_33", password)
+
+        val (_, profile) = auth.signIn("   norm_user_33", password)
+
+        assertEquals(user.id, profile.id)
+    }
+
+    @Test
+    fun `signIn ignores username case`() {
+        val password = "correct-horse-battery"
+        val user = createUserWithPassword("norm_user_34", password)
+
+        val (_, profile) = auth.signIn("NORM_USER_34", password)
+
+        assertEquals(user.id, profile.id)
+    }
+
+    @Test
+    fun `signIn still rejects a wrong password on a normalized username`() {
+        createUserWithPassword("norm_user_35", "correct-horse-battery")
+
+        // Normalization must not weaken the password check.
+        val error = assertFailsWith<ApiError> {
+            auth.signIn(" NORM_USER_35 ", "wrong-password")
+        }
+        assertEquals("unauthorized", error.code)
+    }
+
+    @Test
+    fun `signIn still rejects an unknown username that only differs by case`() {
+        val error = assertFailsWith<ApiError> {
+            auth.signIn("no_such_user_xyz".uppercase(), "anything")
+        }
+        assertEquals("unauthorized", error.code)
+    }
+
+    @Test
+    fun `register stores a username that survives the same normalization at sign-in`() {
+        val password = "correct-horse-battery"
+        val mobile = "+639170000036"
+        val (code, _) = auth.requestOtp(mobile)
+        val regId = auth.verifyOtp(mobile, code)
+
+        // Registered with a stray space and mixed case, as a keyboard might
+        // send, so the stored form has to be the normalized one.
+        auth.register(regId, "Mixed Case", "  Mixed_User_36 ", password, LocalDate.of(1990, 1, 1), null, null)
+
+        val (_, profile) = auth.signIn("mixed_user_36", password)
+
+        assertEquals("mixed_user_36", profile.username)
+    }
+
+    @Test
+    fun `register rejects a username that differs only by case`() {
+        val password = "correct-horse-battery"
+        val mobile1 = "+639170000037"
+        val mobile2 = "+639170000038"
+
+        val (code1, _) = auth.requestOtp(mobile1)
+        auth.register(
+            auth.verifyOtp(mobile1, code1), "First", "Case_Collide_37", password, LocalDate.of(1990, 1, 1), null, null
+        )
+
+        // Otherwise `Case_Collide_37` and `case_collide_37` are two accounts
+        // that are indistinguishable at sign-in.
+        val (code2, _) = auth.requestOtp(mobile2)
+        val regId2 = auth.verifyOtp(mobile2, code2)
+
+        val error = assertFailsWith<ApiError> {
+            auth.register(regId2, "Second", "case_collide_37", password, LocalDate.of(1991, 2, 2), null, null)
+        }
+        assertEquals("bad_request", error.code)
+    }
+
+    // -------------------------------------------------------------------------
     // Fixtures
     // -------------------------------------------------------------------------
 
