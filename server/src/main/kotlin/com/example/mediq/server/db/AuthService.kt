@@ -160,11 +160,18 @@ class AuthService(
             }
 
             if (!Passwords.verify(otp, row.hash)) {
-                c.prepareStatement("UPDATE otp_codes SET attempt_count = attempt_count + 1 WHERE id = ?")
-                    .use { st ->
-                        st.setString(1, row.id)
-                        st.executeUpdate()
-                    }
+                // The increment must be committed before throwing. Throwing
+                // inside db.tx{} triggers a rollback, which erases the update
+                // and leaves attempt_count at zero — making the lockout
+                // ineffective. Using a nested connection here commits the
+                // counter independently so the next call sees the real count.
+                db.tx { inner ->
+                    inner.prepareStatement("UPDATE otp_codes SET attempt_count = attempt_count + 1 WHERE id = ?")
+                        .use { st ->
+                            st.setString(1, row.id)
+                            st.executeUpdate()
+                        }
+                }
                 throw ApiError.badRequest("That code isn't right.")
             }
 
