@@ -208,6 +208,9 @@ private fun StatusChip(status: AppointmentStatus) {
         AppointmentStatus.COMPLETED           -> Color(0xFFE3F2FD) to Color(0xFF1565C0)
         AppointmentStatus.CANCELLED           -> Color(0xFFFFEBEE) to Color(0xFFC62828)
         AppointmentStatus.DECLINED            -> Color(0xFFFFEBEE) to Color(0xFFC62828)
+        // Grey, because the meaning is not known. Reusing a status colour here
+        // would imply a conclusion the app has not reached.
+        AppointmentStatus.UNKNOWN             -> Color(0xFFEEEEEE) to Color(0xFF616161)
     }
     Surface(shape = RoundedCornerShape(20.dp), color = bg) {
         Text(

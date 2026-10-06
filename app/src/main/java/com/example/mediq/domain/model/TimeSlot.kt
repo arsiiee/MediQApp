@@ -13,6 +13,17 @@ enum class SlotStatus(val wireValue: String) {
 
     /** The clinic blocked it, e.g. a meeting or leave. */
     BLOCKED("blocked"),
+
+    /**
+     * The server sent a value this build does not recognise.
+     *
+     * Not bookable. That is the whole point: the previous fallback for an
+     * unknown value was [AVAILABLE], which would offer a slot whose real state
+     * is unknown and let a patient tap through to a booking that fails — or
+     * worse, succeeds against a slot that should not have been free. When the
+     * answer is not known, the safe answer is no.
+     */
+    UNKNOWN("unknown"),
 }
 
 /**

@@ -21,7 +21,7 @@ Two caveats. The **machine**-level `JAVA_HOME` still points at `C:\Users\You\Dow
 
 Verify the app with `:app:compileDebugKotlin` (~2s warm, ~3min cold). Full APK: `:app:assembleDebug` (~80s).
 
-`:app` has one real unit test — `data/api/ApiErrorsTest.kt` (11 tests over error-body parsing) — runnable with `.\gradlew.bat :app:testDebugUnitTest`. That is the whole harness: `ExampleUnitTest`/`ExampleInstrumentedTest` are still untouched Android Studio templates, there is no coroutine test dependency, and there are no fake repositories, so **ViewModel logic cannot be unit tested yet**. Any ViewModel calls `viewModelScope` and needs `Dispatchers.Main`, which throws on the JVM unless `kotlinx-coroutines-test` swaps it. The substantial test suite is `:server:test` (36 tests, see below).
+`:app` unit tests live in `data/api/` — `ApiErrorsTest.kt` (11 tests over error-body parsing) and `UnknownWireValueTest.kt` (8 tests pinning how unrecognised wire values resolve) — runnable with `.\gradlew.bat :app:testDebugUnitTest`. That is the whole harness: `ExampleUnitTest`/`ExampleInstrumentedTest` are still untouched Android Studio templates, there is no coroutine test dependency, and there are no fake repositories, so **ViewModel logic cannot be unit tested yet**. Any ViewModel calls `viewModelScope` and needs `Dispatchers.Main`, which throws on the JVM unless `kotlinx-coroutines-test` swaps it. The substantial test suite is `:server:test` (36 tests, see below).
 
 ## Running on a device
 
@@ -182,7 +182,9 @@ The app uses Retrofit 2.11.0 + OkHttp 4.12.0 + Gson 2.11.0. The single `MediQApi
 
 **Token storage** uses `SharedPreferences` (`TokenStore.kt`). The full `AuthSessionDto` JSON is stored so `currentSession()` can reconstruct the complete `AuthSession` — including the nested `UserProfile` — without a network call. The token is stored in plaintext in the app's private storage; `EncryptedSharedPreferences` (Tink) or Android Keystore should replace this before production.
 
-**DTOs** in `data/api/ApiDtos.kt` mirror the server wire format with `String` fields for all dates, times, and enums. `data/api/ApiMappers.kt` converts them to domain types. Enum lookups use `firstOrNull` with safe fallbacks so unknown server values don't crash the app.
+**DTOs** in `data/api/ApiDtos.kt` mirror the server wire format with `String` fields for all dates, times, and enums. `data/api/ApiMappers.kt` converts them to domain types.
+
+**Enum lookups fall back to `UNKNOWN`, never to a positional guess.** The mapper used to do `firstOrNull { … } ?: <first enum entry>`, which resolved a wire value this build did not recognise into a confident wrong answer: an unrecognised appointment status became `PENDING_CONFIRMATION` (a cancelled appointment shown to a patient as awaiting confirmation) and an unrecognised slot became `BLOCKED`, having previously been `AVAILABLE` — bookable, on a guess. `AppointmentStatus` and `SlotStatus` now carry an explicit `UNKNOWN` member. **`UserRole` and `Specialty` must not.** They live in `domain/model/`, which `:server` compiles as `sharedDomain`, so the server parses them from untrusted input and reads them back with `.first {}`; an `UNKNOWN` member would widen what the server accepts and then fail on the row lookup. Those two fall back to `PATIENT` and `INTERNAL_MEDICINE` with the reason stated at the call site. `UnknownWireValueTest` fails if a positional fallback returns.
 
 ## Error contract
 
@@ -236,7 +238,8 @@ Three things to fix before real patients:
 ### API contract review (2026-10-06)
 
 A review of the client/server contract found eleven issues. #1 is fixed and
-documented under "Error contract" above. The remaining ten are **unstarted** —
+documented under "Error contract" above, and the enum-resolution issue is fixed
+and documented under "Networking". The remaining nine are **unstarted** —
 they are observations, not planned work, so they are not in `tasks/todo.md`.
 
 - **`ignoreUnknownKeys = false` makes every response field a breaking change.**
@@ -256,9 +259,6 @@ they are observations, not planned work, so they are not in `tasks/todo.md`.
   `explicitNulls = false` plus `COALESCE` means omission and clearing are the
   same operation, so clearing is impossible — `ifBlank { null }` in the repository
   silently restores the old value.
-- **Client enum resolution silently substitutes values the server would reject.**
-  An unknown appointment status becomes `PENDING_CONFIRMATION`. A cancelled
-  appointment rendered as pending, in a medical app, unlogged.
 - **`verifyOtp` is untyped on both sides** (`Map<String, String>`), so a missing
   key threw a developer string that reached the UI.
 - **Status codes are overloaded.** Duplicate username and already-cancelled are

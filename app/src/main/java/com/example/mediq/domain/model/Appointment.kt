@@ -22,6 +22,21 @@ enum class AppointmentStatus(val wireValue: String, val displayName: String) {
 
     /** The clinic declined, e.g. the doctor fell ill. */
     DECLINED("declined", "Declined"),
+
+    /**
+     * The server sent a value this build does not recognise.
+     *
+     * Not a normal state — the server never emits it. It exists so that a renamed
+     * or added wire value is *shown* as unknown rather than silently resolved to
+     * [PENDING_CONFIRMATION], which rendered a cancelled appointment as awaiting
+     * confirmation. A patient deciding whether to travel needs the truth, and
+     * "Unknown" is the truth.
+     *
+     * Not actionable and not upcoming: if the real status cannot be read, the
+     * app must not offer Cancel on the strength of a guess, and must not put it
+     * on the Upcoming tab as though it were settled.
+     */
+    UNKNOWN("unknown", "Unknown"),
     ;
 
     /** Appointments that belong on the "Upcoming" tab. */
@@ -46,11 +61,19 @@ data class Appointment(
 ) {
     fun isPast(now: Instant): Boolean = startsAt.isBefore(now)
 
-    /** Whether this appointment belongs on the "Upcoming" tab. */
+    /**
+     * Whether this appointment belongs on the "Upcoming" tab.
+     *
+     * [AppointmentStatus.UNKNOWN] counts as history on purpose. It is neither
+     * confirmed nor upcoming-and-certain, and dropping it from both tabs would
+     * hide an appointment from the patient entirely — the worst outcome, since
+     * the reason it is unknown is that something changed.
+     */
     fun belongsInHistory(now: Instant): Boolean =
         status == AppointmentStatus.COMPLETED ||
             status == AppointmentStatus.CANCELLED ||
             status == AppointmentStatus.DECLINED ||
+            status == AppointmentStatus.UNKNOWN ||
             isPast(now)
 }
 

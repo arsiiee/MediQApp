@@ -27,10 +27,22 @@ import java.time.LocalTime
 /**
  * Extension functions that convert API wire DTOs to domain models.
  *
- * All enum wire-value lookups use firstOrNull with a safe fallback so that an
- * unknown value from the server doesn't crash the app — it falls back to a
- * sensible default (typically the first enum entry) and logs nothing, keeping
- * the UI usable while the field is ignored.
+ * Every enum lookup resolves by wire value. Where the enum has an `UNKNOWN`
+ * member, that is the fallback; otherwise each mapper states why it cannot have
+ * one.
+ *
+ * The earlier version fell back to the first enum entry — `BLOCKED` for slots,
+ * `PENDING_CONFIRMATION` for appointments — which turned a wire value this build
+ * did not recognise into a confident wrong answer. A cancelled appointment
+ * rendered as awaiting confirmation; an unrecognised slot rendered as *bookable*.
+ * Neither raised anything, so no log pointed at the rename that caused it.
+ *
+ * **Adding `UNKNOWN` to an enum is not always safe.** These live in
+ * `domain/model/`, which `:server` compiles as `sharedDomain`, so the server
+ * parses some of them from untrusted input and reads others back out of the
+ * database with `.first {}`. `AppointmentStatus` and `SlotStatus` are safe:
+ * nothing parses them from a request. `UserRole` and `Specialty` are not — see
+ * the comments on those mappers.
  */
 
 // ─── Auth ────────────────────────────────────────────────────────────────────
@@ -50,6 +62,11 @@ fun UserProfileDto.toDomain(): UserProfile = UserProfile(
     dateOfBirth = LocalDate.parse(dateOfBirth),
     sex = sex?.let { w -> Sex.entries.firstOrNull { it.wireValue == w } },
     address = address,
+    // No UNKNOWN fallback on role, unlike the other enums below. UserRole is
+    // parsed from a JWT claim on the server and read back with `.first {}`, so
+    // an UNKNOWN member would make the server accept a role it does not
+    // recognise. PATIENT is the safe direction to be wrong in: it is the least
+    // privileged role, and the app shows no staff-only surface.
     role = UserRole.entries.firstOrNull { it.wireValue == role } ?: UserRole.PATIENT,
 )
 
@@ -58,6 +75,10 @@ fun UserProfileDto.toDomain(): UserProfile = UserProfile(
 fun DoctorDto.toDomain(): Doctor = Doctor(
     id = id,
     fullName = fullName,
+    // No UNKNOWN fallback on specialty either. It is parsed from the public
+    // `?specialty=` query param and read back with `.first {}` in DoctorStore,
+    // so an UNKNOWN member would widen what the server accepts and then fail on
+    // the row lookup. A mis-rendered specialty is cosmetic; that is not.
     specialty = Specialty.entries.firstOrNull { it.wireValue == specialty }
         ?: Specialty.INTERNAL_MEDICINE,
     yearsOfExperience = yearsOfExperience,
@@ -93,7 +114,7 @@ fun TimeSlotDto.toDomain() = TimeSlot(
     doctorId = doctorId,
     startsAt = Instant.parse(startsAt),
     endsAt = Instant.parse(endsAt),
-    status = SlotStatus.entries.firstOrNull { it.wireValue == status } ?: SlotStatus.BLOCKED,
+    status = SlotStatus.entries.firstOrNull { it.wireValue == status } ?: SlotStatus.UNKNOWN,
 )
 
 // ─── Appointments ─────────────────────────────────────────────────────────────
@@ -104,7 +125,7 @@ fun AppointmentDto.toDomain() = Appointment(
     startsAt = Instant.parse(startsAt),
     endsAt = Instant.parse(endsAt),
     status = AppointmentStatus.entries.firstOrNull { it.wireValue == status }
-        ?: AppointmentStatus.PENDING_CONFIRMATION,
+        ?: AppointmentStatus.UNKNOWN,
     location = location.toDomain(),
     fee = Money(fee.amountInCentavos),
     reasonForVisit = reasonForVisit,
