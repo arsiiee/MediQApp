@@ -283,6 +283,14 @@ they are observations, not planned work, so they are not in `tasks/todo.md`.
 ### Application
 
 - **Registration flow screens are not connected to the backend.** `RegisterDetails`, `RegisterOTP`, `RegisterCredentials`, and `RegisterSuccess` have no ViewModels and navigate between themselves via static local state. The server-side OTP + registration flow works, but the app screens don't call it yet.
+- **Four screens still hardcode colours, so they break in dark mode.**
+  `Theme.kt` follows `isSystemInDarkTheme()`, but `AppointmentsScreen`,
+  `HomeScreen`, `DoctorsScreen`, and `NotificationsScreen` still set
+  `Color.White` backgrounds, `Color.Black` text, and raw `Color(0x…)` status
+  chips, so their text goes invisible on a dark background. `ProfileScreen` was
+  converted to `MaterialTheme.colorScheme` on 2026-10-06; the rest are not done.
+  Prefer `colorScheme.*` over literals and over the `MediQGreen`/`MediQLightGreen`
+  constants, which are hardcoded light-mode values.
 - **`AppointmentDetailsScreen` is still a static empty state.** No ViewModel exists for it yet.
 - **H2 in-memory by default.** Fine for development, wrong for real patients. `MEDIQ_JDBC_URL` must point at Postgres, and `ServerConfig.validate()` refuses H2 when `MEDIQ_ENV=production`.
 - **`schema.sql` is applied at boot, not migrated.** It is all `CREATE TABLE IF NOT EXISTS`, safe on an existing database but not a migration tool. Once real data exists, move to Flyway before changing a column.

@@ -36,7 +36,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -44,9 +43,6 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
-import com.example.mediq.core.designsystem.theme.MediQGreen
-import com.example.mediq.core.designsystem.theme.MediQLightGreen
-import com.example.mediq.core.designsystem.theme.MediQSurface
 import com.example.mediq.domain.model.AuthSession
 import com.example.mediq.domain.model.LoadState
 import com.example.mediq.ui.navigation.Screen
@@ -61,7 +57,7 @@ fun ProfileScreen(navController: NavController) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.White)
+            .background(MaterialTheme.colorScheme.background)
             .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
@@ -70,7 +66,7 @@ fun ProfileScreen(navController: NavController) {
         when (val sessionState = uiState.session) {
             is LoadState.Loading -> {
                 CircularProgressIndicator(
-                    color = MediQGreen,
+                    color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(36.dp),
                 )
             }
@@ -153,14 +149,17 @@ fun ProfileScreen(navController: NavController) {
                             }
                         }
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD32F2F))
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error,
+                        contentColor  = MaterialTheme.colorScheme.onError
+                    )
                 ) {
                     Text("Sign out")
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showSignOutDialog = false }) {
-                    Text("Cancel", color = Color.Gray)
+                    Text("Cancel", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         )
@@ -178,14 +177,14 @@ private fun ProfileHeader(session: AuthSession) {
     Surface(
         modifier = Modifier.size(72.dp),
         shape    = CircleShape,
-        color    = MediQLightGreen,
+        color    = MaterialTheme.colorScheme.primaryContainer,
     ) {
         Text(
             text     = initials,
             modifier = Modifier.padding(top = 20.dp),
             style    = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.Bold,
-            color    = MediQGreen,
+            color    = MaterialTheme.colorScheme.onPrimaryContainer,
         )
     }
     Spacer(modifier = Modifier.height(8.dp))
@@ -197,18 +196,18 @@ private fun ProfileHeader(session: AuthSession) {
     Text(
         text  = "@${session.profile.username}",
         style = MaterialTheme.typography.bodySmall,
-        color = Color.Gray,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
     Spacer(modifier = Modifier.height(4.dp))
     Surface(
         shape = RoundedCornerShape(20.dp),
-        color = MediQLightGreen,
+        color = MaterialTheme.colorScheme.primaryContainer,
     ) {
         Text(
             text     = session.profile.role.wireValue,
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
             style    = MaterialTheme.typography.labelSmall,
-            color    = MediQGreen,
+            color    = MaterialTheme.colorScheme.onPrimaryContainer,
         )
     }
 }
@@ -220,18 +219,23 @@ private fun ProfileDetailRow(icon: ImageVector, label: String, value: String) {
             .fillMaxWidth()
             .padding(vertical = 4.dp),
         shape = RoundedCornerShape(12.dp),
-        color = MediQSurface,
+        color = MaterialTheme.colorScheme.surfaceVariant,
     ) {
         Row(
             modifier = Modifier.padding(16.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Icon(icon, contentDescription = null, tint = MediQGreen, modifier = Modifier.size(20.dp))
+            Icon(
+                icon,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(20.dp)
+            )
             Column(modifier = Modifier.padding(start = 12.dp)) {
                 Text(
                     text  = label,
                     style = MaterialTheme.typography.labelSmall,
-                    color = Color.Gray,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Text(
                     text  = value,
@@ -254,27 +258,36 @@ private fun ProfileOption(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onClick() },
-        color = MediQSurface,
+        color = MaterialTheme.colorScheme.surfaceVariant,
         shape = RoundedCornerShape(12.dp)
     ) {
         Row(
             modifier = Modifier.padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(icon, contentDescription = null, tint = if (isCritical) Color(0xFFD32F2F) else MediQGreen)
+            Icon(
+                icon,
+                contentDescription = null,
+                tint = if (isCritical) MaterialTheme.colorScheme.error
+                       else MaterialTheme.colorScheme.primary
+            )
             Spacer(modifier = Modifier.padding(horizontal = 16.dp))
             Text(
                 text     = title,
                 modifier = Modifier.weight(1f),
-                color    = if (isCritical) Color(0xFFD32F2F) else Color.Black
+                color    = if (isCritical) MaterialTheme.colorScheme.error
+                          else MaterialTheme.colorScheme.onSurface
             )
             if (trailingText != null) {
-                Surface(color = Color(0xFFFFF3E0), shape = CircleShape) {
+                Surface(
+                    color = MaterialTheme.colorScheme.tertiaryContainer,
+                    shape = CircleShape
+                ) {
                     Text(
                         text     = trailingText,
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
                         fontSize = 10.sp,
-                        color    = Color(0xFFE65100)
+                        color    = MaterialTheme.colorScheme.onTertiaryContainer
                     )
                 }
             }
