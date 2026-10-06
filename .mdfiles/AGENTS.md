@@ -2,6 +2,11 @@
 
 Two Gradle modules: `:app` (Android/Jetpack Compose client) and `:server` (Ktor JVM backend). Kotlin 2.2, AGP 9.3, Compose BOM 2026.02, `minSdk` 24, `compileSdk`/`targetSdk` 37.
 
+**Read `CONSTRAINTS.md` at the repo root before writing code.** It carries the
+enforced quality bar as numbers with a command per rule. Do not weaken it to
+make a change pass — change it explicitly, in its own change, where the diff
+shows the bar moving.
+
 ## Build environment
 
 `JAVA_HOME` is set at **user** level to `C:\Program Files\Android\Android Studio\jbr` (OpenJDK 21.0.10) and Gradle runs on it. New terminals and Android Studio pick this up with no per-shell setup:
