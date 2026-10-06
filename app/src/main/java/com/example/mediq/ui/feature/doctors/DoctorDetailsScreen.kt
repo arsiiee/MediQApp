@@ -29,8 +29,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -43,6 +41,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -52,20 +51,16 @@ import androidx.navigation.NavController
 import com.example.mediq.core.designsystem.component.EmptyState
 import com.example.mediq.core.designsystem.theme.LocalMediQColors
 import com.example.mediq.core.designsystem.theme.MediQGreen
-import com.example.mediq.core.designsystem.theme.MediQLightGreen
-import com.example.mediq.core.designsystem.theme.MediQOnBrand
 import com.example.mediq.domain.model.AvailableDate
 import com.example.mediq.domain.model.Doctor
 import com.example.mediq.domain.model.LoadState
 import com.example.mediq.domain.model.TimeSlot
-import com.example.mediq.domain.model.toClinicDate
-import com.example.mediq.domain.model.toClinicTime
 import com.example.mediq.ui.feature.booking.BookingSelection
+import com.example.mediq.ui.feature.booking.SlotPicker
 import com.example.mediq.ui.navigation.Screen
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
-import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -188,6 +183,9 @@ private fun DoctorDetailsContent(
     onSlotSelected: (TimeSlot) -> Unit,
 ) {
     val colors = LocalMediQColors.current
+    // Read through LocalConfiguration so the day names recompose when the user
+    // changes system locale. Locale.getDefault() directly would not observe.
+    val locale = LocalConfiguration.current.locales[0]
     Column(
         modifier = modifier.verticalScroll(rememberScrollState())
     ) {
@@ -272,7 +270,7 @@ private fun DoctorDetailsContent(
                         horizontalArrangement = Arrangement.SpaceBetween,
                     ) {
                         Text(
-                            text = hours.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.getDefault()),
+                            text = hours.dayOfWeek.getDisplayName(TextStyle.FULL, locale),
                             style = MaterialTheme.typography.bodySmall,
                         )
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -295,130 +293,25 @@ private fun DoctorDetailsContent(
             Spacer(modifier = Modifier.height(24.dp))
         }
 
-        // ── Available dates ───────────────────────────────────────────────
-        Column(modifier = Modifier.padding(horizontal = 16.dp)) {
-            Text(
-                text = "Available Dates",
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.Bold,
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-
-            when (availableDates) {
-                is LoadState.Loading -> CircularProgressIndicator(
-                    modifier = Modifier.size(24.dp),
-                    color = colors.accent,
-                    strokeWidth = 2.dp,
-                )
-
-                is LoadState.Error -> Text(
-                    text = availableDates.message,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.error,
-                )
-
-                is LoadState.Success -> {
-                    if (availableDates.data.isEmpty()) {
-                        Text(
-                            text = "No available dates this month.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = colors.secondaryText,
-                        )
-                    } else {
-                        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            availableDates.data.forEach { availDate ->
-                                val isSelected = availDate.date == selectedDate
-                                FilterChip(
-                                    selected = isSelected,
-                                    onClick  = { onDateSelected(availDate.date) },
-                                    label = {
-                                        Text(
-                                            text = availDate.date.format(
-                                                DateTimeFormatter.ofPattern("MMM d")
-                                            ),
-                                            style = MaterialTheme.typography.bodySmall,
-                                        )
-                                    },
-                                    // A fixed light pair: white on the brand green is 6.63:1, and stays so in
-                                    // either mode.
-                                    colors = FilterChipDefaults.filterChipColors(
-                                        selectedContainerColor = MediQGreen,
-                                        selectedLabelColor     = MediQOnBrand,
-                                    ),
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // ── Time slots ────────────────────────────────────────────────────
-        if (selectedDate != null) {
-            Column(modifier = Modifier.padding(horizontal = 16.dp)) {
-                Text(
-                    text = "Available Times",
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold,
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-
-                when (slotsState) {
-                    is LoadState.Loading -> CircularProgressIndicator(
-                        modifier = Modifier.size(24.dp),
-                        color = MediQGreen,
-                        strokeWidth = 2.dp,
-                    )
-
-                    is LoadState.Error -> Text(
-                        text = slotsState.message,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error,
-                    )
-
-                    is LoadState.Success -> {
-                        val bookable = slotsState.data.filter { it.isBookable }
-                        if (bookable.isEmpty()) {
-                            Text(
-                                text = "No open slots on this date.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = colors.secondaryText,
-                            )
-                        } else {
-                            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                bookable.forEach { slot ->
-                                    val isSelected = slot.id == selectedSlot?.id
-                                    Surface(
-                                        shape  = RoundedCornerShape(8.dp),
-                                        border = BorderStroke(
-                                            1.dp,
-                                            if (isSelected) MediQGreen else colors.outline,
-                                        ),
-                                        color = if (isSelected) MediQLightGreen
-                                                else MaterialTheme.colorScheme.surface,
-                                        modifier = Modifier
-                                            .padding(vertical = 4.dp)
-                                            .clickable { onSlotSelected(slot) },
-                                    ) {
-                                        Text(
-                                            text     = slot.startsAt.toClinicTime().toString(),
-                                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                                            style    = MaterialTheme.typography.bodySmall,
-                                            // Selected is a fixed pair: brand green on
-                                            // the light green chip is 5.89:1.
-                                            color    = if (isSelected) MediQGreen else colors.secondaryText,
-                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
+        // ── Availability ──────────────────────────────────────────────────
+        // Extracted to `SlotPicker` rather than left inline: the appointment
+        // reschedule flow now needs the same date-strip-and-slot-grid, and two
+        // hand-maintained copies of this chip styling are how they drift.
+        SlotPicker(
+            availableDates = availableDates,
+            selectedDate = selectedDate,
+            // Filtered here for this screen, which predates the shared
+            // component. `AppointmentDetailsViewModel` filters in its own state
+            // instead; both end up offering only bookable slots.
+            slots = when (slotsState) {
+                is LoadState.Success -> LoadState.Success(slotsState.data.filter { it.isBookable })
+                else -> slotsState
+            },
+            selectedSlot = selectedSlot,
+            onDateSelected = onDateSelected,
+            onSlotSelected = onSlotSelected,
+            modifier = Modifier.padding(horizontal = 16.dp),
+        )
 
         // Bottom padding so the bottom bar doesn't overlap content.
         Spacer(modifier = Modifier.height(80.dp))
