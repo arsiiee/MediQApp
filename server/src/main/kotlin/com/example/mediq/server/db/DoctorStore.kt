@@ -148,14 +148,30 @@ class DoctorStore(
             // Count open slots grouped by date in a single query.
             val rangeStart = firstDay.atStartOfDay(CLINIC_ZONE).toInstant()
             val rangeEnd = lastDay.plusDays(1).atStartOfDay(CLINIC_ZONE).toInstant()
+            // FORMATDATETIME is given the clinic zone explicitly instead of
+            // inheriting the session zone. `CAST(starts_at AS DATE)` looks
+            // equivalent and is not: H2 resolves it through the session zone, so
+            // a host booting in UTC reports an 01:00 Manila clinic under the
+            // *previous* day. `AT TIME ZONE` does not help — H2 ignores it for
+            // this conversion. AvailableDatesTest runs this query under three
+            // session zones so the guarantee cannot silently regress.
+            // The zone is a literal rather than a bound parameter: H2 rejects a
+            // parameter inside an aggregate's expression, so it has to be
+            // rendered into the text. Safe to interpolate because it is
+            // CLINIC_ZONE, a compile-time constant, not request input. The
+            // per-row filter values stay bound.
+            val zone = CLINIC_ZONE.id.replace("'", "''")
             c.prepareStatement(
                 """
-                SELECT CAST(s.starts_at AS DATE) AS slot_date, COUNT(*) AS open_count
-                FROM slots s
-                WHERE s.doctor_id = ? AND s.status = 'available'
-                  AND s.starts_at >= ? AND s.starts_at < ?
-                  AND NOT EXISTS (SELECT 1 FROM slot_claims sc WHERE sc.slot_id = s.id)
-                GROUP BY CAST(s.starts_at AS DATE)
+                SELECT slot_date, COUNT(*) AS open_count
+                FROM (
+                    SELECT FORMATDATETIME(s.starts_at, 'yyyy-MM-dd', 'en', '$zone') AS slot_date
+                    FROM slots s
+                    WHERE s.doctor_id = ? AND s.status = 'available'
+                      AND s.starts_at >= ? AND s.starts_at < ?
+                      AND NOT EXISTS (SELECT 1 FROM slot_claims sc WHERE sc.slot_id = s.id)
+                )
+                GROUP BY slot_date
                 ORDER BY slot_date
                 """.trimIndent()
             ).use { st ->
@@ -165,7 +181,10 @@ class DoctorStore(
                 st.executeQuery().use { rs ->
                     generateSequence {
                         if (rs.next()) {
-                            val localDate = rs.getObject("slot_date", LocalDate::class.java)
+                            // FORMATDATETIME returns the formatted string, not
+                            // a SQL DATE, so it is parsed rather than read as
+                            // a date object.
+                            val localDate = LocalDate.parse(rs.getString("slot_date"))
                             AvailableDate(localDate, rs.getInt("open_count"))
                         } else null
                     }.toList()

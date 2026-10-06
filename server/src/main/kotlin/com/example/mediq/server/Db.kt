@@ -1,5 +1,6 @@
 package com.example.mediq.server
 
+import com.example.mediq.domain.model.CLINIC_ZONE
 import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
 import java.sql.Connection
@@ -20,6 +21,16 @@ data class ServerConfig(
     val slotDurationMinutes: Int,
     val otpTtlMinutes: Long,
     val seedDemoData: Boolean,
+    /**
+     * Time zone every pooled connection runs its session in.
+     *
+     * H2 resolves `CAST(<timestamptz> AS DATE)` through the *session* zone, so
+     * a host booting in UTC silently groups Asia/Manila clinic days by UTC ones.
+     * Pinning it here makes the server's calendar explicit instead of an
+     * accident of the machine it runs on, and gives tests a way to prove the
+     * invariant by forcing a zone the production default never uses.
+     */
+    val sessionTimeZone: String = CLINIC_ZONE.id,
 ) {
     companion object {
         fun fromEnv(env: Map<String, String> = System.getenv()): ServerConfig = ServerConfig(
@@ -70,6 +81,9 @@ class Database(private val config: ServerConfig) {
             jdbcUrl = config.jdbcUrl
             maximumPoolSize = 10
             isAutoCommit = true
+            // Runs on every new connection, so the session zone does not depend
+            // on the JVM default of whichever host booted the server.
+            connectionInitSql = "SET TIME ZONE '${config.sessionTimeZone}'"
             // H2 console, local development only.
             if (config.jdbcUrl.startsWith("jdbc:h2")) {
                 addDataSourceProperty("DB_CLOSE_ON_EXIT", "FALSE")
