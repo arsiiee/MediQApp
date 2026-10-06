@@ -53,63 +53,124 @@ class DoctorStore(
                 params += "%${query.building.lowercase()}%"
             }
 
-            val total = c.prepareStatement(
-                "SELECT COUNT(*) FROM doctors d$where"
-            ).use { st -> bind(st, params); st.executeQuery().use { rs -> if (rs.next()) rs.getInt(1) else 0 } }
-
-            // limit + 1 to learn whether another page exists without a count.
-            val doctors = c.prepareStatement(
+            // limit + 1 to learn whether another page exists without a second COUNT query.
+            val rows = c.prepareStatement(
                 "$SELECT_DOCTOR$where ORDER BY d.full_name LIMIT ? OFFSET ?"
             ).use { st ->
                 bind(st, params)
                 st.setInt(params.size + 1, limit + 1)
                 st.setInt(params.size + 2, offset)
                 st.executeQuery().use { rs ->
-                    generateSequence { if (rs.next()) rs.readDoctor(c) else null }.toList()
+                    generateSequence { if (rs.next()) rs.readDoctorRow() else null }.toList()
                 }
             }
-            val hasMore = doctors.size > limit
-            doctors.take(limit) to hasMore
+
+            val page = rows.take(limit)
+            val hasMore = rows.size > limit
+
+            // Batch-fetch clinic_hours for all doctors in the page in one query
+            // instead of one query per doctor (N+1 → 2 queries total).
+            val hoursMap: Map<String, List<ClinicHours>> = if (page.isEmpty()) {
+                emptyMap()
+            } else {
+                val placeholders = page.joinToString(",") { "?" }
+                c.prepareStatement(
+                    "SELECT doctor_id, day_of_week, opens_at, closes_at FROM clinic_hours WHERE doctor_id IN ($placeholders) ORDER BY doctor_id, day_of_week"
+                ).use { st ->
+                    page.forEachIndexed { i, row -> st.setString(i + 1, row.id) }
+                    st.executeQuery().use { rs ->
+                        val map = mutableMapOf<String, MutableList<ClinicHours>>()
+                        while (rs.next()) {
+                            val doctorId = rs.getString("doctor_id")
+                            map.getOrPut(doctorId) { mutableListOf() } += ClinicHours(
+                                dayOfWeek = DayOfWeek.of(rs.getInt("day_of_week")),
+                                opensAt = rs.getObject("opens_at", LocalTime::class.java),
+                                closesAt = rs.getObject("closes_at", LocalTime::class.java),
+                            )
+                        }
+                        map
+                    }
+                }
+            }
+
+            page.map { it.toDoctor(hoursMap[it.id].orEmpty()) } to hasMore
         }
 
     fun get(doctorId: String): Doctor = db.read { c ->
         ensureSpecialties(c)
-        c.prepareStatement("$SELECT_DOCTOR WHERE d.id = ?").use { st ->
+        val row = c.prepareStatement("$SELECT_DOCTOR WHERE d.id = ?").use { st ->
             st.setString(1, doctorId)
             st.executeQuery().use { rs ->
-                if (rs.next()) rs.readDoctor(c) else throw ApiError.notFound("That doctor was not found.")
+                if (rs.next()) rs.readDoctorRow() else throw ApiError.notFound("That doctor was not found.")
             }
         }
+        val hours = c.prepareStatement(
+            "SELECT day_of_week, opens_at, closes_at FROM clinic_hours WHERE doctor_id = ? ORDER BY day_of_week"
+        ).use { st ->
+            st.setString(1, doctorId)
+            st.executeQuery().use { rs ->
+                generateSequence {
+                    if (rs.next()) ClinicHours(
+                        dayOfWeek = DayOfWeek.of(rs.getInt("day_of_week")),
+                        opensAt = rs.getObject("opens_at", LocalTime::class.java),
+                        closesAt = rs.getObject("closes_at", LocalTime::class.java),
+                    ) else null
+                }.toList()
+            }
+        }
+        row.toDoctor(hours)
     }
 
     /**
      * Dates in [month] with at least one slot still open.
      *
-     * Only checks days that have clinic hours at all, then counts slots that
-     * are neither blocked nor claimed. Slots are generated lazily rather than
-     * for the whole month up front.
+     * Slots for the entire date range are materialised in one pass, then a
+     * single GROUP BY query counts open slots per day — 2 queries total instead
+     * of 2 per day (was 62 for a full month).
      */
     fun availableDates(doctorId: String, month: LocalDate): List<AvailableDate> {
         val yearMonth = YearMonth.from(month)
         // Do not offer dates that have already passed.
         val today = LocalDate.now(CLINIC_ZONE)
         val firstDay = maxOf(yearMonth.atDay(1), today)
+        val lastDay = yearMonth.atEndOfMonth()
+
+        if (firstDay.isAfter(lastDay)) return emptyList()
 
         return db.read { c ->
-            val days = mutableListOf<AvailableDate>()
+            // Materialise slots for every day in the range in one pass.
             var date = firstDay
-            while (!date.isAfter(yearMonth.atEndOfMonth())) {
-                // Materialise the day before counting it. Slots are generated
-                // lazily, so counting without generating first reports every
-                // date as having nothing open — the date picker would come up
-                // permanently empty.
+            while (!date.isAfter(lastDay)) {
                 ensureSlots(c, doctorId, date)
-
-                val open = countOpenSlots(c, doctorId, date)
-                if (open > 0) days += AvailableDate(date, open)
                 date = date.plusDays(1)
             }
-            days
+
+            // Count open slots grouped by date in a single query.
+            val rangeStart = firstDay.atStartOfDay(CLINIC_ZONE).toInstant()
+            val rangeEnd = lastDay.plusDays(1).atStartOfDay(CLINIC_ZONE).toInstant()
+            c.prepareStatement(
+                """
+                SELECT CAST(s.starts_at AS DATE) AS slot_date, COUNT(*) AS open_count
+                FROM slots s
+                WHERE s.doctor_id = ? AND s.status = 'available'
+                  AND s.starts_at >= ? AND s.starts_at < ?
+                  AND NOT EXISTS (SELECT 1 FROM slot_claims sc WHERE sc.slot_id = s.id)
+                GROUP BY CAST(s.starts_at AS DATE)
+                ORDER BY slot_date
+                """.trimIndent()
+            ).use { st ->
+                st.setString(1, doctorId)
+                st.setObject(2, rangeStart.atOffset(ZoneOffset.UTC))
+                st.setObject(3, rangeEnd.atOffset(ZoneOffset.UTC))
+                st.executeQuery().use { rs ->
+                    generateSequence {
+                        if (rs.next()) {
+                            val localDate = rs.getObject("slot_date", LocalDate::class.java)
+                            AvailableDate(localDate, rs.getInt("open_count"))
+                        } else null
+                    }.toList()
+                }
+            }
         }
     }
 
@@ -286,27 +347,40 @@ private fun java.sql.ResultSet.readSlot() = TimeSlot(
     },
 )
 
-private fun java.sql.ResultSet.readDoctor(c: Connection): Doctor {
-    val id = getString("id")
-    val hours = c.prepareStatement(
-        "SELECT day_of_week, opens_at, closes_at FROM clinic_hours WHERE doctor_id = ? ORDER BY day_of_week"
-    ).use { st ->
-        st.setString(1, id)
-        st.executeQuery().use { rs ->
-            generateSequence {
-                if (rs.next()) {
-                    ClinicHours(
-                        dayOfWeek = DayOfWeek.of(rs.getInt("day_of_week")),
-                        opensAt = rs.getObject("opens_at", LocalTime::class.java),
-                        closesAt = rs.getObject("closes_at", LocalTime::class.java),
-                    )
-                } else {
-                    null
-                }
-            }.toList()
-        }
-    }
-    val languages = getString("languages")
+/**
+ * Flat projection of the doctors table columns — no associated collections.
+ * Callers fetch clinic_hours separately (in bulk) and assemble via [toDoctor].
+ */
+private data class DoctorRow(
+    val id: String,
+    val fullName: String,
+    val specialtyWire: String,
+    val yearsOfExperience: Int,
+    val feeCentavos: Long,
+    val licenseNumber: String,
+    val bio: String,
+    val building: String,
+    val floor: String,
+    val room: String,
+    val languagesRaw: String,
+)
+
+private fun java.sql.ResultSet.readDoctorRow() = DoctorRow(
+    id = getString("id"),
+    fullName = getString("full_name"),
+    specialtyWire = getString("specialty_id"),
+    yearsOfExperience = getInt("years_experience"),
+    feeCentavos = getLong("fee_centavos"),
+    licenseNumber = getString("license_number"),
+    bio = getString("bio"),
+    building = getString("building"),
+    floor = getString("floor"),
+    room = getString("room"),
+    languagesRaw = getString("languages"),
+)
+
+private fun DoctorRow.toDoctor(hours: List<ClinicHours>): Doctor {
+    val languages = languagesRaw
         .split(',')
         .map { it.trim() }
         .filter { it.isNotEmpty() }
@@ -314,17 +388,17 @@ private fun java.sql.ResultSet.readDoctor(c: Connection): Doctor {
 
     return Doctor(
         id = id,
-        fullName = getString("full_name"),
-        specialty = Specialty.entries.first { it.wireValue == getString("specialty_id") },
-        yearsOfExperience = getInt("years_experience"),
-        consultationFee = Money(getLong("fee_centavos")),
+        fullName = fullName,
+        specialty = Specialty.entries.first { it.wireValue == specialtyWire },
+        yearsOfExperience = yearsOfExperience,
+        consultationFee = Money(feeCentavos),
         location = com.example.mediq.domain.model.ClinicLocation(
-            building = getString("building"),
-            floor = getString("floor"),
-            room = getString("room"),
+            building = building,
+            floor = floor,
+            room = room,
         ),
-        licenseNumber = getString("license_number"),
-        bio = getString("bio"),
+        licenseNumber = licenseNumber,
+        bio = bio,
         languages = languages,
         clinicHours = hours,
     )
