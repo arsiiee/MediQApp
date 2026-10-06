@@ -12,6 +12,10 @@
 #   3. Every Retrofit*Repository call to `api.` must sit inside `call { }`.
 #      This is the rule whose absence produced the bug where the client showed
 #      "HTTP 401" instead of the server's message, with a fully green build.
+#   4. A masked text field must set `keyboardOptions` with a password key type.
+#      Its absence produced the bug where the phone keyboard silently rewrote
+#      correct credentials and sign-in failed as if the password were wrong,
+#      also with a fully green build.
 #
 # Exit codes match the floor-guard contract: 0 clean, 1 violation, 2 could not
 # run. A 2 must never be read as a 0.
@@ -124,6 +128,36 @@ foreach ($file in $allFiles) {
             }
             if (-not $wrapped) {
                 Add-Violation 'api-call-not-wrapped' $file.FullName $n $line.Trim()
+            }
+        }
+
+        # --- Rule 4: a secret field must disable autocorrect -----------------
+        #
+        # The bug this guards: every text field in the app had no
+        # `keyboardOptions`, so Compose used `KeyboardOptions.Default` —
+        # `autoCorrect = true`, no `KeyboardType`. Android therefore kept
+        # autocorrect and suggestions live on password fields and rewrote the
+        # characters as they were typed. A correct password reached the server
+        # as a different string and came back as the same
+        # "Those details don't match an account." as a wrong one, so there was
+        # no way to tell a typo from a bad password. `KeyboardType.Password`
+        # is also what swaps in the non-predictive layout; `NumberPassword`
+        # does the same for the OTP.
+        #
+        # Matched on the masked field rather than a field list, so a new secret
+        # input is covered without anyone updating this script.
+        if ($isUi -and $line -match 'OutlinedTextField\(') {
+            # The arguments run on after the opening paren; the window is wide
+            # enough for a field with a trailing icon and a keyboardActions.
+            $end = [Math]::Min($i + 20, $lines.Count - 1)
+            $field = ($lines[$i..$end]) -join "`n"
+
+            if ($field -match 'PasswordVisualTransformation') {
+                if ($field -notmatch 'keyboardOptions') {
+                    Add-Violation 'secret-field-no-keyboard-options' $file.FullName $n 'masked field has no keyboardOptions; autocorrect may rewrite the secret'
+                } elseif ($field -notmatch 'KeyboardType\.(Password|NumberPassword)') {
+                    Add-Violation 'secret-field-not-password-keytype' $file.FullName $n 'masked field must use KeyboardType.Password (or NumberPassword for an OTP)'
+                }
             }
         }
     }

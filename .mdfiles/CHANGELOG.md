@@ -4,7 +4,138 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+- **Registration could not create an account from the app.** All four
+  `ui/feature/auth/register/` screens held their values in local
+  `remember { mutableStateOf(...) }` and navigated between each other on a button
+  press. Nothing called `AuthRepository`, so the full name and phone number were
+  discarded on Continue and **no account could be created through the UI at all**,
+  while `:app:compileDebugKotlin` stayed green — not calling the API is not a
+  compile error, and no test covered it. The server-side OTP and registration
+  flow was already complete and tested.
+  - `RegisterViewModel` now owns all three steps and all three calls
+    (`requestOtp`, `verifyOtp`, `register`) in one `RegisterUiState`, and the
+    four routes are nested in a `navigation()` graph so they share it. Step 3
+    cannot succeed without step 2, so a per-screen ViewModel would have had to
+    pass values forward by hand.
+  - Each screen now advances **only on server success**, not on a tap. A wrong
+    OTP keeps the typed code and shows the server's sentence, including the
+    lockout's own message rather than a generic failure.
+  - **The details step gained a date-of-birth field**, which is not optional:
+    `AuthService` answers a null one with 400 "A date of birth is required."
+    *after* its registration-id, username, email, and mobile checks, and
+    `RegisterRequest.dateOfBirth` is nullable, so the compiler could not catch the
+    omission. Confirmed against a running server. Collected with a date picker
+    rather than a text field, because the server only accepts `YYYY-MM-DD`.
+  - `registrationId` lives in the ViewModel and nowhere else. `otpVerified` is the
+    UI's view of it, which doubles as the guard for the credentials step: process
+    death between steps 2 and 3 loses the id, and the user is sent back rather
+    than submitting a request the server can only refuse.
+  - **The success screen greeted patients as "Jesse"** — a hardcoded personal name
+    that no real patient shares. It now comes from the returned `AuthSession`.
+  - That screen also navigated to `Screen.SignIn` after registering.
+    `RetrofitAuthRepository.register` had already stored the session via
+    `TokenStore`, so the user was signed in and was being asked to authenticate
+    again. It now goes straight to Home and pops the auth stack.
+  - `RegisterDetailsScreen`'s phone field gained `KeyboardType.Phone` and a
+    `+63917…` placeholder; the old `+63 917 555 0142` placeholder taught a spaced
+    format `AuthService.normalizeMobile` rejects. `RegisterViewModel` also strips
+    separators before sending, mirroring the server's `^\+?[0-9]{10,15}$`.
+  - Guard: `RegisterViewModelTest`, 22 tests, all against a fake
+    `AuthRepository`. Each asserts **whether the repository was reached**, not just
+    the resulting state — a state-only assertion would still pass against a
+    ViewModel that ignored its inputs.
+- **`AppointmentDetailsScreen` ignored the `appointmentId` from its route.** The
+  composable took the id and rendered a fixed "No appointment selected"
+  `EmptyState` for every appointment, so tapping a real appointment led to a
+  screen claiming none existed. The signature asked for the value and the body
+  discarded it, which neither the compiler nor any existing test could see.
+  `AppointmentRepository.getAppointment` and the Retrofit call already existed and
+  were unwired from any UI.
+  - `AppointmentDetailsViewModel` loads by that id and exposes
+    `LoadState<Appointment>`; the screen `when`s over all three cases and renders
+    doctor, clinic-zone date and time, location, fee, status, and reason for
+    visit.
+  - A null or blank id renders a clear empty state and **makes no network call** —
+    the assertion that distinguishes "loaded the appointment the user tapped" from
+    "loaded something, somehow".
+  - `BackendNotConnectedException` maps to `LoadState.Error` here, **not** to
+    `Success(emptyList())` as on the list screens. That mapping is for reads where
+    "no results" and "no backend" look the same; a single-entity success carrying
+    nothing would tell a patient with a real appointment that it does not exist.
+  - Guard: `AppointmentDetailsViewModelTest`, 7 tests against a fake
+    `AppointmentRepository` that records the ids it was asked for.
+- **Sign-in rejected correct credentials.** `MessagesScreen` aside, the cause was
+  that no `OutlinedTextField` in the app set `keyboardOptions`, so Compose used
+  `KeyboardOptions.Default` — `autoCorrect = true`, no `KeyboardType`. Android
+  kept autocorrect and suggestions live on the masked fields and rewrote the
+  characters as they were typed, so `demo12345` reached the server as a different
+  string. The server answered with `"Those details don't match an account."` —
+  the same message as a genuinely wrong password, so nothing on screen
+  distinguished a keyboard typo from a bad credential. The build was green and
+  the server was healthy the whole time; the credentials really were correct.
+  `PasswordVisualTransformation` only masks what is *displayed* and says nothing
+  about what the keyboard may do to the value.
+  - Client: `keyboardOptions` with `KeyboardType.Password` (password, confirm
+    password) and `KeyboardType.NumberPassword` (OTP), plus `autoCorrect = false`
+    and `KeyboardCapitalization.None` on every identifier field.
+  - Server: `AuthService.normalizeUsername` trims and lowercases at `register`
+    *and* `signIn`, so the two cannot disagree. Also closes the case where
+    `Case` and `case` registered as two accounts indistinguishable at sign-in.
+  - Guard: `check-boundaries.ps1` Rule 4, keyed on `PasswordVisualTransformation`
+    so a new secret input is covered without editing the script. Both rules were
+    verified to fail on a deliberately reverted field before being accepted.
+- **The sign-in message could not distinguish a typo from a wrong password.**
+  Server-side normalization above means a stray space no longer produces a dead
+  end, but the two cases remain deliberately indistinguishable to a caller for
+  anti-enumeration reasons.
+
+### Known gaps
+- None outstanding from the registration work. `RegisterDetailsScreen`'s phone
+  field gap listed here is fixed above, along with the unwired wizard.
+
+### Changed
+- **Step completion is now a consumable event, not a sticky flag.** The wizard's
+  screens `LaunchedEffect` on the flag saying their step succeeded
+  (`otpRequested`, `otpVerified`, `registeredName`). A flag stays true for the
+  life of the ViewModel, so the effect fired again every time the user navigated
+  *back* to that step — system back from the OTP screen would bounce them
+  straight forward to it, trapping them in the wizard with no way out. Replaced
+  with `pendingStep: RegisterStep?`, which the screen clears via `onStepHandled()`
+  once it has navigated. `otpVerified` stays as real state, because the
+  credentials step reads it as a guard.
+- **`NavBackStackEntry.parent` is not public in navigation 2.10.1.** It is the
+  obvious way to get a nested graph's back stack entry — which is how a
+  graph-scoped ViewModel is shared between its destinations — and it fails to
+  compile. The register graph therefore carries an explicit route and its screens
+  use `navController.getBackStackEntry(Screen.RegisterFlow.route)`. Worth knowing
+  before anyone copies that snippet from a tutorial written against navigation
+  2.7.
+
 ### Added
+- **A ViewModel test harness for `:app`.** ViewModel logic could not be unit
+  tested at all before this: every ViewModel calls `viewModelScope`, which posts
+  to `Dispatchers.Main`, and that dispatcher throws on the JVM unless
+  `kotlinx-coroutines-test` swaps it. Added that dependency plus hand-written
+  fakes (`FakeAuthRepository`, `FakeAppointmentRepository`, `TestFixtures`) and a
+  `MainDispatcherRule` — no mocking framework, matching the hand-built-fake
+  convention the `data/api` tests already set. A fake that records what it was
+  asked for says more about a state machine than a verify-count does.
+  The rule installs an `UnconfinedTestDispatcher` so a launch runs to completion
+  eagerly; without it a test that never awaits its coroutine passes while proving
+  nothing.
+  - `ExampleUnitTest` was an untouched Android Studio template asserting
+    `2 + 2 == 4` and was deleted in favour of real tests. `:app` went from 23
+    tests, all in `data/api/`, to 51.
+  - The harness was verified by deliberately reverting the phone sanitisation and
+    confirming the test failed, then restoring it — a harness that cannot fail is
+    not a harness.
+- **`check-boundaries.ps1` Rule 4** — `secret-field-no-keyboard-options` and
+  `secret-field-not-password-keytype`. Both ratcheted at 0; the first was **5**
+  before the fix above. `CONSTRAINTS.md` records this as the third instance of
+  the repo's recurring failure mode: a rule stated in prose, never checked, and
+  invisible to the compiler and the full test suite.
+
 - **README at the repo root**: A user-facing description of what MediQ is, what
   works today, and an explicit list of what does not — including that
   registration cannot create an account from the app, that `AppointmentDetails`

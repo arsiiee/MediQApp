@@ -24,7 +24,29 @@ Two caveats. The **machine**-level `JAVA_HOME` still points at `C:\Users\You\Dow
 
 Verify the app with `:app:compileDebugKotlin` (~2s warm, ~3min cold). Full APK: `:app:assembleDebug` (~80s).
 
-`:app` unit tests live in `data/api/` — `ApiErrorsTest.kt` (11 tests over error-body parsing), `UnknownWireValueTest.kt` (8 tests pinning how unrecognised wire values resolve), and `GsonLeniencyTest.kt` (3 tests pinning JSON parsing behaviour) — 23 tests total, runnable with `.\gradlew.bat :app:testDebugUnitTest`. That is the whole harness: `ExampleUnitTest`/`ExampleInstrumentedTest` are still untouched Android Studio templates, there is no coroutine test dependency, and there are no fake repositories, so **ViewModel logic cannot be unit tested yet**. Any ViewModel calls `viewModelScope` and needs `Dispatchers.Main`, which throws on the JVM unless `kotlinx-coroutines-test` swaps it. The substantial test suite is `:server:test` (50 tests, see below).
+`:app` unit tests — 51, runnable with `.\gradlew.bat :app:testDebugUnitTest`:
+
+- `data/api/` — `ApiErrorsTest.kt` (11 tests over error-body parsing),
+  `UnknownWireValueTest.kt` (8 pinning how unrecognised wire values resolve), and
+  `GsonLeniencyTest.kt` (3 pinning JSON parsing behaviour).
+- `ui/feature/auth/register/RegisterViewModelTest.kt` (22) — the registration
+  wizard's validation branches, both failure paths per step, that each step
+  actually reaches `AuthRepository`, and that a handled navigation event does not
+  fire again when the user steps back.
+- `ui/feature/appointments/AppointmentDetailsViewModelTest.kt` (7) — success,
+  server error, the null-id case, and the `LoadState` mapping.
+
+**ViewModels are unit testable now.** They were not, and the reason is worth
+keeping: every one calls `viewModelScope`, which posts to `Dispatchers.Main`, and
+that dispatcher throws on the JVM unless `kotlinx-coroutines-test` swaps it. That
+dependency plus the hand-written fakes in `app/src/test/java/.../fake/` are the
+harness, and there is no mocking framework — a fake that records what it was asked
+for says more about a state machine than a verify-count does. `MainDispatcherRule`
+swaps in an `UnconfinedTestDispatcher` so a launch runs to completion eagerly;
+without that, a test that never awaits its coroutine passes while proving
+nothing. The substantial suite is still `:server:test` (50 tests, see below).
+
+`ExampleInstrumentedTest` remains an untouched Android Studio template.
 
 ## Running on a device
 
@@ -166,6 +188,30 @@ Rules that are easy to break:
 - **Repositories are the only place that knows the data source.** `AppContainer` is the single file to edit when swapping implementations. Screens and ViewModels must not reference `data/` directly.
 - **`LoadState<T>`** (in `domain/model/LoadState.kt`) is `Loading` / `Success` / `Error` and is what every ViewModel exposes. Screens `when` over all three.
 - **`suspend` on every repository function.** Adding one later means touching every caller.
+- **The four register screens share one `RegisterViewModel`, scoped to a nested
+  navigation graph.** They are a single transaction — the name and number typed on
+  step 1 are still needed on step 3 — so a per-screen ViewModel would mean passing
+  values forward by hand. `MediQNavHost` nests them under
+  `navigation(startDestination = RegisterDetails, route = Screen.RegisterFlow.route)`
+  and each screen takes the ViewModel from the *graph's* back stack entry.
+  **`NavBackStackEntry.parent`, the obvious way to get that entry, is not public in
+  navigation 2.10.1** — it fails to compile, and the fix is
+  `navController.getBackStackEntry(Screen.RegisterFlow.route)`, which is why the
+  graph has an explicit route rather than a generated one.
+- **`registrationId` lives in the `RegisterViewModel` and nowhere else.** It is the
+  server's proof that the number was verified, and `/auth/register` cannot succeed
+  without it. It is deliberately absent from `RegisterUiState`; `otpVerified` is
+  what the UI sees instead, which is also the guard for the credentials step — that
+  flag can only be true while the ViewModel still holds the id, so process death
+  between steps 2 and 3 is detectable and the user is sent back rather than
+  submitting a request the server can only refuse.
+- **`RegisterRequest.dateOfBirth` is nullable and the server requires it.**
+  `AuthService` answers a null date of birth with 400 "A date of birth is
+  required." — but only *after* its registration-id, username, email, and mobile
+  checks, so it surfaces as a mid-transaction rejection rather than a validation
+  error at the edge. The type cannot catch the omission, so
+  `RegisterViewModel.requestOtp` refuses to run without one, and the details step
+  collects it with a date picker. This was confirmed against a running server.
 
 ## Conventions
 
@@ -176,7 +222,9 @@ Rules that are easy to break:
 - **`BackendNotConnectedException` lives in `domain/model/`, not `data/repository/`.** ViewModels catch it, and they may not import from `data/`. It was in `data/repository/` until 2026-10-06, which seven ViewModels were breaking the rule for. The compiler cannot catch that violation — the import compiles fine — so `check-boundaries.ps1` does.
 - `BackendNotConnectedException` must map to `LoadState.Success(emptyList())` on reads, **not** `Error` — an unconnected backend is the expected state, not a failure. The Retrofit repositories follow the same contract: list reads catch an unreachable-server `ApiFailure` and return an empty `Paged`; single-entity reads and writes propagate. Note the branch is on `isNetworkFailure`, **not** on a bare exception type — catching `IOException` (or `Exception`) also swallowed HTTP failures, so a 500 on a list read rendered as "you have no appointments." Only a genuinely unreachable server may become an empty state.
 - **Every call to `api.` in a `Retrofit*Repository` must sit inside `call { }`** (`data/api/ApiErrors.kt`). It maps `HttpException` into `ApiFailure`, reading the server's `ErrorDto` body. An unwrapped call returns Retrofit's raw `"HTTP 401 "` as its message, which is what a patient sees. `check-boundaries.ps1` enforces this; it was unenforced when that bug shipped with a green build.
+- **A masked text field must set `keyboardOptions` with a password key type.** `KeyboardType.Password` on a password, `KeyboardType.NumberPassword` on the OTP, plus `autoCorrect = false` and `KeyboardCapitalization.None`. **This was the sign-in bug on 2026-10-06**: no field in the app set `keyboardOptions`, so Compose used `KeyboardOptions.Default` — `autoCorrect = true`, no `KeyboardType` — and Android rewrote the credentials as they were typed. `demo12345` reached the server as something else and came back as `"Those details don't match an account."`, indistinguishable from a wrong password, while the server was healthy and the credentials were correct. `check-boundaries.ps1` Rule 4 enforces it. Note `PasswordVisualTransformation` only masks what is *displayed*; it says nothing about what the keyboard is allowed to *do* to the value.
 - **Never surface a framework exception's `message`.** Catch `ApiFailure` and show `e.message` — the server writes those for a patient to read. Retrofit, Gson, and OkHttp messages leak internals or are useless to a user.
+- **Usernames are normalized on both sides.** `AuthService.normalizeUsername` trims and lowercases at `register` *and* at `signIn`, so the stored form and the lookup form cannot disagree. Matching raw meant correct credentials failed on a stray space, and `Case` / `case` could register as two accounts that were indistinguishable at sign-in. Mobile numbers were already normalized; usernames were the one identifier that was not.
 - Screens take a `NavController` (not `NavHostController`) and navigate imperatively. `MediQNavHost` uses explicit imports, not a wildcard.
 
 ## Networking
@@ -296,7 +344,12 @@ they are observations, not planned work, so they are not in `tasks/todo.md`.
 
 ### Application
 
-- **Registration flow screens are not connected to the backend.** `RegisterDetails`, `RegisterOTP`, `RegisterCredentials`, and `RegisterSuccess` have no ViewModels and navigate between themselves via static local state. The server-side OTP + registration flow works, but the app screens don't call it yet.
+- **`AppointmentDetailsScreen` has no cancel or reschedule action.** It renders the
+  appointment — doctor, clinic-zone date and time, location, fee, status, and
+  reason for visit — but `AppointmentRepository.cancel` and `requestReschedule` are
+  still unwired, and `AppointmentStatus.isActionable` gates nothing yet. Note the
+  server-side rule before wiring them: cancelling deletes the `slot_claims` row to
+  free the slot, so it cannot be done by updating the status alone.
 - **Colour literals are still spread across `ui/`, and only `SplashScreen` is
   exempt.** Every screen has been converted off `Color.White` backgrounds,
   `Color.Black` text, and `Color.Gray`/`Color.LightGray` metadata, so dark mode
@@ -309,7 +362,6 @@ they are observations, not planned work, so they are not in `tasks/todo.md`.
   `MaterialTheme.colorScheme.*` and `LocalMediQColors.current.*` over literals;
   a single green cannot clear 4.5:1 on both `#FFFFFF` and `#121212`, which is
   why the accent is a separate role from `primary`.
-- **`AppointmentDetailsScreen` is still a static empty state.** No ViewModel exists for it yet.
 - **H2 in-memory by default.** Fine for development, wrong for real patients. `MEDIQ_JDBC_URL` must point at Postgres, and `ServerConfig.validate()` refuses H2 when `MEDIQ_ENV=production`.
 - **`schema.sql` is applied at boot, not migrated.** It is all `CREATE TABLE IF NOT EXISTS`, safe on an existing database but not a migration tool. Once real data exists, move to Flyway before changing a column.
 - **Release build has R8/minification disabled** (`optimization { enable = false }`).
