@@ -202,8 +202,15 @@ private fun AppointmentCard(appointment: Appointment, onClick: () -> Unit) {
     }
 }
 
+/**
+ * Shared with `AppointmentDetailsScreen`, which renders the same badge.
+ *
+ * Internal rather than private so the two screens cannot drift into showing the
+ * same status in two different colours — and so this file's colour literals are
+ * counted once by `check-contrast.ps1` instead of being duplicated.
+ */
 @Composable
-private fun StatusChip(status: AppointmentStatus) {
+internal fun StatusChip(status: AppointmentStatus) {
     // Both halves of every pair are hardcoded, so these chips keep the same
     // measured contrast in either mode. The amber was #F9A825 on #FFF8E1,
     // which is 1.85:1 - unreadable at 10sp.
