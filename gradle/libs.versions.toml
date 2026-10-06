@@ -65,6 +65,12 @@ server-h2 = { group = "com.h2database", name = "h2", version.ref = "h2" }
 server-hikari = { group = "com.zaxxer", name = "HikariCP", version.ref = "hikari" }
 server-java-jwt = { group = "com.auth0", name = "java-jwt", version.ref = "javaJwt" }
 
+# --- App tests ---
+# Every ViewModel calls `viewModelScope`, which posts to `Dispatchers.Main`.
+# On the JVM that throws unless the Main dispatcher is swapped, so this is
+# required to unit test any ViewModel -- not optional.
+kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "coroutines" }
+
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
