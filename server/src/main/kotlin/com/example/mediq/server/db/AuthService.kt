@@ -122,10 +122,29 @@ class AuthService(
      * accept an account without one, so skipping this step is not possible by
      * calling a different endpoint.
      */
+    /**
+     * Outcome of the read-and-decide phase, returned from the transaction so
+     * the failure paths can act on it *after* the transaction has closed.
+     *
+     * [wrongCodeRowId] is the row whose attempt counter must be bumped. It is
+     * carried out of the transaction rather than incremented inside it: a throw
+     * inside `db.tx` rolls back, which would erase the increment and leave the
+     * lockout ineffective. The increment then runs in its own short
+     * transaction, so a wrong code costs two sequential checkouts instead of
+     * two *simultaneous* ones.
+     */
+    private sealed interface OtpAttempt {
+        /** The code was wrong; [rowId] must have its attempt counter bumped. */
+        data class WrongCode(val rowId: String) : OtpAttempt
+
+        /** The code was right; [rowId] has already been consumed. */
+        data class Verified(val rowId: String) : OtpAttempt
+    }
+
     fun verifyOtp(mobileNumber: String, otp: String): String {
         val normalized = normalizeMobile(mobileNumber)
 
-        return db.tx { c ->
+        val outcome = db.tx { c ->
             val row = c.prepareStatement(
                 """
                 SELECT id, code_hash, attempt_count, expires_at
@@ -160,19 +179,13 @@ class AuthService(
             }
 
             if (!Passwords.verify(otp, row.hash)) {
-                // The increment must be committed before throwing. Throwing
-                // inside db.tx{} triggers a rollback, which erases the update
-                // and leaves attempt_count at zero — making the lockout
-                // ineffective. Using a nested connection here commits the
-                // counter independently so the next call sees the real count.
-                db.tx { inner ->
-                    inner.prepareStatement("UPDATE otp_codes SET attempt_count = attempt_count + 1 WHERE id = ?")
-                        .use { st ->
-                            st.setString(1, row.id)
-                            st.executeUpdate()
-                        }
-                }
-                throw ApiError.badRequest("That code isn't right.")
+                // Returned, not thrown: throwing here would roll back and lose
+                // the increment, and opening a nested db.tx while this one
+                // holds a connection would need a second one from the pool at
+                // the same time. POST /auth/otp/verify is unauthenticated, so
+                // five parallel wrong codes must not be able to exhaust a
+                // 10-connection pool and stall every other route.
+                return@tx OtpAttempt.WrongCode(row.id)
             }
 
             // Consume in the same transaction that verified it.
@@ -184,7 +197,23 @@ class AuthService(
 
             // The registration id *is* the consumed code row. It cannot be
             // reused, and it carries the verified number with it.
-            "reg_${row.id}"
+            OtpAttempt.Verified(row.id)
+        }
+
+        return when (outcome) {
+            is OtpAttempt.Verified -> "reg_${outcome.rowId}"
+            is OtpAttempt.WrongCode -> {
+                // Own transaction, sequential with the read above, so the
+                // counter survives the throw below.
+                db.tx { c ->
+                    c.prepareStatement("UPDATE otp_codes SET attempt_count = attempt_count + 1 WHERE id = ?")
+                        .use { st ->
+                            st.setString(1, outcome.rowId)
+                            st.executeUpdate()
+                        }
+                }
+                throw ApiError.badRequest("That code isn't right.")
+            }
         }
     }
 
