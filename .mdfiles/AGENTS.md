@@ -2,10 +2,13 @@
 
 Two Gradle modules: `:app` (Android/Jetpack Compose client) and `:server` (Ktor JVM backend). Kotlin 2.2, AGP 9.3, Compose BOM 2026.02, `minSdk` 24, `compileSdk`/`targetSdk` 37.
 
-**Read `CONSTRAINTS.md` at the repo root before writing code.** It carries the
+**Read `CONSTRAINTS.md` in this folder before writing code**, and run its gate. It carries the
 enforced quality bar as numbers with a command per rule. Do not weaken it to
 make a change pass — change it explicitly, in its own change, where the diff
 shows the bar moving.
+
+**Read `README.md` at the repo root for what the project is and what it does not
+do yet.** It is the user-facing description; this file is the orientation one.
 
 ## Build environment
 
@@ -21,7 +24,7 @@ Two caveats. The **machine**-level `JAVA_HOME` still points at `C:\Users\You\Dow
 
 Verify the app with `:app:compileDebugKotlin` (~2s warm, ~3min cold). Full APK: `:app:assembleDebug` (~80s).
 
-`:app` unit tests live in `data/api/` — `ApiErrorsTest.kt` (11 tests over error-body parsing), `UnknownWireValueTest.kt` (8 tests pinning how unrecognised wire values resolve), and `GsonLeniencyTest.kt` (3 tests pinning JSON parsing behaviour) — runnable with `.\gradlew.bat :app:testDebugUnitTest`. That is the whole harness: `ExampleUnitTest`/`ExampleInstrumentedTest` are still untouched Android Studio templates, there is no coroutine test dependency, and there are no fake repositories, so **ViewModel logic cannot be unit tested yet**. Any ViewModel calls `viewModelScope` and needs `Dispatchers.Main`, which throws on the JVM unless `kotlinx-coroutines-test` swaps it. The substantial test suite is `:server:test` (36 tests, see below).
+`:app` unit tests live in `data/api/` — `ApiErrorsTest.kt` (11 tests over error-body parsing), `UnknownWireValueTest.kt` (8 tests pinning how unrecognised wire values resolve), and `GsonLeniencyTest.kt` (3 tests pinning JSON parsing behaviour) — 23 tests total, runnable with `.\gradlew.bat :app:testDebugUnitTest`. That is the whole harness: `ExampleUnitTest`/`ExampleInstrumentedTest` are still untouched Android Studio templates, there is no coroutine test dependency, and there are no fake repositories, so **ViewModel logic cannot be unit tested yet**. Any ViewModel calls `viewModelScope` and needs `Dispatchers.Main`, which throws on the JVM unless `kotlinx-coroutines-test` swaps it. The substantial test suite is `:server:test` (50 tests, see below).
 
 ## Running on a device
 
@@ -72,12 +75,19 @@ AVD.
 
 ## Docs location
 
-Repo markdown lives in two places by purpose. `.mdfiles/` at the repo root holds
-the standing documentation — this file, `README.md`, and `CHANGELOG.md`. The dot
-prefix keeps those docs out of the way of the Gradle source tree. `tasks/` at
-the repo root holds per-work planning: `plan.md` is the design record and
-`todo.md` is the task checklist with acceptance criteria. A new feature gets a
-plan here; environment and architecture facts belong in this file instead.
+Repo markdown lives in three places by purpose. `README.md` at the repo root is
+the user-facing description of the project, and it is at the root because that is
+the only place GitHub renders it. `.mdfiles/` holds the standing documentation —
+this file, `CONSTRAINTS.md`, `CHANGELOG.md`, the two check scripts, and the
+original product spec PDF. The dot prefix keeps those out of the way of the
+Gradle source tree. `tasks/` holds per-work planning: `plan.md` is the design
+record and `todo.md` is the task checklist with acceptance criteria. A new
+feature gets a plan there; environment and architecture facts belong in this
+file instead.
+
+The check scripts resolve paths relative to the working directory, so run them
+from the repo root as `.\.mdfiles\check-boundaries.ps1`, not from inside
+`.mdfiles/`.
 
 ## Maintaining this file
 
@@ -108,7 +118,7 @@ $env:MEDIQ_PORT="8099"   # 8080 is often already taken on this machine
 Two ways to verify, and they cover different things:
 
 - `.\gradlew.bat :server:test` — in-process. `BookingConcurrencyTest` is the one that cannot be checked by hand.
-- `.\server\scripts\smoke.ps1 -Base http://127.0.0.1:8099` — over HTTP against a running server. 24 checks covering the status of every route, the double-booking refusal, and that signing out kills the token mid-flight. Needs the server up first.
+- `.\server\scripts\smoke.ps1 -Base http://127.0.0.1:8099` — over HTTP against a running server. 19 checks covering the status of every route, the double-booking refusal, and that signing out kills the token mid-flight. Needs the server up first.
 
 Use `installDist` plus `server/build/install/server/bin/server.bat` when you want a server that survives the Gradle daemon. `:server:run` dies with the shell that started it.
 
@@ -173,12 +183,16 @@ Rules that are easy to break:
 
 The app uses Retrofit 2.11.0 + OkHttp 4.12.0 + Gson 2.11.0. The single `MediQApiService` interface in `data/api/` covers all endpoints. An `AuthInterceptor` (in `RetrofitClient.kt`) injects `Authorization: Bearer <token>` automatically — no `@Header` per-method needed.
 
-**Base URL** is the constant `RetrofitClient.BASE_URL`, currently `http://10.0.2.2:8099/` (Android Emulator host loopback). Change this one constant when switching test targets:
-- Emulator: `http://10.0.2.2:8099/`
-- Physical device (ADB port-forward): `http://127.0.0.1:8099/`
-- Physical device on LAN: `http://<host-IP>:8099/`
+**Base URL** is the constant `RetrofitClient.BASE_URL`, currently `http://192.168.100.14:8099/` — this PC's LAN address. It is the LAN address rather than `10.0.2.2` because that is the one value that works on *every* target here, emulator and physical phone alike. Change this one constant when switching test targets:
+- Emulator or phone on this Wi-Fi: `http://192.168.100.14:8099/` (current)
+- Emulator only: `http://10.0.2.2:8099/`
+- Physical device over ADB, no Wi-Fi: `http://127.0.0.1:8099/`, which additionally needs `adb reverse tcp:8099 tcp:8099`
 
-**Cleartext HTTP** is allowed only to `10.0.2.2` and `127.0.0.1` via `res/xml/network_security_config.xml`. All other hosts still require HTTPS.
+**`10.0.2.2` is the trap here.** It is an alias that exists only inside the emulator's virtual network. On a physical phone it is unroutable, every call times out, and `call {}` reports "Couldn't reach the clinic" — which reads like the server is down while the server is answering `127.0.0.1` perfectly well. This exact mismatch made sign-in fail on 2026-10-06 with the server up and healthy. Check what `adb devices` actually lists before trusting a network error: an emulator and a phone are both just "a device", and moving between them changes nothing else.
+
+The LAN address is DHCP-assigned and changes when this PC joins a different network. When it does, update `RetrofitClient.BASE_URL` **and** `res/xml/network_security_config.xml` in step.
+
+**Cleartext HTTP** is allowed only to `10.0.2.2`, `127.0.0.1`, and that LAN address via `res/xml/network_security_config.xml`. Any host missing from that file has its cleartext refused, and the app fails with the same misleading "couldn't reach the clinic" message. All other hosts still require HTTPS.
 
 **Token storage** uses `SharedPreferences` (`TokenStore.kt`). The full `AuthSessionDto` JSON is stored so `currentSession()` can reconstruct the complete `AuthSession` — including the nested `UserProfile` — without a network call. The token is stored in plaintext in the app's private storage; `EncryptedSharedPreferences` (Tink) or Android Keystore should replace this before production.
 
@@ -283,14 +297,18 @@ they are observations, not planned work, so they are not in `tasks/todo.md`.
 ### Application
 
 - **Registration flow screens are not connected to the backend.** `RegisterDetails`, `RegisterOTP`, `RegisterCredentials`, and `RegisterSuccess` have no ViewModels and navigate between themselves via static local state. The server-side OTP + registration flow works, but the app screens don't call it yet.
-- **Four screens still hardcode colours, so they break in dark mode.**
-  `Theme.kt` follows `isSystemInDarkTheme()`, but `AppointmentsScreen`,
-  `HomeScreen`, `DoctorsScreen`, and `NotificationsScreen` still set
-  `Color.White` backgrounds, `Color.Black` text, and raw `Color(0x…)` status
-  chips, so their text goes invisible on a dark background. `ProfileScreen` was
-  converted to `MaterialTheme.colorScheme` on 2026-10-06; the rest are not done.
-  Prefer `colorScheme.*` over literals and over the `MediQGreen`/`MediQLightGreen`
-  constants, which are hardcoded light-mode values.
+- **Colour literals are still spread across `ui/`, and only `SplashScreen` is
+  exempt.** Every screen has been converted off `Color.White` backgrounds,
+  `Color.Black` text, and `Color.Gray`/`Color.LightGray` metadata, so dark mode
+  is legible — that conversion finished on 2026-10-06, after `ProfileScreen`
+  went first. `check-contrast.ps1` now enforces it rather than trusting anyone
+  to remember: it fails on any page background or app bar hardcoded to
+  `Color.White`, on any token pair below its WCAG threshold, and on more than 4
+  raw colour literals in `ui/`. The 4 it permits are `SplashScreen`'s
+  white-on-brand-green, which measures 6.63:1 in both modes. Prefer
+  `MaterialTheme.colorScheme.*` and `LocalMediQColors.current.*` over literals;
+  a single green cannot clear 4.5:1 on both `#FFFFFF` and `#121212`, which is
+  why the accent is a separate role from `primary`.
 - **`AppointmentDetailsScreen` is still a static empty state.** No ViewModel exists for it yet.
 - **H2 in-memory by default.** Fine for development, wrong for real patients. `MEDIQ_JDBC_URL` must point at Postgres, and `ServerConfig.validate()` refuses H2 when `MEDIQ_ENV=production`.
 - **`schema.sql` is applied at boot, not migrated.** It is all `CREATE TABLE IF NOT EXISTS`, safe on an existing database but not a migration tool. Once real data exists, move to Flyway before changing a column.

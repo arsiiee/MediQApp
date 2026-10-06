@@ -28,16 +28,21 @@ no command is an aspiration, not a constraint.
 | Dimension | Rule | Checked by | Runs at |
 |-----------|------|-----------|---------|
 | Types | Zero compile errors in `:app` and `:server` | `.\gradlew.bat :app:compileDebugKotlin :server:compileKotlin` | every edit |
-| Architecture | `ui-imports-data` = 0 | `.\check-boundaries.ps1` | every edit, < 5s |
-| Architecture | `domain-imports-android` = 0 | `.\check-boundaries.ps1` | every edit, < 5s |
-| Architecture | `api-call-not-wrapped` = 0 | `.\check-boundaries.ps1` | every edit, < 5s |
-| Tests | `:server:test` green, 36 tests minimum | `.\gradlew.bat :server:test` | task end |
+| Architecture | `ui-imports-data` = 0 | `.\.mdfiles\check-boundaries.ps1` | every edit, < 5s |
+| Architecture | `domain-imports-android` = 0 | `.\.mdfiles\check-boundaries.ps1` | every edit, < 5s |
+| Architecture | `api-call-not-wrapped` = 0 | `.\.mdfiles\check-boundaries.ps1` | every edit, < 5s |
+| Tests | `:server:test` green, 50 tests minimum | `.\gradlew.bat :server:test` | task end |
 | Tests | `:app:testDebugUnitTest` green | `.\gradlew.bat :app:testDebugUnitTest` | task end |
+| Contrast | Every token pair clears WCAG AA; 0 hardcoded page backgrounds; raw-colour ratchet = 4 | `.\.mdfiles\check-contrast.ps1` | every edit, < 5s |
+
+Both check scripts resolve paths relative to the working directory, so they must
+be run from the repo root even though they live in `.mdfiles/`.
 
 Combined task-end gate, ~90s budget:
 
 ```powershell
-.\check-boundaries.ps1
+.\.mdfiles\check-boundaries.ps1
+.\.mdfiles\check-contrast.ps1
 .\gradlew.bat :app:compileDebugKotlin :app:testDebugUnitTest :server:test --console=plain
 ```
 
@@ -71,16 +76,18 @@ one. Move a number only when the code moves it.
 | `ui-imports-data` | 0 | must not grow | Was **7** until 2026-10-06 — every one `BackendNotConnectedException`, caught by ViewModels from `data/repository/`. Moved to `domain/model/`, where it belongs, and the ratchet dropped from 7 to 0. |
 | `domain-imports-android` | 0 | must not grow | Would break `:server`, which compiles `domain/` as `sharedDomain`. |
 | `api-call-not-wrapped` | 0 | must not grow | An unwrapped call is how the `HTTP 401` bug returns. |
-| `:server:test` count | 36 | must not fall | `BookingConcurrencyTest` is 4 of those and cannot be checked by hand. |
+| `:server:test` count | 50 | must not fall | `BookingConcurrencyTest` is 4 of those and cannot be checked by hand. Raised from 36 on 2026-10-06 — `AppointmentLifecycleTest` (13), `AvailableDatesTest` (4), `OtpLockoutTest` (3) and the 7 username-normalisation cases in `AuthServiceTest` were added, so the floor moves with the code. |
 | Suppressions | 0 | must not grow | |
 | Stubs (`TODO(`) | 0 | must not grow | |
+| Raw colour literals in `ui/` | 4 | must not grow | The 4 are `SplashScreen`'s white-on-brand-green, which measures 6.63:1. Was **25** on 2026-10-06 — 22 `Color.Gray` at 3.95:1 and friends, all invisible to a green build because nothing measured them. |
+| Hardcoded page backgrounds | 0 | must not grow | Was **10**. Caused the dark scheme's white-on-white 1.00:1. |
 
 ## Known debt
 
-None outstanding. The one item this file was created with — seven
-`ui-imports-data` violations — was fixed the same day by moving
-`BackendNotConnectedException` to `domain/model/`, and the ratchet went from 7
-to 0 rather than being left at a number that permitted the bug.
+| Item | Why it is still open |
+|------|---------------------|
+| `window.statusBarColor` is deprecated | Pre-existing warning in `Theme.kt`. Replacing it means `enableEdgeToEdge()`, which changes how insets are handled app-wide — its own task, not a contrast fix. |
+| Dark mode is contrast-correct but not tonally tuned | Status chips keep fixed light pastel containers, so they stay correct in both modes but read as bright blocks on a dark surface. Needs a dark status palette, which is a design decision. |
 
 ## Exceptions
 
@@ -90,7 +97,7 @@ None.
 
 | Dimension | Why not |
 |-----------|---------|
-| Test coverage | Needs JaCoCo or Kover in both modules. Worth adding — `:app` has 12 tests across ~54 source files. |
+| Test coverage | Needs JaCoCo or Kover in both modules. Worth adding — `:app` has 23 tests across 63 source files, and all 23 are in `data/api/`. The 8 ViewModels have none, because the harness to write them (`kotlinx-coroutines-test` plus fake repositories) does not exist yet. |
 | Security scanning | Semgrep/osv-scanner have nowhere to run without CI. Genuinely relevant: the repo has a dev JWT secret in source, guarded only by `MEDIQ_ENV=production`. |
 | Lint | Zero lint config today (no detekt, ktlint, or `.editorconfig`). Adopting one means writing a config and absorbing findings across the existing tree. |
 | Secrets scanning | Would flag the intentional dev JWT secret in `Db.kt` on every run until it is allowlisted. |
