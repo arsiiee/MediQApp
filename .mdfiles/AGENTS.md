@@ -124,7 +124,8 @@ app/src/main/java/com/example/mediq/
   domain/model/       plain Kotlin — no Compose, no Android imports
   domain/repository/  interfaces only
   data/api/           ApiDtos.kt, ApiMappers.kt, MediQApiService.kt (Retrofit interface),
-                      RetrofitClient.kt (OkHttp + AuthInterceptor), TokenStore.kt
+                      RetrofitClient.kt (OkHttp + AuthInterceptor), TokenStore.kt,
+                      ApiErrors.kt (call {} — maps HttpException to ApiFailure)
   data/repository/    Retrofit*Repository implementations (one per aggregate)
   di/AppContainer     object; init(context) wires TokenStore + all Retrofit repos
   ui/feature/<area>/  Screen + ViewModel pairs
@@ -160,7 +161,9 @@ Rules that are easy to break:
 - **Instants are `Instant`, displayed via `toClinicDate()` / `toClinicTime()`** from `domain/model/ClinicTime.kt`. Clinic zone is pinned to `Asia/Manila` via `CLINIC_ZONE` — do not use device-local zone.
 - **Enum wire values are explicit** (`AppointmentStatus(wireValue = "confirmed")`). Sending the enum name leaks the constant name into the API contract.
 - **No fake/invented data.** All hardcoded mock data was deliberately removed. `EmptyRepositories.kt` returns empty lists and throws `BackendNotConnectedException` for writes. Do not reintroduce placeholder doctors, appointments, or personal details — this is a real-patient app and fabricated records with plausible licence numbers get mistaken for real ones.
-- `BackendNotConnectedException` must map to `LoadState.Success(emptyList())` on reads, **not** `Error` — an unconnected backend is the expected state, not a failure. The Retrofit repositories follow the same contract: list reads catch `IOException` and return an empty `Paged`; single-entity reads and writes propagate exceptions.
+- `BackendNotConnectedException` must map to `LoadState.Success(emptyList())` on reads, **not** `Error` — an unconnected backend is the expected state, not a failure. The Retrofit repositories follow the same contract: list reads catch an unreachable-server `ApiFailure` and return an empty `Paged`; single-entity reads and writes propagate. Note the branch is on `isNetworkFailure`, **not** on a bare exception type — catching `IOException` (or `Exception`) also swallowed HTTP failures, so a 500 on a list read rendered as "you have no appointments." Only a genuinely unreachable server may become an empty state.
+- **Every call to `api.` in a `Retrofit*Repository` must sit inside `call { }`** (`data/api/ApiErrors.kt`). It maps `HttpException` into `ApiFailure`, reading the server's `ErrorDto` body. An unwrapped call returns Retrofit's raw `"HTTP 401 "` as its message, which is what a patient sees. `check-boundaries.ps1` enforces this; it was unenforced when that bug shipped with a green build.
+- **Never surface a framework exception's `message`.** Catch `ApiFailure` and show `e.message` — the server writes those for a patient to read. Retrofit, Gson, and OkHttp messages leak internals or are useless to a user.
 - Screens take a `NavController` (not `NavHostController`) and navigate imperatively. `MediQNavHost` uses explicit imports, not a wildcard.
 
 ## Networking
@@ -177,6 +180,29 @@ The app uses Retrofit 2.11.0 + OkHttp 4.12.0 + Gson 2.11.0. The single `MediQApi
 **Token storage** uses `SharedPreferences` (`TokenStore.kt`). The full `AuthSessionDto` JSON is stored so `currentSession()` can reconstruct the complete `AuthSession` — including the nested `UserProfile` — without a network call. The token is stored in plaintext in the app's private storage; `EncryptedSharedPreferences` (Tink) or Android Keystore should replace this before production.
 
 **DTOs** in `data/api/ApiDtos.kt` mirror the server wire format with `String` fields for all dates, times, and enums. `data/api/ApiMappers.kt` converts them to domain types. Enum lookups use `firstOrNull` with safe fallbacks so unknown server values don't crash the app.
+
+## Error contract
+
+The server publishes one error shape for every non-2xx response:
+`ErrorDto(error, message)` from `configureStatusPages` in `Routes.kt`, with the
+copy written by `ApiError` for a patient to read. It is a good contract —
+`AuthService` in particular gives an unknown username and a wrong password the
+*same* message so neither can be probed, and takes a dummy hash path so the two
+also take the same time.
+
+The client half is `data/api/ApiErrors.kt`. `call { }` reads that body and
+throws `ApiFailure(status, code, message)`; `ApiFailure` lives in `domain/model/`
+because `AGENTS.md` forbids ViewModels importing from `data/`, and `:server`
+compiles `domain/` as `sharedDomain` so it must stay plain Kotlin.
+
+**This mapping was missing until 2026-10-06, and the whole test suite stayed
+green throughout.** Retrofit throws `HttpException`, whose `message` is
+`"HTTP <code> <reason phrase>"`. Every ViewModel that surfaced `e.message`
+therefore showed a patient their own HTTP status instead of the sentence the
+server wrote for them — and `BookingViewModel` discarded the 409 entirely,
+telling someone to "try again" on a booking that could never succeed because the
+slot was gone. A rule nobody checked, failing silently. `ApiErrorsTest` and
+`check-boundaries.ps1` are the two guards so it cannot recur.
 
 ## Booking and double-booking
 
@@ -203,6 +229,46 @@ Three things to fix before real patients:
 - **Token storage on the Android side uses `SharedPreferences` (plaintext).** The token is in the app's private storage — safe enough for development, but `EncryptedSharedPreferences` (Tink library) should be used before shipping to real patients.
 
 ## Known gaps
+
+### API contract review (2026-10-06)
+
+A review of the client/server contract found eleven issues. #1 is fixed and
+documented under "Error contract" above. The remaining ten are **unstarted** —
+they are observations, not planned work, so they are not in `tasks/todo.md`.
+
+- **`ignoreUnknownKeys = false` makes every response field a breaking change.**
+  Sound for inbound bodies, inverted for responses: adding a field to `DoctorDto`
+  breaks every installed build. Needs asymmetric config — strict in, lenient out.
+- **Pagination is fully specified server-side and entirely unused.** `Routes.kt`
+  has cursors and `MAX_PAGE_SIZE`; `MediQApiService` sends no `limit` or `cursor`,
+  and `AppointmentsViewModel` drops `nextCursor` by taking `.items`. A patient
+  with 25 appointments sees 20, with no indication.
+- **`POST /appointments` has no idempotency key.** Book, lose the response, tap
+  again → 409 "that time was just taken" for a slot the patient holds. Derive the
+  key from the slot id and claim it against a unique constraint, the mechanism
+  already proven by `slot_claims`.
+- **`DELETE /appointments/{id}` is not idempotent.** A second cancel throws 400.
+  A retry after a lost response reports failure for an action that succeeded.
+- **`PUT /profile` is a PATCH in disguise, and fields cannot be cleared.**
+  `explicitNulls = false` plus `COALESCE` means omission and clearing are the
+  same operation, so clearing is impossible — `ifBlank { null }` in the repository
+  silently restores the old value.
+- **Client enum resolution silently substitutes values the server would reject.**
+  An unknown appointment status becomes `PENDING_CONFIRMATION`. A cancelled
+  appointment rendered as pending, in a medical app, unlogged.
+- **`verifyOtp` is untyped on both sides** (`Map<String, String>`), so a missing
+  key threw a developer string that reached the UI.
+- **Status codes are overloaded.** Duplicate username and already-cancelled are
+  400, not 409; missing date of birth is 400, not 422. `ApiError.conflict`
+  hardcodes `code = "slot_taken"` despite being generically named.
+- **Token expiry mid-session is unhandled and there is no refresh.** After the
+  60-minute TTL every request 401s with no route back to sign-in.
+- **`getDoctors(@QueryMap)` is an untyped string bag.** A typo'd key is ignored
+  by the server and silently drops the filter.
+- **`confirmedByPatient` is validated then discarded** — the insert hardcodes
+  `true`. It reads as a server guarantee and provides none.
+
+### Application
 
 - **Registration flow screens are not connected to the backend.** `RegisterDetails`, `RegisterOTP`, `RegisterCredentials`, and `RegisterSuccess` have no ViewModels and navigate between themselves via static local state. The server-side OTP + registration flow works, but the app screens don't call it yet.
 - **`AppointmentDetailsScreen` is still a static empty state.** No ViewModel exists for it yet.
