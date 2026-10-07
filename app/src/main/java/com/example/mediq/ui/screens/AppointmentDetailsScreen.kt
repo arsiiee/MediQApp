@@ -22,6 +22,120 @@ import com.example.mediq.ui.theme.MediQGreen
 import com.example.mediq.ui.theme.MediQTextPrimary
 import com.example.mediq.ui.theme.MediQTextSecondary
 
+private data class AppointmentDetailsData(
+    val doctor: String,
+    val specialty: String,
+    val date: String,
+    val time: String,
+    val location: String,
+    val reason: String,
+    val status: String
+)
+
+private fun getAppointmentDetails(
+    appointmentId: String?
+): AppointmentDetailsData {
+
+    return when (appointmentId) {
+
+        // =================================================
+        // UPCOMING - MARIA
+        // =================================================
+
+        "1" -> AppointmentDetailsData(
+            doctor = "Dr. Maria Elena Sandoval",
+            specialty = "Internal Medicine",
+            date = "Monday, September 14, 2026",
+            time = "9:30 AM",
+            location = "Main Building — 2F · Clinic 204",
+            reason = "Follow-up for elevated blood pressure",
+            status = "Confirmed"
+        )
+
+        // =================================================
+        // UPCOMING - KATHLEEN
+        // =================================================
+
+        "2" -> AppointmentDetailsData(
+            doctor = "Dr. Kathleen Lim",
+            specialty = "Dermatology",
+            date = "Thursday, September 17, 2026",
+            time = "10:00 AM",
+            location = "Annex Wing — 1F · Clinic 114",
+            reason = "Recurring skin rash on both arms",
+            status = "Awaiting confirmation"
+        )
+
+        // =================================================
+        // HISTORY - RAMON
+        // =================================================
+
+        "3" -> AppointmentDetailsData(
+            doctor = "Dr. Ramon Dela Cruz",
+            specialty = "Orthopedics",
+            date = "Monday, August 24, 2026",
+            time = "2:00 PM",
+            location = "Main Building — 2F · Clinic 212",
+            reason = "Knee pain consultation",
+            status = "Completed"
+        )
+
+        // =================================================
+        // HISTORY - GRACE
+        // =================================================
+
+        "4" -> AppointmentDetailsData(
+            doctor = "Dr. Grace Villanueva",
+            specialty = "OB-Gynecology",
+            date = "Wednesday, August 12, 2026",
+            time = "11:30 AM",
+            location = "Annex Wing — 4F · Clinic 402",
+            reason = "Routine consultation",
+            status = "Completed"
+        )
+
+        // =================================================
+        // FALLBACK
+        // =================================================
+
+        else -> AppointmentDetailsData(
+            doctor = "Dr. Maria Elena Sandoval",
+            specialty = "Internal Medicine",
+            date = "Monday, September 14, 2026",
+            time = "9:30 AM",
+            location = "Main Building — 2F · Clinic 204",
+            reason = "Follow-up for elevated blood pressure",
+            status = "Confirmed"
+        )
+    }
+}
+
+private fun getConversationId(
+    appointmentId: String?
+): String {
+
+    return when (appointmentId) {
+
+        "1" -> "maria_secretary"
+        "2" -> "kathleen_secretary"
+        "3" -> "joel_secretary"
+
+        // Grace currently uses a safe fallback because
+        // there is no separate Grace secretary conversation.
+        "4" -> "maria_secretary"
+
+        else -> "maria_secretary"
+    }
+}
+
+private fun canCancelAppointment(
+    status: String
+): Boolean {
+
+    return status == "Confirmed" ||
+            status == "Awaiting confirmation"
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AppointmentDetailsScreen(
@@ -33,22 +147,16 @@ fun AppointmentDetailsScreen(
         mutableStateOf(false)
     }
 
-    // -------------------------------------------------
-    // SECRETARY MAPPING
-    // -------------------------------------------------
-    // Mock frontend mapping for now.
-    // Later this will come from the backend/database.
+    val appointment =
+        getAppointmentDetails(appointmentId)
 
-    val conversationId = when (appointmentId) {
+    val conversationId =
+        getConversationId(appointmentId)
 
-        "1" -> "maria_secretary"
-
-        "2" -> "kathleen_secretary"
-
-        "3" -> "joel_secretary"
-
-        else -> "maria_secretary"
-    }
+    val canCancel =
+        canCancelAppointment(
+            appointment.status
+        )
 
     Column(
         modifier = Modifier
@@ -71,6 +179,17 @@ fun AppointmentDetailsScreen(
 
             IconButton(
                 onClick = {
+                    /*
+                     * IMPORTANT:
+                     * Do NOT navigate to Screen.Appointments here.
+                     *
+                     * popBackStack() returns to the exact
+                     * AppointmentsScreen instance that opened this
+                     * appointment.
+                     *
+                     * AppointmentsScreen already knows whether
+                     * the appointment came from Upcoming or History.
+                     */
                     navController.popBackStack()
                 }
             ) {
@@ -101,14 +220,18 @@ fun AppointmentDetailsScreen(
                 .padding(top = 14.dp)
         ) {
 
-            // -------------------------------------------------
+            // =================================================
             // CURRENT STATUS
-            // -------------------------------------------------
+            // =================================================
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+
+                horizontalArrangement =
+                    Arrangement.SpaceBetween,
+
+                verticalAlignment =
+                    Alignment.CenterVertically
             ) {
 
                 Text(
@@ -119,10 +242,24 @@ fun AppointmentDetailsScreen(
                 )
 
                 Text(
-                    text = "Confirmed",
+                    text = appointment.status,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.SemiBold,
-                    color = MediQGreen
+
+                    color = when (appointment.status) {
+
+                        "Cancelled" ->
+                            Color(0xFFB42318)
+
+                        "Completed" ->
+                            MediQGreen
+
+                        "Awaiting confirmation" ->
+                            Color(0xFFB76E00)
+
+                        else ->
+                            MediQGreen
+                    }
                 )
             }
 
@@ -136,8 +273,12 @@ fun AppointmentDetailsScreen(
 
             Surface(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(14.dp),
+
+                shape =
+                    RoundedCornerShape(14.dp),
+
                 color = Color.White,
+
                 border = BorderStroke(
                     width = 1.dp,
                     color = Color(0xFFDCE3DE)
@@ -149,6 +290,7 @@ fun AppointmentDetailsScreen(
                 ) {
 
                     // Doctor
+
                     Text(
                         text = "Doctor",
                         fontSize = 10.sp,
@@ -161,7 +303,7 @@ fun AppointmentDetailsScreen(
                     )
 
                     Text(
-                        text = "Dr. Maria Elena Sandoval",
+                        text = appointment.doctor,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
                         color = MediQTextPrimary
@@ -172,7 +314,7 @@ fun AppointmentDetailsScreen(
                     )
 
                     Text(
-                        text = "Internal Medicine",
+                        text = appointment.specialty,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = MediQGreen
@@ -191,6 +333,7 @@ fun AppointmentDetailsScreen(
                     )
 
                     // Schedule
+
                     Text(
                         text = "Schedule",
                         fontSize = 10.sp,
@@ -203,7 +346,8 @@ fun AppointmentDetailsScreen(
                     )
 
                     Text(
-                        text = "Monday, Sep 14, 2026 at 9:30 AM",
+                        text =
+                            "${appointment.date} at ${appointment.time}",
                         fontSize = 12.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = MediQTextPrimary
@@ -222,6 +366,7 @@ fun AppointmentDetailsScreen(
                     )
 
                     // Location
+
                     Text(
                         text = "Location",
                         fontSize = 10.sp,
@@ -234,7 +379,7 @@ fun AppointmentDetailsScreen(
                     )
 
                     Text(
-                        text = "Main Building - 2F · Clinic 204",
+                        text = appointment.location,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = MediQTextPrimary
@@ -253,6 +398,7 @@ fun AppointmentDetailsScreen(
                     )
 
                     // Reason
+
                     Text(
                         text = "Reason for visit",
                         fontSize = 10.sp,
@@ -265,7 +411,7 @@ fun AppointmentDetailsScreen(
                     )
 
                     Text(
-                        text = "Follow-up for elevated blood pressure",
+                        text = appointment.reason,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = MediQTextSecondary
@@ -285,32 +431,52 @@ fun AppointmentDetailsScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(92.dp),
-                shape = RoundedCornerShape(12.dp),
+
+                shape =
+                    RoundedCornerShape(12.dp),
+
                 color = Color(0xFFE2F2E7)
             ) {
 
                 Column(
                     modifier = Modifier.fillMaxSize(),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
+
+                    horizontalAlignment =
+                        Alignment.CenterHorizontally,
+
+                    verticalArrangement =
+                        Arrangement.Center
                 ) {
 
                     Icon(
-                        imageVector = Icons.Outlined.Map,
-                        contentDescription = "Map",
+                        imageVector =
+                            Icons.Outlined.Map,
+
+                        contentDescription =
+                            "Map",
+
                         tint = MediQGreen,
-                        modifier = Modifier.size(24.dp)
+
+                        modifier =
+                            Modifier.size(24.dp)
                     )
 
                     Spacer(
-                        modifier = Modifier.height(5.dp)
+                        modifier =
+                            Modifier.height(5.dp)
                     )
 
                     Text(
-                        text = "ACE Medical Center Map Preview",
+                        text =
+                            "ACE Medical Center Map Preview",
+
                         fontSize = 11.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = MediQGreen
+
+                        fontWeight =
+                            FontWeight.Medium,
+
+                        color =
+                            MediQGreen
                     )
                 }
             }
@@ -324,6 +490,7 @@ fun AppointmentDetailsScreen(
             // =================================================
 
             Button(
+
                 onClick = {
 
                     navController.navigate(
@@ -331,65 +498,101 @@ fun AppointmentDetailsScreen(
                             conversationId
                         )
                     )
-
                 },
+
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(46.dp),
-                shape = RoundedCornerShape(11.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MediQGreen
-                )
+
+                shape =
+                    RoundedCornerShape(11.dp),
+
+                colors =
+                    ButtonDefaults.buttonColors(
+                        containerColor =
+                            MediQGreen
+                    )
             ) {
 
                 Icon(
-                    imageVector = Icons.Outlined.ChatBubbleOutline,
-                    contentDescription = "Chat with Secretary",
-                    modifier = Modifier.size(19.dp)
+                    imageVector =
+                        Icons.Outlined.ChatBubbleOutline,
+
+                    contentDescription =
+                        "Chat with Secretary",
+
+                    modifier =
+                        Modifier.size(19.dp)
                 )
 
                 Spacer(
-                    modifier = Modifier.width(7.dp)
+                    modifier =
+                        Modifier.width(7.dp)
                 )
 
                 Text(
-                    text = "Chat with Secretary",
+                    text =
+                        "Chat with Secretary",
+
                     fontSize = 13.sp,
-                    fontWeight = FontWeight.SemiBold
+
+                    fontWeight =
+                        FontWeight.SemiBold
                 )
             }
-
-            Spacer(
-                modifier = Modifier.height(10.dp)
-            )
 
             // =================================================
             // CANCEL
             // =================================================
 
-            OutlinedButton(
-                onClick = {
-                    showCancelSheet = true
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(46.dp),
-                shape = RoundedCornerShape(11.dp),
-                border = BorderStroke(
-                    width = 1.dp,
-                    color = Color(0xFFF2B8B5)
-                ),
-                colors = ButtonDefaults.outlinedButtonColors(
-                    containerColor = Color(0xFFFFF7F6),
-                    contentColor = Color(0xFFB42318)
-                )
-            ) {
+            if (canCancel) {
 
-                Text(
-                    text = "Cancel",
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.SemiBold
+                Spacer(
+                    modifier =
+                        Modifier.height(10.dp)
                 )
+
+                OutlinedButton(
+
+                    onClick = {
+                        showCancelSheet = true
+                    },
+
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(46.dp),
+
+                    shape =
+                        RoundedCornerShape(11.dp),
+
+                    border =
+                        BorderStroke(
+                            width = 1.dp,
+                            color = Color(0xFFF2B8B5)
+                        ),
+
+                    colors =
+                        ButtonDefaults
+                            .outlinedButtonColors(
+                                containerColor =
+                                    Color(0xFFFFF7F6),
+
+                                contentColor =
+                                    Color(0xFFB42318)
+                            )
+                ) {
+
+                    Text(
+                        text =
+                            "Cancel",
+
+                        fontSize =
+                            13.sp,
+
+                        fontWeight =
+                            FontWeight.SemiBold
+                    )
+                }
             }
         }
     }
@@ -401,14 +604,20 @@ fun AppointmentDetailsScreen(
     if (showCancelSheet) {
 
         ModalBottomSheet(
+
             onDismissRequest = {
                 showCancelSheet = false
             },
-            containerColor = Color.White,
-            shape = RoundedCornerShape(
-                topStart = 20.dp,
-                topEnd = 20.dp
-            ),
+
+            containerColor =
+                Color.White,
+
+            shape =
+                RoundedCornerShape(
+                    topStart = 20.dp,
+                    topEnd = 20.dp
+                ),
+
             dragHandle = null
         ) {
 
@@ -423,32 +632,44 @@ fun AppointmentDetailsScreen(
                     )
             ) {
 
-                // -------------------------------------------------
-                // SHEET HEADER
-                // -------------------------------------------------
+                // Sheet header
 
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(40.dp),
-                    contentAlignment = Alignment.CenterStart
+
+                    contentAlignment =
+                        Alignment.CenterStart
                 ) {
 
                     Text(
-                        text = "Cancel this appointment?",
+                        text =
+                            "Cancel this appointment?",
+
                         fontSize = 17.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = MediQTextPrimary
+
+                        fontWeight =
+                            FontWeight.Bold,
+
+                        color =
+                            MediQTextPrimary
                     )
 
                     TextButton(
+
                         onClick = {
                             showCancelSheet = false
                         },
+
                         modifier = Modifier
-                            .align(Alignment.CenterEnd)
+                            .align(
+                                Alignment.CenterEnd
+                            )
                             .size(36.dp),
-                        contentPadding = PaddingValues(0.dp)
+
+                        contentPadding =
+                            PaddingValues(0.dp)
                     ) {
 
                         Text(
@@ -460,28 +681,35 @@ fun AppointmentDetailsScreen(
                 }
 
                 Spacer(
-                    modifier = Modifier.height(10.dp)
+                    modifier =
+                        Modifier.height(10.dp)
                 )
 
                 Text(
-                    text = "The reserved slot will be released immediately so another patient can book it.",
+                    text =
+                        "The reserved slot will be released immediately so another patient can book it.",
+
                     fontSize = 13.sp,
+
                     lineHeight = 19.sp,
-                    color = MediQTextSecondary
+
+                    color =
+                        MediQTextSecondary
                 )
 
                 Spacer(
-                    modifier = Modifier.height(18.dp)
+                    modifier =
+                        Modifier.height(18.dp)
                 )
 
-                // -------------------------------------------------
-                // CONFIRM CANCELLATION
-                // -------------------------------------------------
+                // Confirm cancellation
 
                 Button(
+
                     onClick = {
 
-                        val id = appointmentId
+                        val id =
+                            appointmentId
 
                         if (!id.isNullOrBlank()) {
 
@@ -498,25 +726,39 @@ fun AppointmentDetailsScreen(
 
                         navController.popBackStack()
                     },
+
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(46.dp),
-                    shape = RoundedCornerShape(11.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFFFFF3F2),
-                        contentColor = Color(0xFFB42318)
-                    )
+
+                    shape =
+                        RoundedCornerShape(11.dp),
+
+                    colors =
+                        ButtonDefaults.buttonColors(
+                            containerColor =
+                                Color(0xFFFFF3F2),
+
+                            contentColor =
+                                Color(0xFFB42318)
+                        )
                 ) {
 
                     Text(
-                        text = "Cancel Appointment",
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.SemiBold
+                        text =
+                            "Cancel Appointment",
+
+                        fontSize =
+                            13.sp,
+
+                        fontWeight =
+                            FontWeight.SemiBold
                     )
                 }
 
                 Spacer(
-                    modifier = Modifier.height(10.dp)
+                    modifier =
+                        Modifier.height(10.dp)
                 )
             }
         }

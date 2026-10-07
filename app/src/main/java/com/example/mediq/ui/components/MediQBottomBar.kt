@@ -69,49 +69,53 @@ val bottomNavItems = listOf(
 )
 
 /*
- * Determines which main tab owns the current screen.
- *
- * This is important because screens such as:
- *
- * DoctorDetails
- * BookingFlow
- * AppointmentDetails
- * BookingSuccess
- * MessageChat
- *
- * are not themselves bottom-navigation tabs.
+ * Determines which main bottom-navigation tab owns the
+ * current screen.
  */
 private fun getMainTab(route: String?): Screen? {
 
-    return when (route) {
+    return when {
 
-        // Home
-        Screen.Home.route ->
+        route == null -> null
+
+        // HOME
+        route == Screen.Home.route ||
+                route == Screen.Notifications.route -> {
             Screen.Home
+        }
 
-        // Doctor-related screens
-        Screen.Doctors.route,
-        Screen.DoctorDetails.route,
-        Screen.BookingFlow.route ->
+        // DOCTORS
+        route == Screen.Doctors.route ||
+                route == Screen.DoctorDetails.route ||
+                route == Screen.BookingFlow.route ||
+                route.startsWith("doctor_details/") ||
+                route.startsWith("booking_flow/") -> {
             Screen.Doctors
+        }
 
-        // Appointment-related screens
-        Screen.Appointments.route,
-        Screen.AppointmentDetails.route,
-        Screen.BookingSuccess.route ->
+        // APPOINTMENTS
+        route == Screen.Appointments.route ||
+                route == Screen.AppointmentDetails.route ||
+                route == Screen.BookingSuccess.route ||
+                route.startsWith("appointment_details/") ||
+                route.startsWith("booking_success/") -> {
             Screen.Appointments
+        }
 
-        // Messages-related screens
-        Screen.Messages.route,
-        Screen.MessageChat.route ->
+        // MESSAGES
+        route == Screen.Messages.route ||
+                route == Screen.MessageChat.route ||
+                route.startsWith("message_chat/") -> {
             Screen.Messages
+        }
 
-        // Profile
-        Screen.Profile.route ->
+        // PROFILE
+        route == Screen.Profile.route ||
+                route == Screen.EditProfile.route -> {
             Screen.Profile
+        }
 
-        else ->
-            null
+        else -> null
     }
 }
 
@@ -121,10 +125,9 @@ fun MediQBottomBar(
 ) {
 
     val navBackStackEntry by navController.currentBackStackEntryAsState()
-    val currentDestination = navBackStackEntry?.destination
 
     val currentRoute =
-        currentDestination?.route
+        navBackStackEntry?.destination?.route
 
     val currentMainTab =
         getMainTab(currentRoute)
@@ -146,13 +149,13 @@ fun MediQBottomBar(
                 // ─────────────────────────
 
                 icon = {
-
                     Icon(
-                        imageVector = if (selected) {
-                            item.filledIcon
-                        } else {
-                            item.outlinedIcon
-                        },
+                        imageVector =
+                            if (selected) {
+                                item.filledIcon
+                            } else {
+                                item.outlinedIcon
+                            },
                         contentDescription = item.label
                     )
                 },
@@ -162,7 +165,6 @@ fun MediQBottomBar(
                 // ─────────────────────────
 
                 label = {
-
                     Text(
                         text = item.label,
                         fontSize = 10.sp
@@ -177,42 +179,64 @@ fun MediQBottomBar(
 
                 onClick = {
 
-                    /*
-                     * If we're already on the exact root tab,
-                     * there is nothing to do.
-                     *
-                     * Example:
-                     * Doctors → tap Doctors = stay there.
-                     *
-                     * But:
-                     * Doctor Profile → tap Doctors
-                     * DOES navigate back to Doctors.
-                     */
+                    when (item.screen) {
 
-                    val isExactRootScreen =
-                        currentRoute == item.screen.route
+                        // HOME
+                        // This explicitly clears all screens above Home.
+                        Screen.Home -> {
 
-                    if (!isExactRootScreen) {
+                            if (currentRoute != Screen.Home.route) {
 
-                        navController.navigate(
-                            item.screen.route
-                        ) {
+                                navController.navigate(
+                                    Screen.Home.route
+                                ) {
 
-                            /*
-                             * Home is the root of the
-                             * logged-in part of the app.
-                             *
-                             * This avoids popping all the
-                             * way back to SignIn.
-                             */
-                            popUpTo(
-                                Screen.Home.route
-                            ) {
-                                saveState = true
+                                    popUpTo(
+                                        Screen.Home.route
+                                    ) {
+                                        inclusive = false
+                                    }
+
+                                    launchSingleTop = true
+
+                                    // Do not restore a previous deep screen.
+                                    restoreState = false
+                                }
                             }
+                        }
 
-                            launchSingleTop = true
-                            restoreState = true
+                        // OTHER MAIN TABS
+                        else -> {
+
+                            // If we're already on the exact root screen,
+                            // don't navigate again.
+                            if (currentRoute != item.screen.route) {
+
+                                navController.navigate(
+                                    item.screen.route
+                                ) {
+
+                                    /*
+                                     * Home is the root of the logged-in
+                                     * portion of the application.
+                                     *
+                                     * This removes deep screens such as:
+                                     * Doctor Details
+                                     * Booking Flow
+                                     * Appointment Details
+                                     * Message Chat
+                                     * Edit Profile
+                                     */
+                                    popUpTo(
+                                        Screen.Home.route
+                                    ) {
+                                        saveState = true
+                                    }
+
+                                    launchSingleTop = true
+                                    restoreState = true
+                                }
+                            }
                         }
                     }
                 },

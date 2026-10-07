@@ -1,6 +1,5 @@
 package com.example.mediq.ui.screens
 
-import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -14,6 +13,7 @@ import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -21,9 +21,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import androidx.navigation.compose.currentBackStackEntryAsState
 import com.example.mediq.ui.navigation.Screen
 import com.example.mediq.ui.theme.MediQGreen
-import com.example.mediq.ui.theme.MediQLightGreen
 import com.example.mediq.ui.theme.MediQTextPrimary
 import com.example.mediq.ui.theme.MediQTextSecondary
 
@@ -31,12 +31,16 @@ import com.example.mediq.ui.theme.MediQTextSecondary
 fun AppointmentsScreen(
     navController: NavController
 ) {
-    var selectedTab by remember {
+
+    // 0 = Upcoming
+    // 1 = History
+    var selectedTab by rememberSaveable {
         mutableIntStateOf(0)
     }
 
     val upcomingAppointments = remember {
         mutableStateListOf(
+
             AppointmentData(
                 id = "1",
                 doctor = "Dr. Maria Elena Sandoval",
@@ -48,6 +52,7 @@ fun AppointmentsScreen(
                 reason = "Follow-up for elevated blood pressure",
                 status = "Confirmed"
             ),
+
             AppointmentData(
                 id = "2",
                 doctor = "Dr. Kathleen Lim",
@@ -64,6 +69,7 @@ fun AppointmentsScreen(
 
     val historyAppointments = remember {
         mutableStateListOf(
+
             AppointmentData(
                 id = "3",
                 doctor = "Dr. Ramon Dela Cruz",
@@ -75,6 +81,7 @@ fun AppointmentsScreen(
                 reason = "Knee pain consultation",
                 status = "Completed"
             ),
+
             AppointmentData(
                 id = "4",
                 doctor = "Dr. Grace Villanueva",
@@ -89,9 +96,38 @@ fun AppointmentsScreen(
         )
     }
 
-    // Listen for a cancelled appointment coming back
-// from AppointmentDetailsScreen.
+    /*
+     * Current Appointments back-stack entry.
+     *
+     * This lets us receive information sent back from
+     * AppointmentDetailsScreen.
+     */
     val backStackEntry by navController.currentBackStackEntryAsState()
+
+    // -----------------------------------------------------
+    // Restore the tab where the appointment was opened from
+    // -----------------------------------------------------
+
+    val appointmentSourceTab =
+        backStackEntry
+            ?.savedStateHandle
+            ?.get<Int>("appointment_source_tab")
+
+    LaunchedEffect(appointmentSourceTab) {
+
+        if (appointmentSourceTab != null) {
+
+            selectedTab = appointmentSourceTab
+
+            backStackEntry
+                ?.savedStateHandle
+                ?.remove<Int>("appointment_source_tab")
+        }
+    }
+
+    // -----------------------------------------------------
+    // Listen for cancelled appointment
+    // -----------------------------------------------------
 
     val cancelledAppointmentId =
         backStackEntry
@@ -110,25 +146,27 @@ fun AppointmentsScreen(
             if (appointmentIndex >= 0) {
 
                 val appointment =
-                    upcomingAppointments.removeAt(appointmentIndex)
+                    upcomingAppointments.removeAt(
+                        appointmentIndex
+                    )
 
                 historyAppointments.add(
                     appointment.copy(
                         status = "Cancelled"
                     )
                 )
+
+                // A cancelled appointment now belongs in History.
+                selectedTab = 1
             }
 
             backStackEntry
                 ?.savedStateHandle
-                ?.remove<String>("cancelled_appointment_id")
+                ?.remove<String>(
+                    "cancelled_appointment_id"
+                )
         }
     }
-
-    val tabs = listOf(
-        "Upcoming",
-        "History"
-    )
 
     Column(
         modifier = Modifier
@@ -136,9 +174,9 @@ fun AppointmentsScreen(
             .background(Color(0xFFF5F8F6))
     ) {
 
-        // ─────────────────────────────
+        // =================================================
         // HEADER
-        // ─────────────────────────────
+        // =================================================
 
         Row(
             modifier = Modifier
@@ -148,6 +186,7 @@ fun AppointmentsScreen(
                 .padding(horizontal = 20.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
+
             Text(
                 text = "My appointments",
                 color = Color.White,
@@ -156,9 +195,9 @@ fun AppointmentsScreen(
             )
         }
 
-        // ─────────────────────────────
+        // =================================================
         // TABS
-        // ─────────────────────────────
+        // =================================================
 
         Row(
             modifier = Modifier
@@ -190,14 +229,15 @@ fun AppointmentsScreen(
             )
         }
 
-        // ─────────────────────────────
-        // APPOINTMENTS
-        // ─────────────────────────────
+        // =================================================
+        // APPOINTMENT LIST
+        // =================================================
 
         if (selectedTab == 0) {
 
             AppointmentList(
                 appointments = upcomingAppointments,
+                sourceTab = 0,
                 navController = navController
             )
 
@@ -205,6 +245,7 @@ fun AppointmentsScreen(
 
             AppointmentList(
                 appointments = historyAppointments,
+                sourceTab = 1,
                 navController = navController
             )
         }
@@ -218,6 +259,7 @@ private fun AppointmentTab(
     modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
+
     Surface(
         modifier = modifier
             .height(42.dp)
@@ -231,9 +273,11 @@ private fun AppointmentTab(
             Color(0xFFF1F4F2)
         }
     ) {
+
         Box(
             contentAlignment = Alignment.Center
         ) {
+
             Text(
                 text = text,
                 fontSize = 12.sp,
@@ -251,17 +295,20 @@ private fun AppointmentTab(
 @Composable
 private fun AppointmentList(
     appointments: List<AppointmentData>,
+    sourceTab: Int,
     navController: NavController
 ) {
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
+
         contentPadding = PaddingValues(
             start = 16.dp,
             end = 16.dp,
             top = 12.dp,
             bottom = 24.dp
         ),
+
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
 
@@ -272,7 +319,22 @@ private fun AppointmentList(
 
             AppointmentCard(
                 appointment = appointment,
+
                 onClick = {
+
+                    /*
+                     * Save where this appointment was opened from.
+                     *
+                     * 0 = Upcoming
+                     * 1 = History
+                     */
+                    navController
+                        .currentBackStackEntry
+                        ?.savedStateHandle
+                        ?.set(
+                            "appointment_source_tab",
+                            sourceTab
+                        )
 
                     navController.navigate(
                         Screen.AppointmentDetails.createRoute(
@@ -309,8 +371,11 @@ private fun AppointmentCard(
             .clickable {
                 onClick()
             },
+
         shape = RoundedCornerShape(16.dp),
+
         color = Color.White,
+
         border = BorderStroke(
             width = 1.dp,
             color = Color(0xFFDCE3DE)
@@ -321,9 +386,9 @@ private fun AppointmentCard(
             modifier = Modifier.padding(14.dp)
         ) {
 
-            // ─────────────────────────
+            // =================================================
             // DOCTOR HEADER
-            // ─────────────────────────
+            // =================================================
 
             Row(
                 verticalAlignment = Alignment.CenterVertically
@@ -339,8 +404,10 @@ private fun AppointmentCard(
                             },
                             shape = CircleShape
                         ),
+
                     contentAlignment = Alignment.Center
                 ) {
+
                     Text(
                         text = appointment.initials,
                         fontSize = 12.sp,
@@ -353,7 +420,9 @@ private fun AppointmentCard(
                     )
                 }
 
-                Spacer(modifier = Modifier.width(10.dp))
+                Spacer(
+                    modifier = Modifier.width(10.dp)
+                )
 
                 Column(
                     modifier = Modifier.weight(1f)
@@ -378,30 +447,40 @@ private fun AppointmentCard(
                 )
             }
 
-            Spacer(modifier = Modifier.height(10.dp))
+            Spacer(
+                modifier = Modifier.height(10.dp)
+            )
 
             HorizontalDivider(
                 color = Color(0xFFE0E5E2)
             )
 
-            Spacer(modifier = Modifier.height(10.dp))
+            Spacer(
+                modifier = Modifier.height(10.dp)
+            )
 
-            // ─────────────────────────
+            // =================================================
             // DATE / TIME
-            // ─────────────────────────
+            // =================================================
 
             Row(
                 verticalAlignment = Alignment.CenterVertically
             ) {
 
                 Icon(
-                    imageVector = Icons.Outlined.CalendarMonth,
+                    imageVector =
+                        Icons.Outlined.CalendarMonth,
+
                     contentDescription = null,
+
                     tint = MediQTextSecondary,
+
                     modifier = Modifier.size(16.dp)
                 )
 
-                Spacer(modifier = Modifier.width(6.dp))
+                Spacer(
+                    modifier = Modifier.width(6.dp)
+                )
 
                 Text(
                     text = "${appointment.date} · ${appointment.time}",
@@ -411,24 +490,32 @@ private fun AppointmentCard(
                 )
             }
 
-            Spacer(modifier = Modifier.height(7.dp))
+            Spacer(
+                modifier = Modifier.height(7.dp)
+            )
 
-            // ─────────────────────────
+            // =================================================
             // LOCATION
-            // ─────────────────────────
+            // =================================================
 
             Row(
                 verticalAlignment = Alignment.CenterVertically
             ) {
 
                 Icon(
-                    imageVector = Icons.Outlined.LocationOn,
+                    imageVector =
+                        Icons.Outlined.LocationOn,
+
                     contentDescription = null,
+
                     tint = MediQTextSecondary,
+
                     modifier = Modifier.size(16.dp)
                 )
 
-                Spacer(modifier = Modifier.width(6.dp))
+                Spacer(
+                    modifier = Modifier.width(6.dp)
+                )
 
                 Text(
                     text = appointment.location,
@@ -437,11 +524,13 @@ private fun AppointmentCard(
                 )
             }
 
-            Spacer(modifier = Modifier.height(9.dp))
+            Spacer(
+                modifier = Modifier.height(9.dp)
+            )
 
-            // ─────────────────────────
+            // =================================================
             // REASON
-            // ─────────────────────────
+            // =================================================
 
             Surface(
                 modifier = Modifier.fillMaxWidth(),
@@ -463,7 +552,9 @@ private fun AppointmentCard(
                         color = MediQTextPrimary
                     )
 
-                    Spacer(modifier = Modifier.width(4.dp))
+                    Spacer(
+                        modifier = Modifier.width(4.dp)
+                    )
 
                     Text(
                         text = appointment.reason,
@@ -516,12 +607,15 @@ private fun StatusChip(
         shape = RoundedCornerShape(8.dp),
         color = backgroundColor
     ) {
+
         Text(
             text = status,
+
             modifier = Modifier.padding(
                 horizontal = 8.dp,
                 vertical = 5.dp
             ),
+
             fontSize = 9.sp,
             fontWeight = FontWeight.SemiBold,
             color = textColor

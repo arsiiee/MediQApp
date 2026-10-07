@@ -25,10 +25,28 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.example.mediq.ui.navigation.Screen
 import com.example.mediq.ui.theme.MediQGreen
-import com.example.mediq.ui.theme.MediQLightGreen
 import com.example.mediq.ui.theme.MediQSurface
 import com.example.mediq.ui.theme.MediQTextPrimary
 import com.example.mediq.ui.theme.MediQTextSecondary
+
+private val ALL_TIME_SLOTS = listOf(
+    "9:00 AM",
+    "9:30 AM",
+    "10:00 AM",
+    "10:30 AM",
+    "11:00 AM",
+    "11:30 AM",
+    "12:00 PM",
+    "12:30 PM",
+    "1:00 PM",
+    "1:30 PM",
+    "2:00 PM",
+    "2:30 PM",
+    "3:00 PM",
+    "3:30 PM",
+    "4:00 PM",
+    "4:30 PM"
+)
 
 @Composable
 fun DoctorDetailsScreen(
@@ -153,6 +171,7 @@ fun DoctorDetailsScreen(
                         Row(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
+
                             Icon(
                                 imageVector = Icons.Outlined.LocationOn,
                                 contentDescription = null,
@@ -245,17 +264,17 @@ fun DoctorDetailsScreen(
 
                         ClinicHourRow(
                             day = "Monday",
-                            time = "9:00 AM – 12:00 PM"
+                            time = "9:00 AM – 5:00 PM"
                         )
 
                         ClinicHourRow(
                             day = "Wednesday",
-                            time = "9:00 AM – 12:00 PM"
+                            time = "9:00 AM – 5:00 PM"
                         )
 
                         ClinicHourRow(
                             day = "Friday",
-                            time = "1:00 PM – 4:00 PM"
+                            time = "9:00 AM – 5:00 PM"
                         )
 
                         Spacer(modifier = Modifier.height(6.dp))
@@ -292,7 +311,7 @@ fun DoctorDetailsScreen(
                 Spacer(modifier = Modifier.height(6.dp))
 
                 Text(
-                    text = "Reserved and blocked slots cannot be selected — availability updates in real time.",
+                    text = "Clinic hours are 9:00 AM–5:00 PM. Reserved and blocked slots cannot be selected.",
                     fontSize = 13.sp,
                     lineHeight = 19.sp,
                     color = MediQTextSecondary
@@ -322,33 +341,24 @@ fun DoctorDetailsScreen(
 
                 Spacer(modifier = Modifier.height(14.dp))
 
-                // Time slots row 1
-                TimeSlotRow(
-                    slots = listOf(
-                        "9:00 AM",
-                        "9:30 AM",
-                        "10:00 AM"
-                    ),
-                    statuses = slotStatuses,
-                    selectedTime = selectedTime,
-                    onSelect = { selectedTime = it }
-                )
+                // Time slots
+                ALL_TIME_SLOTS
+                    .chunked(3)
+                    .forEach { rowSlots ->
+
+                        TimeSlotRow(
+                            slots = rowSlots,
+                            statuses = slotStatuses,
+                            selectedTime = selectedTime,
+                            onSelect = {
+                                selectedTime = it
+                            }
+                        )
+
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
 
                 Spacer(modifier = Modifier.height(8.dp))
-
-                // Time slots row 2
-                TimeSlotRow(
-                    slots = listOf(
-                        "10:30 AM",
-                        "11:00 AM",
-                        "11:30 AM"
-                    ),
-                    statuses = slotStatuses,
-                    selectedTime = selectedTime,
-                    onSelect = { selectedTime = it }
-                )
-
-                Spacer(modifier = Modifier.height(16.dp))
 
                 // Legend
                 Row(
@@ -378,10 +388,11 @@ fun DoctorDetailsScreen(
                 Button(
                     onClick = {
                         selectedTime?.let { time ->
+
                             navController.navigate(
                                 Screen.BookingFlow.createRoute(
                                     doctorId = doctorId ?: "1",
-                                    dateIndex = selectedDate,
+                                    dateIndex = selectedDateInfo.date,
                                     time = time
                                 )
                             )
@@ -421,6 +432,7 @@ private fun DoctorInfoCard(
     label: String,
     value: String
 ) {
+
     Surface(
         modifier = modifier,
         shape = RoundedCornerShape(14.dp),
@@ -434,6 +446,7 @@ private fun DoctorInfoCard(
             Row(
                 verticalAlignment = Alignment.CenterVertically
             ) {
+
                 icon()
 
                 Spacer(modifier = Modifier.width(6.dp))
@@ -462,6 +475,7 @@ private fun ClinicHourRow(
     day: String,
     time: String
 ) {
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -496,10 +510,13 @@ private fun DateCard(
     modifier: Modifier,
     onClick: () -> Unit
 ) {
+
     Surface(
         modifier = modifier
             .height(78.dp)
-            .clickable { onClick() },
+            .clickable {
+                onClick()
+            },
         shape = RoundedCornerShape(13.dp),
         color = if (selected) {
             MediQGreen
@@ -572,54 +589,87 @@ private fun slotStatusesFor(
     return when (dateIndex) {
 
         // Monday 21 — 1 open
-        0 -> mapOf(
-            "9:00 AM" to TimeSlotStatus.RESERVED,
-            "9:30 AM" to TimeSlotStatus.RESERVED,
-            "10:00 AM" to TimeSlotStatus.AVAILABLE,
-            "10:30 AM" to TimeSlotStatus.RESERVED,
-            "11:00 AM" to TimeSlotStatus.RESERVED,
-            "11:30 AM" to TimeSlotStatus.RESERVED
+        0 -> buildSlotStatuses(
+            available = setOf(
+                "10:00 AM"
+            ),
+            blocked = setOf(
+                "1:00 PM",
+                "3:30 PM",
+                "4:30 PM"
+            )
         )
 
         // Wednesday 23 — 4 open
-        1 -> mapOf(
-            "9:00 AM" to TimeSlotStatus.AVAILABLE,
-            "9:30 AM" to TimeSlotStatus.AVAILABLE,
-            "10:00 AM" to TimeSlotStatus.AVAILABLE,
-            "10:30 AM" to TimeSlotStatus.AVAILABLE,
-            "11:00 AM" to TimeSlotStatus.RESERVED,
-            "11:30 AM" to TimeSlotStatus.BLOCKED
+        1 -> buildSlotStatuses(
+            available = setOf(
+                "9:00 AM",
+                "9:30 AM",
+                "10:00 AM",
+                "10:30 AM"
+            ),
+            blocked = setOf(
+                "11:30 AM",
+                "2:00 PM",
+                "4:30 PM"
+            )
         )
 
         // Friday 25 — 2 open
-        2 -> mapOf(
-            "9:00 AM" to TimeSlotStatus.RESERVED,
-            "9:30 AM" to TimeSlotStatus.RESERVED,
-            "10:00 AM" to TimeSlotStatus.AVAILABLE,
-            "10:30 AM" to TimeSlotStatus.AVAILABLE,
-            "11:00 AM" to TimeSlotStatus.RESERVED,
-            "11:30 AM" to TimeSlotStatus.BLOCKED
+        2 -> buildSlotStatuses(
+            available = setOf(
+                "10:00 AM",
+                "10:30 AM"
+            ),
+            blocked = setOf(
+                "11:30 AM",
+                "1:30 PM",
+                "3:30 PM",
+                "4:30 PM"
+            )
         )
 
         // Monday 28 — 2 open
-        3 -> mapOf(
-            "9:00 AM" to TimeSlotStatus.RESERVED,
-            "9:30 AM" to TimeSlotStatus.AVAILABLE,
-            "10:00 AM" to TimeSlotStatus.RESERVED,
-            "10:30 AM" to TimeSlotStatus.RESERVED,
-            "11:00 AM" to TimeSlotStatus.AVAILABLE,
-            "11:30 AM" to TimeSlotStatus.BLOCKED
+        3 -> buildSlotStatuses(
+            available = setOf(
+                "9:30 AM",
+                "11:00 AM"
+            ),
+            blocked = setOf(
+                "11:30 AM",
+                "2:30 PM",
+                "4:00 PM"
+            )
         )
 
         // Wednesday 30 — 3 open
-        else -> mapOf(
-            "9:00 AM" to TimeSlotStatus.AVAILABLE,
-            "9:30 AM" to TimeSlotStatus.RESERVED,
-            "10:00 AM" to TimeSlotStatus.AVAILABLE,
-            "10:30 AM" to TimeSlotStatus.RESERVED,
-            "11:00 AM" to TimeSlotStatus.AVAILABLE,
-            "11:30 AM" to TimeSlotStatus.BLOCKED
+        else -> buildSlotStatuses(
+            available = setOf(
+                "9:00 AM",
+                "10:00 AM",
+                "11:00 AM"
+            ),
+            blocked = setOf(
+                "11:30 AM",
+                "3:00 PM",
+                "4:30 PM"
+            )
         )
+    }
+}
+
+private fun buildSlotStatuses(
+    available: Set<String>,
+    blocked: Set<String>
+): Map<String, TimeSlotStatus> {
+
+    return ALL_TIME_SLOTS.associateWith { time ->
+
+        when {
+            time in available -> TimeSlotStatus.AVAILABLE
+            time in blocked -> TimeSlotStatus.BLOCKED
+            else -> TimeSlotStatus.RESERVED
+        }
     }
 }
 
@@ -650,6 +700,13 @@ private fun TimeSlotRow(
                         onSelect(time)
                     }
                 }
+            )
+        }
+
+        // Keeps the final row aligned when it has fewer than 3 slots.
+        repeat(3 - slots.size) {
+            Spacer(
+                modifier = Modifier.weight(1f)
             )
         }
     }
@@ -718,6 +775,7 @@ private fun AvailabilityLegend(
     color: Color,
     label: String
 ) {
+
     Row(
         verticalAlignment = Alignment.CenterVertically
     ) {

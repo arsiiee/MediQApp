@@ -31,59 +31,106 @@ import com.example.mediq.ui.theme.MediQGreen
 import com.example.mediq.ui.theme.MediQLightGreen
 import com.example.mediq.ui.theme.MediQTextPrimary
 import com.example.mediq.ui.theme.MediQTextSecondary
-import androidx.compose.ui.zIndex
 
 @Composable
 fun HomeScreen(navController: NavController) {
 
-    Box(
+    LazyColumn(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.White)
+            .background(Color.White),
+
+        contentPadding = PaddingValues(
+            bottom = 24.dp
+        ),
+
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
 
-        // Green header behind the consultation card
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(132.dp)
-                .background(MediQGreen)
-        )
+        /*
+         * HEADER + NEXT CONSULTATION
+         *
+         * Both are inside the same LazyColumn item.
+         * This means the following will all scroll together:
+         *
+         * - Avatar
+         * - Good day
+         * - Patient name
+         * - Notification button
+         * - Green header background
+         * - Next consultation card
+         */
+        item {
 
-        // Header content
-        HomeHeader(
-            navController = navController,
-            modifier = Modifier
-                .fillMaxWidth()
-                .align(Alignment.TopCenter)
-                .zIndex(2f)
-        )
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+            ) {
 
-        // Scrollable home content
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(
-                start = 20.dp,
-                end = 20.dp,
-                top = 90.dp,
-                bottom = 24.dp
-            ),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
+                // Green background behind the top section
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(132.dp)
+                        .background(MediQGreen)
+                        .align(Alignment.TopCenter)
+                )
 
-            item {
-                NextConsultationCard(navController)
+                // Consultation card overlaps the green header
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(
+                            top = 90.dp,
+                            start = 20.dp,
+                            end = 20.dp
+                        )
+                ) {
+                    NextConsultationCard(navController)
+                }
+
+                // Header is now INSIDE the scrollable item
+                HomeHeader(
+                    navController = navController,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .align(Alignment.TopCenter)
+                )
             }
+        }
 
-            item {
+        // Book consultation
+        item {
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp)
+            ) {
                 BookConsultationButton(navController)
             }
+        }
 
-            item {
+        // Browse by specialty
+        item {
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp)
+            ) {
                 BrowseBySpecialty()
             }
+        }
 
-            item {
+        // Most open slots
+        item {
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp)
+            ) {
                 MostOpenSlots(navController)
             }
         }
@@ -95,11 +142,13 @@ fun HomeHeader(
     navController: NavController,
     modifier: Modifier = Modifier
 ) {
+
     Row(
         modifier = modifier.padding(
             horizontal = 20.dp,
             vertical = 18.dp
         ),
+
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -116,6 +165,7 @@ fun HomeHeader(
                     .background(Color(0xFF2D8650)),
                 contentAlignment = Alignment.Center
             ) {
+
                 Text(
                     text = "AZ",
                     color = Color.White,
@@ -127,6 +177,7 @@ fun HomeHeader(
             Spacer(modifier = Modifier.width(10.dp))
 
             Column {
+
                 Text(
                     text = "Good day,",
                     color = Color.White.copy(alpha = 0.85f),
@@ -149,13 +200,17 @@ fun HomeHeader(
 
             IconButton(
                 onClick = {
-                    navController.navigate(Screen.Notifications.route)
+                    navController.navigate(
+                        Screen.Notifications.route
+                    )
                 },
+
                 modifier = Modifier
                     .fillMaxSize()
                     .clip(CircleShape)
                     .background(Color(0xFF2D8650))
             ) {
+
                 Icon(
                     imageVector = Icons.Default.Notifications,
                     contentDescription = "Notifications",
@@ -170,21 +225,29 @@ fun HomeHeader(
                     .clip(CircleShape)
                     .background(Color(0xFFE53935))
                     .align(Alignment.TopEnd)
-                    .offset(x = (-3).dp, y = 3.dp)
+                    .offset(
+                        x = (-3).dp,
+                        y = 3.dp
+                    )
             )
         }
     }
 }
 
 @Composable
-fun NextConsultationCard(navController: NavController) {
+fun NextConsultationCard(
+    navController: NavController
+) {
 
     Card(
         modifier = Modifier.fillMaxWidth(),
+
         shape = RoundedCornerShape(16.dp),
+
         colors = CardDefaults.cardColors(
             containerColor = Color.White
         ),
+
         elevation = CardDefaults.cardElevation(
             defaultElevation = 5.dp
         )
@@ -212,12 +275,15 @@ fun NextConsultationCard(navController: NavController) {
                     color = MediQLightGreen,
                     shape = RoundedCornerShape(20.dp)
                 ) {
+
                     Text(
                         text = "Confirmed",
+
                         modifier = Modifier.padding(
                             horizontal = 11.dp,
                             vertical = 6.dp
                         ),
+
                         fontSize = 12.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = MediQGreen
@@ -268,6 +334,7 @@ fun NextConsultationCard(navController: NavController) {
             Row(
                 verticalAlignment = Alignment.CenterVertically
             ) {
+
                 Icon(
                     imageVector = Icons.Default.LocationOn,
                     contentDescription = null,
@@ -289,6 +356,7 @@ fun NextConsultationCard(navController: NavController) {
             Row(
                 verticalAlignment = Alignment.CenterVertically
             ) {
+
                 Icon(
                     imageVector = Icons.Default.AccessTime,
                     contentDescription = null,
@@ -313,8 +381,10 @@ fun NextConsultationCard(navController: NavController) {
                         Screen.AppointmentDetails.createRoute("1")
                     )
                 },
+
                 contentPadding = PaddingValues(0.dp)
             ) {
+
                 Text(
                     text = "Manage appointment",
                     color = MediQGreen,
@@ -336,16 +406,23 @@ fun NextConsultationCard(navController: NavController) {
 }
 
 @Composable
-fun BookConsultationButton(navController: NavController) {
+fun BookConsultationButton(
+    navController: NavController
+) {
 
     Button(
         onClick = {
-            navController.navigate(Screen.Doctors.route)
+            navController.navigate(
+                Screen.Doctors.route
+            )
         },
+
         modifier = Modifier
             .fillMaxWidth()
             .height(48.dp),
+
         shape = RoundedCornerShape(14.dp),
+
         colors = ButtonDefaults.buttonColors(
             containerColor = MediQGreen
         )
@@ -401,19 +478,23 @@ fun BrowseBySpecialty() {
                 Surface(
                     shape = RoundedCornerShape(20.dp),
                     color = Color.White,
+
                     border = BorderStroke(
                         width = 1.dp,
                         color = Color(0xFFDCE2DE)
                     ),
+
                     modifier = Modifier.clickable { }
                 ) {
 
                     Text(
                         text = specialty,
+
                         modifier = Modifier.padding(
                             horizontal = 14.dp,
                             vertical = 9.dp
                         ),
+
                         fontSize = 12.sp,
                         color = MediQTextPrimary
                     )
@@ -430,19 +511,24 @@ data class DoctorSlot(
 )
 
 @Composable
-fun MostOpenSlots(navController: NavController) {
+fun MostOpenSlots(
+    navController: NavController
+) {
 
     val doctors = listOf(
+
         DoctorSlot(
             "Dr. Joel Marquez",
             "Pediatrics · Annex Wing — 1F",
             18
         ),
+
         DoctorSlot(
             "Dr. Grace Villanueva",
             "OB-Gynecology · Annex Wing — 4F",
             15
         ),
+
         DoctorSlot(
             "Dr. Ramon Dela Cruz",
             "Orthopedics · Main Building — 2F",
@@ -463,10 +549,13 @@ fun MostOpenSlots(navController: NavController) {
 
         Card(
             modifier = Modifier.fillMaxWidth(),
+
             shape = RoundedCornerShape(16.dp),
+
             colors = CardDefaults.cardColors(
                 containerColor = Color.White
             ),
+
             border = BorderStroke(
                 width = 1.dp,
                 color = Color(0xFFDCE2DE)
@@ -477,6 +566,7 @@ fun MostOpenSlots(navController: NavController) {
 
                 DoctorSlotItem(
                     doctor = doctor,
+
                     onClick = {
                         navController.navigate(
                             Screen.DoctorDetails.createRoute("1")
@@ -485,6 +575,7 @@ fun MostOpenSlots(navController: NavController) {
                 )
 
                 if (index < doctors.lastIndex) {
+
                     HorizontalDivider(
                         color = Color(0xFFE5E8E5)
                     )
@@ -503,11 +594,14 @@ fun DoctorSlotItem(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onClick() }
+            .clickable {
+                onClick()
+            }
             .padding(
                 horizontal = 16.dp,
                 vertical = 13.dp
             ),
+
         verticalAlignment = Alignment.CenterVertically
     ) {
 
