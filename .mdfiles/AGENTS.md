@@ -24,7 +24,14 @@ Two caveats. The **machine**-level `JAVA_HOME` still points at `C:\Users\You\Dow
 
 Verify the app with `:app:compileDebugKotlin` (~2s warm, ~3min cold). Full APK: `:app:assembleDebug` (~80s).
 
-`:app` unit tests — 165, runnable with `.\gradlew.bat :app:testDebugUnitTest`:
+Note the 6 deprecation warnings it prints — see "Toolchain notes". A `:server:run`
+failure naming an Adoptium 17 JVM is the toolchain, not the daemon.
+
+`:app` unit tests — 174, runnable with `.\gradlew.bat :app:testDebugUnitTest`.
+Count them with `--rerun-tasks`: the task otherwise reports UP-TO-DATE and the
+previous run's XML is still in `app/build/test-results/`, so a stale count reads
+as a skipped suite. `:app` main is ~6,900 lines; `:server` is ~3,800 including
+its tests.
 
 - `data/api/` — `ApiErrorsTest.kt` (11 tests over error-body parsing),
   `UnknownWireValueTest.kt` (8 pinning how unrecognised wire values resolve), and
@@ -64,7 +71,7 @@ Verify the app with `:app:compileDebugKotlin` (~2s warm, ~3min cold). Full APK: 
   backend is a `Success(null)` rather than an error, and **sign-out navigates away
   even when the server refuses**, because the alternative is a patient stranded on
   a signed-in screen. The `runCatching` was verified by mutation.
-- `ui/feature/home/HomeViewModelTest.kt` (13) — the next appointment is the
+- `ui/feature/home/HomeViewModelTest.kt` (14) — the next appointment is the
   *soonest* one rather than the first the server returned, and the two loads are
   independent so neither can blank the other. `minByOrNull` → `maxByOrNull` was
   verified by mutation.
@@ -155,11 +162,20 @@ device is up with `adb devices` before assuming a build problem.
 missing some modern x86 virtualisation features, so on boot the emulator logs
 "Not all modern X86 virtualization features supported ... Setting AVD to run
 with 1 vCPU core only" and overrides `hw.cpu.ncore` and `hw.ramSize` in
-`config.ini` regardless of what they are set to. A cold boot took **86
-seconds**; Gradle's `installDebug` took under two minutes on top of that. Budget
-several minutes for install-plus-launch, and treat a slow first launch as the
-environment rather than a code problem. The `config.ini` values (4 cores, 4G)
-are recorded as intent but are not what actually runs.
+`config.ini` regardless of what they are set to. A **cold** boot took **86
+seconds**; Gradle's `installDebug` took under two minutes on top of that, and 36s
+measured on 2026-10-07. Budget several minutes for install-plus-launch, and treat
+a slow first launch as the environment rather than a code problem. The
+`config.ini` values (4 cores, 4G) are recorded as intent but are not what
+actually runs.
+
+**Boot is only slow when it is cold.** The AVD has a `default_boot` snapshot, so
+a normal start resumes in **~4 seconds** — the emulator log reads `Loading
+snapshot 'default_boot' ... using 4313 ms`, and saves it again on shutdown.
+Measured 2026-10-07: a 4s resume prompted a note here claiming that same run had
+taken 86s. The 86s figure is real, but it belongs to a cold boot, and crediting
+it to a snapshot resume is how a documented number stops meaning anything. Pass
+`-no-snapshot-load` to force the slow path when that is what you are testing.
 
 This AVD exists because `cmdline-tools` and the system image were both missing
 from the SDK. `cmdline-tools` (19.0) is now installed at
@@ -507,5 +523,21 @@ they are observations, not planned work, so they are not in `tasks/todo.md`.
 - Gradle 9.8, configuration cache on, parallel off. The wrapper was bumped from 9.5.0 and the regenerated `gradle-wrapper.properties` dropped `distributionSha256Sum` and `validateDistributionUrl`, so the downloaded distribution is no longer checksum-verified.
 - Icons: prefer `Icons.AutoMirrored.*` for `ArrowBack`, `Chat`, `Logout` (the non-mirrored ones are deprecated and warn).
 - `TabRowDefaults.Indicator` is deprecated → use `PrimaryTabRow`. Note `SecondaryIndicator` does **not** exist in this BOM version even though the deprecation message suggests it.
-- `Theme.kt` uses the deprecated `statusBarColor`; this is the last remaining compile warning.
+- `Theme.kt` uses the deprecated `statusBarColor`, and 5 call sites use the
+  deprecated `KeyboardOptions(capitalization, autoCorrect, …)` constructor
+  (`RegisterCredentialsScreen.kt:91,115,143`, `SignInScreen.kt:107,134`) — **6
+  warnings, not 1**. Only `--warning-mode all` shows them individually; the
+  default prints one line about deprecated Gradle features and names none of
+  them. The `KeyboardOptions` one wants the new `autoCorrectEnabled` parameter.
+- **Gradle 10 will not build this repo.** `--warning-mode all` reports
+  `Configuration.setVisible(boolean) … removed in Gradle 11`. `visible` appears 0
+  times in all four build scripts, so it is AGP 9.3.3 or KGP 2.2.10, not our
+  code. Re-check on the next plugin bump rather than hunting it here.
+- **Three JVMs are in play.** The daemon runs JBR 21,
+  `server/build.gradle.kts` pins `JavaLanguageVersion.of(17)`, and
+  `gradle-daemon-jvm.properties` requests `toolchainVersion=25`. `:server:run`
+  and `:server:test` execute on **17**. A `:server:run` failure therefore names a
+  JVM (`~/.gradle/jdks/eclipse_adoptium-17-...`) that appears nowhere in the
+  build docs — read the toolchain, not the daemon, when diagnosing it.
+  `toolchainUrl.*` in that file is just the foojay download cache; leave it.
 - Wildcard imports (`layout.*`, `material3.*`) are the existing style, but scripts that rewrite import blocks tend to duplicate `import ...material.icons.Icons` and trip "Conflicting import". Verify counts after scripted import edits.

@@ -332,7 +332,8 @@ implementation cannot produce, and it held on the first attempt.
 - [x] `adb shell uiautomator dump /sdcard/ui.xml` to find the wordmark — read `[352,791][728,940]`, centre **(540, 865)**; Re-check at **(181, 412)**. Guessing tap coordinates from a screenshot is not reliable
 - [x] `adb shell input tap` for a short press; `input swipe 540 865 540 865 1200` for a long one — the 1200ms is above `ViewConfiguration.longPressTimeoutMillis`, so the gesture fires
 - [x] Server was **stopped and restarted mid-session** rather than assumed down — `Invoke-RestMethod /health` confirmed connection refused before Re-check
-- [x] Boot took ~86s, install 36s, as `AGENTS.md` records. `config.ini` was not touched
+- [x] Install 36s. `config.ini` was not touched
+- [x] **Boot resumed from snapshot in ~4.3s, not the 86s cold boot.** The emulator log reads `Loading snapshot 'default_boot' ... using 4313 ms`. `AGENTS.md`'s 86s figure is right *for a cold boot* — this run had a snapshot to load. Correcting the note that first credited this run with the cold-boot number
 
 ### Two things this run found that no test could
 
@@ -493,13 +494,23 @@ it. Four claims remain, and three of them are claims about observed behaviour.
 >
 > Two consequences beyond the numbers, now documented in both files:
 >
-> - **The two check scripts are not in CI.** `ci.yml` runs `:server:test`,
->   `:app:lintDebug`, `:app:testDebugUnitTest`, `:app:assembleDebug` — but grep
->   either workflow for `ps1` and you get nothing. Every row in `CONSTRAINTS.md`
->   naming `check-boundaries.ps1` or `check-contrast.ps1` is a **manual** gate,
->   and a violation of either merges green today. Adding them was deliberately
->   deferred: it changes `.github/workflows/ci.yml`, which is outside a docs
->   correction.
+> - ~~**The two check scripts are not in CI.**~~ **Resolved 2026-10-07, outside
+>   v3.** The `gates` job in `.github/workflows/ci.yml` now runs both on
+>   `ubuntu-latest` with `shell: pwsh`, in parallel with the build jobs, ~10s, no
+>   `paths:` filter, no `continue-on-error`. Both were proven to fail on a real
+>   violation first. `CONSTRAINTS.md`, `README.md`, and `CHANGELOG.md` updated in
+>   the same change. Doing it outside v3 was right: it edits a workflow, which is
+>   not this plan's surface, and it was a standalone gap rather than seeded-data
+>   work.
+> - **The raw-colour ratchet is narrower than it reads.** Found while mutation-
+>   checking that CI job: `check-contrast.ps1:177` matches five named `Color.*`
+>   constants plus the single hex `0xFFD32F2F`, so `Color(0xFF00FF00)` passes and
+>   the ratchet still reads 4. Seven `Color(0x…)` sites are in `ui/` today; six are
+>   the status chips (measured separately) and `NotificationsScreen.kt:122`'s
+>   `Color(0xFFF5F5F5)` is measured by nothing. Recorded in `CONSTRAINTS.md` under
+>   "Not enforced, and why". **Not fixed here** — widening the pattern moves the
+>   bar and the floor in the same edit, which `CONSTRAINTS.md` says belongs in its
+>   own change. Candidate next task.
 > - **`SeededDataViewModelTest` (8) is in the worktree but uncommitted**, so the
 >   worktree measures 174 and `HEAD` measures 166. The ratchet floor is set to
 >   **166** — what the committed tree actually guarantees — and the original
@@ -520,7 +531,7 @@ throwaway branch.
 - [ ] **→ Task 7.** `CONSTRAINTS.md:37` and `:95` raised 166 -> 174 once Tasks 1-3 are committed, so the ratchet reaches the measured value
 - [ ] **→ Task 7.** `README.md` "What works" gains one line naming the screen, its purpose as a backend check, and its removal command. The removal command must include `AppContainer.baseUrl` — Task 6 proved it is dead once the screen goes. The "Not done yet" list is untouched — this is not a gap being closed
 - [x] The stale numbers corrected in the same change: `README.md` 165 -> 174 (worktree) with 109 Kotlin files and ~6,600 `:app` main lines; `AGENTS.md` 165 -> 174 and `HomeViewModelTest` 13 -> 14; `CHANGELOG.md` 165 -> 166 and 13 -> 14, since that entry records the committed state
-- [x] `README.md` and `CONSTRAINTS.md` stop claiming "No CI" and "no lint", and state that the two check scripts are not in CI — verified by grepping both workflows for `ps1`
+- [x] `README.md` and `CONSTRAINTS.md` stop claiming "No CI" and "no lint". The line about the two check scripts not being in CI was **true when written and is now superseded** — they were wired into `ci.yml`'s `gates` job on 2026-10-07, so both files now say they run in CI
 - [ ] **→ Task 7.** `AGENTS.md` records the entry point, the two-state behaviour, and the fact that the screen is temporary. *Note: not three-state — see Task 5.*
 - [ ] **→ Task 6, done.** **Removal proven, not asserted:** on a scratch worktree, delete the 3 files and the 3 wirings, then `:app:compileDebugKotlin` green. Branch discarded. **Correction: it is 7 touchpoints, not 6** — `AppContainer.baseUrl` is dead afterwards and must be deleted too
 - [x] **→ Task 6, done.** `Select-String 'SeededData|seeded_data'` over `app/src` returns **nothing** after removal, and no file outside `ui/feature/debug/seededdata/` depended on them
