@@ -41,8 +41,18 @@ class DoctorStore(
             val where = StringBuilder(" WHERE 1=1")
             val params = mutableListOf<Any?>()
             if (query.searchText != null) {
-                where.append(" AND LOWER(d.full_name) LIKE ?")
-                params += "%${query.searchText.lowercase()}%"
+                // Search both the label patients type ("Internal Medicine") and
+                // the wire id ("internal_medicine"); neither derives from the
+                // other for every specialty. Building remains a separate filter.
+                val needle = "%${query.searchText.lowercase()}%"
+                where.append(
+                    " AND (LOWER(d.full_name) LIKE ? OR EXISTS (" +
+                        "SELECT 1 FROM specialties s WHERE s.id = d.specialty_id " +
+                        "AND (LOWER(s.display_name) LIKE ? OR LOWER(s.id) LIKE ?)))"
+                )
+                params += needle
+                params += needle
+                params += needle
             }
             if (query.specialty != null) {
                 where.append(" AND d.specialty_id = ?")
