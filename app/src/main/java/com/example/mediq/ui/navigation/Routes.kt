@@ -4,6 +4,17 @@ sealed class Screen(val route: String) {
     // Auth Flow
     object Splash : Screen("splash")
     object SignIn : Screen("sign_in")
+
+    /**
+     * The route of the nested graph holding the four registration steps.
+     *
+     * Not a screen anyone navigates to — it exists so the graph has a name its
+     * own back stack entry can be looked up by, which is how all four steps
+     * share one `RegisterViewModel`. `NavBackStackEntry.parent` would say the
+     * same thing more directly, but it is not public in navigation 2.10.
+     */
+    object RegisterFlow : Screen("register_flow")
+
     object RegisterDetails : Screen("register_details")
     object RegisterOTP : Screen("register_otp")
     object RegisterCredentials : Screen("register_credentials")
@@ -28,4 +39,14 @@ sealed class Screen(val route: String) {
         fun createRoute(appointmentId: String) = "appointment_details/$appointmentId"
     }
     object Notifications : Screen("notifications")
+
+    /**
+     * TEMPORARY. Opens the seeded-data screen — a backend check, not a feature.
+     *
+     * Reachable only by long-pressing the splash wordmark, and deliberately not
+     * in [com.example.mediq.core.designsystem.component.MediQBottomBar]: no tab,
+     * no visible control, nothing for a patient to find. Delete this object with
+     * its one line in `MediQNavHost` and the splash gesture.
+     */
+    object SeededData : Screen("seeded_data")
 }

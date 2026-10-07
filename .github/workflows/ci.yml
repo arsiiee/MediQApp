@@ -1,0 +1,163 @@
+name: CI
+
+# Quality gates for every change. Nothing merges without passing.
+# Android unit tests + lint live here; instrumented (emulator) tests are in
+# android-emulator.yml because a booted AVD costs ~10 minutes.
+#
+# The two .mdfiles check scripts are their own job, NOT steps inside `android`.
+# They read source files and need no JVM, no Android SDK, and no Gradle, so they
+# finish in ~10s. Hanging them off `android` would park a 10-second check behind a
+# 3-minute SDK download and a Gradle warmup, which is the cost that teaches people
+# to ignore a red pipeline.
+#
+# No `paths:` filter on purpose. These scripts check the *current state* of the
+# tree, not a diff — check-boundaries.ps1's own header argues that a diff-scoped
+# check only catches a violation on the change that introduced it and never on the
+# file it was added to afterwards. Filtering by path would reintroduce exactly that
+# hole through the workflow layer, where nothing would catch it. At ~10s the
+# unconditional cost is not worth a marginal saving.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# A new push to the same branch makes the in-flight run irrelevant.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  # Cheapest gate first, and it runs in parallel with both build jobs.
+  #
+  # These two scripts are what CONSTRAINTS.md means by "enforced with numbers" —
+  # before this job they were described as enforced but were only ever run by hand,
+  # so a boundary or contrast violation merged green. `ps1` in this file is now
+  # the proof of that claim rather than a claim about it.
+  #
+  # `pwsh` is preinstalled on ubuntu-latest, so this job has no setup step at all.
+  #
+  # Neither step gets `continue-on-error`. The scripts use the floor-guard exit
+  # contract — 0 clean, 1 violation, 2 could not run — and all three fail the step,
+  # which is the point: **a 2 must never read as a 0.** A check that could not run
+  # is not a check that passed.
+  gates:
+    name: Architecture + contrast gates
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Architecture boundaries
+        shell: pwsh
+        run: ./.mdfiles/check-boundaries.ps1
+
+      - name: Colour contrast
+        shell: pwsh
+        run: ./.mdfiles/check-contrast.ps1
+
+  server:
+    name: Server (JVM) build + tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Make wrapper executable
+        run: chmod +x gradlew
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Compile and run server tests
+        run: ./gradlew :server:test :server:assemble --stacktrace
+
+      - name: Upload test reports
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: server-test-reports
+          path: server/build/reports/tests/**
+          retention-days: 7
+
+  android:
+    name: Android lint + unit tests + assemble
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: android-actions/setup-android@v3
+
+      # compileSdk 37 is installed by AGP's own SDK downloader once licenses
+      # are accepted, so the package name (android-37 vs android-37.0) does not
+      # need to be hardcoded here.
+      - name: Accept SDK licenses
+        run: yes | sdkmanager --licenses
+
+      - name: Make wrapper executable
+        run: chmod +x gradlew
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Lint
+        run: ./gradlew :app:lintDebug --stacktrace
+
+      - name: Unit tests
+        run: ./gradlew :app:testDebugUnitTest --stacktrace
+
+      - name: Assemble debug APK
+        run: ./gradlew :app:assembleDebug --stacktrace
+
+      - name: Upload lint report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-lint-report
+          path: app/build/reports/lint-results-debug.html
+          retention-days: 7
+
+      - name: Upload test reports
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-test-reports
+          path: |
+            app/build/reports/tests/**
+            app/build/reports/androidTests/**
+          retention-days: 7
+
+  # No plugin to install: this reads the resolved dependency graph that Gradle
+  # already computed and reports it to GitHub for the dependency graph.
+  dependency-graph:
+    name: Dependency graph
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Make wrapper executable
+        run: chmod +x gradlew
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Generate dependency submission
+        uses: gradle/actions/dependency-submission@v4

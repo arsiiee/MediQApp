@@ -24,3 +24,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "MediQ"
 include(":app")
+include(":server")

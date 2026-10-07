@@ -1,0 +1,680 @@
+# MediQ
+
+A clinic appointment app for the Philippines. Patients browse doctors, see real
+availability, book a slot, and manage their appointments. An Android/Compose
+client talks to a Ktor backend over HTTP; the two modules share one domain model
+but deliberately not one wire format.
+
+> ## Status: not finished
+>
+> This is active development, not a finished product. Large parts work and are
+> covered by tests; large parts are stubs, screens that render nothing, and known
+> defects that would matter to a real patient. **Do not put real patient data in
+> this.** Several of the open items below are security or data-integrity problems
+> that must be closed first — the one-time code is returned in the HTTP response
+> body, the token is stored in plaintext, and booking a slot is not idempotent.
+>
+> Read [Not done yet](#not-done-yet) before assuming a feature exists. It is
+> organised by how much is actually implemented, not by what the screens suggest.
+
+---
+
+## Contents
+
+- [Current condition](#current-condition) — measured, not claimed
+- [What works](#what-works)
+- [Not done yet](#not-done-yet)
+- [Architecture](#architecture)
+- [Booking and double-booking](#booking-and-double-booking)
+- [Tech stack](#tech-stack)
+- [Running it](#running-it)
+- [The API](#the-api)
+- [Configuration](#configuration)
+- [Testing and the quality bar](#testing-and-the-quality-bar)
+- [Repo layout](#repo-layout)
+- [Further reading](#further-reading)
+
+---
+
+## Current condition
+
+Every number here was produced by running the commands on this machine, not
+inferred from the source.
+
+| Check | Command | Result |
+|---|---|---|
+| App compiles | `:app:compileDebugKotlin` | Passes, 6 deprecation warnings |
+| App unit tests | `:app:testDebugUnitTest` | 182 pass |
+| Server tests | `:server:test` | 59 pass |
+| Architecture boundaries | `check-boundaries.ps1` | Clean, 54 files |
+| Colour contrast | `check-contrast.ps1` | Clean, 24 token pairs + 6 status chips |
+| Runs on a device | `:app:installDebug` + launch | Works on the `mediq_api36` AVD and on a physical phone |
+| Server | `:server:run` | Starts, H2 in-memory |
+| CI | `.github/workflows/ci.yml` | `gates` (both `.mdfiles` check scripts), `:server:test`, `:app:lintDebug`, `:app:testDebugUnitTest`, `:app:assembleDebug` on every push and PR |
+
+**Size:** 113 Kotlin files (~6,900 lines in `:app` main, ~3,800 in `:server`
+including tests), 19 HTTP endpoints, 59 server tests, 182 app unit tests, 15 screens,
+10 ViewModels.
+
+The `:app` count includes `SeededDataViewModelTest` (8) and
+`MediQBottomBarLabelsTest` (6); `HomeViewModelTest` holds 14. Use `--rerun-tasks` when counting: the Gradle task
+reports UP-TO-DATE and the previous run's XML survives, which reads as a stale
+number rather than a skipped suite.
+
+`:app` compiles with **6** deprecation warnings, not one: `statusBarColor` in
+`core/designsystem/theme/Theme.kt`, plus 5 uses of the old `KeyboardOptions`
+constructor in `RegisterCredentialsScreen.kt` and `SignInScreen.kt`. See
+[Cosmetic and unfinished polish](#cosmetic-and-unfinished-polish).
+
+**"The build is green" does not mean "the app is fully tested."** All ten
+ViewModels have unit tests. One on-device Compose test now checks the bottom
+bar's merged accessibility semantics; other composables remain untested
+(see [Not done yet](#not-done-yet)).
+
+---
+
+## What works
+
+Verified end to end against a running server on a real device:
+
+- **Sign-in** against the backend with a real credential check, a real session,
+  and a real token. A wrong password shows the server's own message.
+- **Registration end to end** — full name, phone number, and date of birth, then
+  a one-time code, then username and password. An account created this way can
+  sign in immediately, because `register` returns a session and the app stores it.
+- **Browse doctors** with search, and read a doctor's profile, clinic hours, and
+  licence number.
+- **A seeded-data check, temporarily.** Long-press the "MediQ" wordmark on the
+  splash screen to open a screen that reads `GET /doctors` live and shows exactly
+  what the server returned — the doctors, their licence numbers, and their clinic
+  hours — or the reason there are none. It hardcodes no doctor, fee, hour, or
+  count, so with the server stopped it reports an empty list rather than a
+  fabricated clinic. **This is a development tool, not a feature.** To remove it:
+
+  ```powershell
+  git rm -r app/src/main/java/com/example/mediq/ui/feature/debug `
+         app/src/test/java/com/example/mediq/ui/feature/debug
+  # then delete Screen.SeededData from Routes.kt, its composable block and import
+  # from MediQNavHost.kt, the pointerInput block and 2 imports from SplashScreen.kt,
+  # and AppContainer.baseUrl — which is dead once this screen is gone.
+  ```
+
+  That is **7 touchpoints, not 6**. The removal was proven on a scratch branch,
+  not asserted: `AppContainer.baseUrl` was added for this screen alone and no
+  longer compiles into anything once it is deleted. See `tasks/todo.md` v3.
+- **Real availability** — available dates for a month, and open time slots for a
+  date, both generated by the server from clinic hours.
+- **Book a slot**, and the double-booking refusal when someone else takes it
+  first.
+- **List and filter appointments** (upcoming / history), and **read one
+  appointment's** doctor, clinic-zone date and time, location, fee, status, and
+  reason for visit.
+- **Cancel an appointment**, which frees the slot server-side so it can be booked
+  again, and **request a reschedule** to a chosen open slot. Both are offered only
+  while the status permits a change, so a cancelled or completed appointment does
+  not show actions the server would refuse.
+- **Notifications** list and mark-as-read.
+- **Profile read**, plus sign-out, which kills the token server-side immediately
+  rather than waiting for it to expire. Editing the profile is *not* implemented
+  on the client — see [Not done yet](#not-done-yet).
+- **Dark mode that is actually legible.** Every colour pair clears WCAG AA, and
+  `check-contrast.ps1` measures it rather than trusting the source.
+
+Demo credentials (only exist when `MEDIQ_SEED_DEMO=true`):
+`demo_patient` / `demo12345`.
+
+---
+
+## Not done yet
+
+This is the honest list. It is long because the work is not finished.
+
+### Cannot be used at all
+
+- **Reschedule only searches the current month.** The picker opens on
+  `YearMonth.now()` and has no month stepper, so a patient whose appointment is
+  next month cannot move it earlier this month — or, once the month rolls over,
+  earlier than the current window. `DoctorDetailsViewModel` has the same
+  limit, so fixing it is one change in two ViewModels, not two independent bugs.
+- **Messages is a stub** that renders the word "Messages".
+- **Forgot password** is a button with an empty click handler.
+
+### Security — close these before any real patient
+
+- **`AuthService.returnCodeToCaller` is `true`.** The one-time code is printed to
+  stdout *and returned in the HTTP response body*. There is no SMS provider
+  integrated. Wire one up and set this to `false`.
+- **The token is stored in plaintext `SharedPreferences`.** It sits in the app's
+  private storage, which is acceptable for development and not acceptable for
+  real use. `EncryptedSharedPreferences` (Tink) or Android Keystore should
+  replace it.
+- **A development JWT secret is printed in `Db.kt`.** It is guarded by
+  `ServerConfig.validate()`, which refuses to boot under `MEDIQ_ENV=production`
+  with that secret or an H2 URL. That guard is the only thing standing between the
+  repo and a shipped signing key.
+- **PBKDF2 is a reasonable choice that needs no new dependency, not the current
+  OWASP first recommendation.** Argon2id is preferred where memory hardness
+  matters. Confirm against current guidance.
+
+### Data integrity
+
+- **Pagination is fully implemented on the server and entirely unused by the
+  client.** The server has cursors and a max page size; the app sends no `limit`
+  or `cursor` and throws away the `nextCursor`. A patient with 25 appointments
+  sees 20, with no indication that more exist.
+- **`POST /appointments` has no idempotency key.** Book, lose the response, tap
+  again — and you get "that time was just taken" for a slot the patient already
+  holds.
+- **`DELETE /appointments/{id}` is not idempotent.** A retry after a lost
+  response reports failure for an action that succeeded.
+- **The profile cannot be edited from the app at all.** The server endpoint and
+  `ProfileRepository` both exist and are tested, but no screen calls
+  `updateProfile` — `ProfileViewModel` takes a `ProfileRepository` and never uses
+  it. The profile is display-only.
+- **`PUT /profile` is a PATCH wearing a disguise, and fields cannot be cleared.**
+  Omission and clearing are the same operation, so "remove my address" is
+  impossible.
+- **Token expiry mid-session is unhandled and there is no refresh.** After the
+  60-minute TTL every request fails and there is no route back to sign-in.
+- **`schema.sql` is applied at boot, not migrated.** Every statement is
+  `CREATE TABLE IF NOT EXISTS`, which is safe on an existing database but is not
+  a migration tool. Move to Flyway before changing a column once real data
+  exists.
+- **H2 in-memory is the default database.** Data is lost on restart.
+
+### A response field renamed fails silently
+
+The client parses responses with Gson, whose default ignores unknown fields — so
+*adding* a field is safe for installed builds. The mirror risk is the real one:
+Gson cannot tell "the server never sent this" from "the field was renamed".
+Both arrive as `null`, with no error, and a Kotlin non-null field declared on
+the DTO reads as `null` at runtime without throwing. Renames need a contract
+test. Added fields need nothing.
+
+Also on the contract: `verifyOtp` is untyped on both sides, so a missing key
+threw a developer-facing string that reached the UI; status codes are overloaded
+(duplicate username and already-cancelled are 400, not 409); and
+`confirmedByPatient` is validated then discarded by the server.
+
+### Tests and tooling
+
+- **All ten ViewModels have tests; one composable has an on-device semantics
+  test.** `182` app unit tests cover state and label data.
+  `MediQBottomBarSemanticsTest` checks the *rendered* accessible name on an
+  emulator: the unit test alone passed while Material3 swallowed the icon's
+  description. Run `:app:connectedDebugAndroidTest` with `mediq_api36` attached
+  (2 tests including the still-template `ExampleInstrumentedTest`). Other screens
+  have no Compose or screenshot tests. The two ViewModel harness traps remain in
+  `.mdfiles/AGENTS.md`.
+- **Both check scripts are now CI gates.** `.github/workflows/ci.yml` has a
+  `gates` job that runs `check-boundaries.ps1` and `check-contrast.ps1` on every
+  push and PR, in parallel with the build jobs and taking ~10s — they need no JVM
+  or Android SDK. Until this was wired they were **not** in CI: grep either
+  workflow for `ps1` and you got nothing, so the architecture-boundary and
+  colour-contrast ratchets that `CONSTRAINTS.md` describes as enforced were in
+  practice run by hand, and a violation of either merged green. Both were proven
+  to fail on a real violation before being wired, not assumed.
+- **The raw-colour ratchet is narrower than its name.** `check-contrast.ps1`
+  counts `Color.Gray`, `LightGray`, `DarkGray`, `White`, `Black`, and one
+  hardcoded hex — so an arbitrary literal like `Color(0xFF00FF00)` passes it.
+  That was proved by mutation, not assumed. Seven `Color(0x…)` sites exist in
+  `ui/` today; six are the status chips, which a separate rule measures, and
+  `NotificationsScreen.kt`'s `Color(0xFFF5F5F5)` is measured by nothing.
+- **No coverage tooling.** No JaCoCo, no Kover.
+- **Lint runs in CI, but there is no lint config in the repo.** `:app:lintDebug`
+  is a gate with the stock Android rules only — no detekt, no ktlint, no
+  `.editorconfig`.
+- **No security scanning.** Semgrep and osv-scanner have no workflow. There is
+  nowhere to run them.
+
+### Cosmetic and unfinished polish
+
+- **Six deprecation warnings, not one.** `--warning-mode all` reports 6:
+  `statusBarColor` in `Theme.kt`, and 5 uses of the deprecated
+  `KeyboardOptions(capitalization, autoCorrect, …)` constructor at
+  `RegisterCredentialsScreen.kt:91,115,143` and `SignInScreen.kt:107,134`. The
+  constructor wants the new `autoCorrectEnabled` parameter. All committed and
+  pre-existing. Note the default warning mode hides this — it prints only
+  "Deprecated Gradle features were used", with no per-warning detail.
+- **Gradle 10 will not build this.** `--warning-mode all` reports
+  `Configuration.setVisible(boolean) has been deprecated … removed in Gradle 11`.
+  Not ours: `visible` appears 0 times across all four build scripts, so it comes
+  from AGP 9.3.3 or KGP 2.2.10. Only a plugin bump clears it.
+- **Three JVM versions in one build.** The daemon runs JBR 21,
+  `server/build.gradle.kts` pins `JavaLanguageVersion.of(17)`, and
+  `gradle-daemon-jvm.properties` requests 25. `:server:run` therefore launches on
+  Adoptium 17 while `:app` compiles on 21 — which is why a `:server:run` failure
+  names a JVM the build docs never mention. Harmless today (17 satisfies the
+  `VERSION_11` target), but the "JDK 21+" line below describes the daemon only.
+- **Dark mode is contrast-correct but not tonally tuned.** Status chips keep
+  fixed light pastel containers, so they stay readable in both modes but read as
+  bright blocks on a dark surface. Fixing that is a design decision, not a bug.
+- **SplashScreen is the last screen on hardcoded colours** — four white
+  literals on the brand green, which measures 6.63:1 and is correct in both
+  modes. It is held as an explicit ratchet rather than left unnoticed.
+- **Release builds have R8/minification disabled.**
+- **`res/values/colors.xml` and a TODO in `res/xml/data_extraction_rules.xml`
+  are template leftovers.**
+
+Planned work, with acceptance criteria, is in `tasks/todo.md`. The design record
+behind it is in `tasks/plan.md`.
+
+---
+
+## Architecture
+
+Two Gradle modules.
+
+`:server` compiles `app/src/main/java/com/example/mediq/domain` as an extra
+source directory, so both modules share the domain models. They deliberately do
+**not** share the wire format: `http/Dtos.kt` maps domain to JSON, so a model
+refactor cannot silently break the API contract.
+
+```
+app/src/main/java/com/example/mediq/
+  MediQApp.kt            Application subclass; calls AppContainer.init()
+  domain/model/          plain Kotlin - no Compose, no Android imports
+  domain/repository/     interfaces only
+  data/api/              ApiDtos, ApiMappers, MediQApiService, RetrofitClient,
+                         TokenStore, ApiErrors (the `call { }` wrapper)
+  data/repository/       Retrofit*Repository, one per aggregate
+  di/AppContainer        object; the single place wiring is edited
+  ui/feature/<area>/     Screen + ViewModel pairs
+  ui/navigation/         Routes.kt (sealed class Screen), MediQNavHost
+  core/designsystem/     theme, EmptyState, MediQBottomBar
+
+server/src/main/kotlin/com/example/mediq/server/
+  Db.kt                  Hikari pool, schema.sql bootstrap, tx() helper, ServerConfig
+  db/*Store.kt           SQL, one class per aggregate
+  db/AuthService.kt      sign-in, OTP, registration
+  http/Routes.kt         every endpoint, in one file
+  http/Dtos.kt           the wire contract
+  auth/                  Passwords (PBKDF2), Tokens (JWT)
+  schema.sql             the only definition of the data shape
+```
+
+### Rules that are easy to break
+
+- **`domain/` must not import Compose or Android.** That constraint is what
+  keeps the schema portable to the server. `:server` compiles this directory, so
+  the compiler catches it — but only after you wait for a build.
+- **Repositories are the only place that knows the data source.** Screens and
+  ViewModels must not reference `data/`. The compiler *cannot* catch this; the
+  import compiles fine. `check-boundaries.ps1` does, and it found 7 violations
+  the first time it ran.
+- **Every `api.` call in a `Retrofit*Repository` must sit inside `call { }`.**
+  An unwrapped call returns Retrofit's raw `"HTTP 401 "` as its message, which
+  is what the patient sees. This is the rule whose absence shipped a real bug
+  with a fully green build and a fully green test suite.
+- **Never surface a framework exception's `message`.** Catch `ApiFailure` and
+  show `e.message` — the server writes those for a patient to read.
+- **`LoadState<T>`** is `Loading` / `Success` / `Error` and is what every
+  ViewModel exposes. Screens `when` over all three.
+- **`suspend` on every repository function.**
+- **Money is `Money`** (centavos, `Long`) — never `Int` pesos, never a formatted
+  string. Formatting to `₱` happens in the UI.
+- **Instants are `Instant`**, displayed via `toClinicDate()` / `toClinicTime()`.
+  The clinic zone is pinned to `Asia/Manila`; never use the device-local zone.
+- **Enum wire values are explicit** (`wireValue = "confirmed"`). Sending the enum
+  name leaks the constant name into the API contract.
+- **Unrecognised wire values resolve to `UNKNOWN`, never to a positional
+  guess.** `AppointmentStatus` and `SlotStatus` carry an explicit `UNKNOWN`
+  member. `UserRole` and `Specialty` deliberately do not — the server parses
+  those from untrusted input and reads them back positionally.
+- **No fabricated data.** This is a real-patient app. Invented doctors with
+  plausible licence numbers get mistaken for real ones.
+
+### Theming
+
+`ColorScheme` covers the Material slots. Three roles it has no slot for — the
+accent drawn on the themed background, secondary text, and outlines — live in
+`MediQExtendedColors`, provided through `LocalMediQColors`. That split exists
+because `primary` must stay the dark brand green in *both* schemes: filled
+buttons take their label from `onPrimary`, so making `primary` light in dark
+mode puts white-on-pale-green labels on every button at 1.79:1.
+
+Every ratio in `Color.kt` is measured with the WCAG 2.1 relative-luminance
+formula and written next to the value. `check-contrast.ps1` parses the real
+tokens out of the source rather than keeping its own copy of the hex codes,
+because a checker that holds a stale list passes clean while the token is
+reverted to a failing value.
+
+---
+
+## Booking and double-booking
+
+Read `schema.sql` before changing any of this.
+
+`slot_claims` holds **one row per slot, enforced by its primary key**. Booking
+is an `INSERT` inside `db.tx { }`. A "SELECT then INSERT" check in application
+code has a window between the two statements and both requests would pass; the
+second insert hits the constraint and becomes HTTP 409.
+
+Three consequences:
+
+- **Cancelling deletes the claim row**, which frees the slot. The `appointments`
+  row is kept for history. You cannot un-book by updating status alone.
+- **Slots are materialised as rows**, generated from `clinic_hours`, rather than
+  computed on read — there has to be a row to collide with. Slot ids derive from
+  `UUID.nameUUIDFromBytes("$doctorId|$startsAt")` so regenerating a date is
+  idempotent under concurrency. A random UUID would create duplicates.
+- **Booking is one transaction** covering the appointment insert and the
+  notification insert, so a notification failure cannot leave a slot marked
+  taken for an appointment the patient never received.
+
+`BookingConcurrencyTest` fires 12 simultaneous bookings at one slot and asserts
+exactly one winner and exactly one row in each table. If that test is deleted or
+made sequential, the protection is unverified.
+
+---
+
+## Tech stack
+
+| Layer | Choice |
+|---|---|
+| Language | Kotlin 2.2.10 |
+| Build | Gradle 9.8.0, AGP 9.3.3, version catalog |
+| UI | Jetpack Compose, BOM 2026.02.01, Material 3 |
+| Navigation | navigation-compose 2.10.1 |
+| Architecture | MVVM, manual DI (`AppContainer`) |
+| App SDK | minSdk 24, target/compile 37, Java 11 |
+| Networking | Retrofit 2.11.0, OkHttp 4.12.0, Gson 2.11.0 |
+| Server | Ktor 3.1.3 on Netty, kotlinx.serialization |
+| Database | H2 2.3.232 (dev), HikariCP 6.3.0, hand-written JDBC |
+| Auth | java-jwt 4.5.0, PBKDF2-HMAC-SHA256 at 210k iterations |
+| Logging | Logback 1.5.18 |
+
+Core library desugaring is on because the domain models use `java.time`, which is
+native only from API 26 while `minSdk` is 24. **API 24 and 25 have never been
+run** — that is untested, not verified.
+
+**Absent on purpose:** Hilt or Dagger (DI is hand-wired), Room and kapt/ksp (SQL
+is hand-written), Flyway (`schema.sql` runs at boot), Tink (token storage is
+plaintext), an SMS provider, Argon2id.
+
+---
+
+## Running it
+
+Requires JDK 21+ for the Gradle **daemon**. `JAVA_HOME` should point at a real
+JDK — on Windows, Android Studio's bundled `jbr` works.
+
+That is not the only JVM in the build: `:server` pins its own toolchain to 17
+and `gradle-daemon-jvm.properties` requests 25, so `:server:run` and `:server:test`
+execute on 17 regardless of `JAVA_HOME`. See
+[Cosmetic and unfinished polish](#cosmetic-and-unfinished-polish).
+
+### Server
+
+```powershell
+$env:MEDIQ_SEED_DEMO="true"
+$env:MEDIQ_PORT="8099"   # 8080 is often already taken on this machine
+.\gradlew.bat :server:run --console=plain
+```
+
+`MEDIQ_SEED_DEMO=true` inserts three invented doctors (licence numbers
+`DEMO-PRC-0001` through `-0003`) plus `demo_patient` / `demo12345`. That data is
+demo-only and clearly labelled. **Never seed a database that holds real
+patients.**
+
+For a server that outlives the shell — `:server:run` dies with the shell that
+started it:
+
+```powershell
+.\gradlew.bat :server:installDist
+.\server\build\install\server\bin\server.bat
+```
+
+### App
+
+The base URL is the single constant `RetrofitClient.BASE_URL`. It is currently
+set to this machine's LAN address, because that is the one value that works on
+every target here — emulator and physical phone alike:
+
+| Target | URL |
+|---|---|
+| Emulator or phone on this Wi-Fi | `http://192.168.100.14:8099/` (current) |
+| Emulator only | `http://10.0.2.2:8099/` |
+| Phone over ADB, no Wi-Fi | `http://127.0.0.1:8099/` — also needs `adb reverse tcp:8099 tcp:8099` |
+
+`10.0.2.2` is an alias that exists only inside the emulator's virtual network.
+On a physical phone it is unroutable, every call times out, and the app reports
+"Couldn't reach the clinic" — which reads like the server is down while the
+server is answering `127.0.0.1` perfectly well. Check what `adb devices`
+actually lists before trusting a network error.
+
+The LAN address is DHCP-assigned and changes when this machine joins a different
+network. When it does, update `RetrofitClient.BASE_URL` **and**
+`res/xml/network_security_config.xml` in step — cleartext is refused to any host
+not listed there, and the app fails with the same misleading message.
+
+```powershell
+.\gradlew.bat :app:installDebug
+adb shell am start -n com.example.mediq/.MainActivity
+```
+
+There is an AVD, `mediq_api36` (API 36). Boot it headless with
+`-no-window -no-audio -no-boot-anim`. A `default_boot` snapshot resumes in about
+4 seconds; a full cold boot has taken 50–90 seconds. The emulator can still be
+slow because it runs with one vCPU on this machine.
+
+### Local demo (invented data only)
+
+1. From the repo root, start the server on port 8099 with
+   `MEDIQ_SEED_DEMO=true` as shown above; leave its terminal open. The default H2
+   database is **in-memory**: restarting the server erases sessions and bookings.
+   Never point the demo seed at a database holding real patients.
+2. Check `http://127.0.0.1:8099/health` for `{"status":"ok"}`, then check
+   `/doctors?search=dermatology` returns `DEMO-PRC-0003`. This also detects an
+   older server still occupying port 8099. The app's URL must match the PC's
+   current LAN address; see the table above.
+3. Start `mediq_api36`, install the debug APK and launch with the commands above.
+   On the splash screen, **long-press the MediQ wordmark** to show three live
+   `DEMO-PRC-*` records with clinic hours. Back out, sign in as
+   `demo_patient` / `demo12345`, open Doctors and search `dermatology` for
+   Dr. Placeholder Cruz. The bottom bar calls appointments **Bookings**.
+4. Run `:app:connectedDebugAndroidTest` with the emulator attached to verify the
+   bottom bar's accessible name. For the HTTP smoke suite, use a separate seeded
+   server on port 8100 (`MEDIQ_PORT=8100`) and run
+   `.\server\scripts\smoke.ps1 -Base http://127.0.0.1:8100`: it creates and
+   cancels appointments, so keep the 8099 walkthrough database untouched.
+   **This is not a production environment:** OTP is returned in HTTP responses,
+   tokens are stored in plaintext and Messages is still a stub.
+
+---
+
+## The API
+
+Every route is in `server/.../http/Routes.kt`, in one file so the whole surface
+can be read at once. Auth is a bearer JWT, injected automatically by
+`AuthInterceptor` on the client.
+
+| Method | Path | Auth |
+|---|---|---|
+| GET | `/health` | no |
+| POST | `/auth/sign-in` | no |
+| POST | `/auth/sign-out` | yes |
+| POST | `/auth/otp/request` | no |
+| POST | `/auth/otp/verify` | no |
+| POST | `/auth/register` | no |
+| GET | `/doctors` | no |
+| GET | `/doctors/{doctorId}` | no |
+| GET | `/doctors/{doctorId}/availability` | no |
+| GET | `/doctors/{doctorId}/slots` | no |
+| GET | `/appointments` | yes |
+| GET | `/appointments/{appointmentId}` | yes |
+| POST | `/appointments` | yes |
+| DELETE | `/appointments/{appointmentId}` | yes |
+| POST | `/appointments/{appointmentId}/reschedule-request` | yes |
+| GET | `/notifications` | yes |
+| PATCH | `/notifications/{notificationId}/read` | yes |
+| GET | `/profile` | yes |
+| PUT | `/profile` | yes |
+
+`GET /doctors` accepts `search`, `specialty`, `building`, `limit`, and a Base64
+`cursor`. `reason_for_visit` is returned by `GET /appointments/{id}` only, not
+by the list.
+
+### Auth model
+
+Server-side session plus JWT, rather than a bare stateless token. The token
+carries a session id and the server checks the session row on **every**
+authenticated request, so sign-out kills the token immediately instead of
+leaving it valid until expiry. That costs a database read per request, which is
+the deliberate price.
+
+Passwords are PBKDF2-HMAC-SHA256 at 210k iterations via the JDK, with the
+iteration count stored alongside the hash so it can be raised later. An unknown
+username and a wrong password get the *same* message and take the same time, so
+neither can be probed.
+
+### Error contract
+
+Every non-2xx response carries one shape: `ErrorDto(error, message)`, with the
+copy written by `ApiError` for a patient to read.
+
+The client half is `data/api/ApiErrors.kt`. Its `call { }` wrapper reads that body
+and throws `ApiFailure(status, code, message)`. `ApiFailure` lives in
+`domain/model/` because ViewModels are forbidden from importing `data/`, and
+`:server` compiles `domain/` as shared source, so it has to stay plain Kotlin.
+
+**This mapping was missing for most of the project's life, and the whole test
+suite stayed green throughout.** Retrofit throws `HttpException`, whose
+`message` is `"HTTP <code> <reason phrase>"`. Every ViewModel that surfaced
+`e.message` therefore showed a patient their own HTTP status instead of the
+sentence written for them — and `BookingViewModel` discarded the 409 entirely,
+telling someone to "try again" on a booking that could never succeed.
+`ApiErrorsTest` and `check-boundaries.ps1` are the two guards against it
+recurring.
+
+---
+
+## Configuration
+
+All server config is environment variables, read by `ServerConfig.fromEnv()`.
+
+| Variable | Default |
+|---|---|
+| `MEDIQ_PORT` | `8080` |
+| `MEDIQ_JDBC_URL` | `jdbc:h2:mem:mediq;DB_CLOSE_DELAY=-1` |
+| `MEDIQ_JWT_SECRET` | `dev-only-insecure-secret-change-me` |
+| `MEDIQ_JWT_ISSUER` | `mediq` |
+| `MEDIQ_TOKEN_TTL_MINUTES` | `60` |
+| `MEDIQ_SLOT_MINUTES` | `30` |
+| `MEDIQ_OTP_TTL_MINUTES` | `5` |
+| `MEDIQ_SEED_DEMO` | `false` |
+| `MEDIQ_ENV` | unset; `production` enables the guard below |
+
+`MEDIQ_ENV=production` makes `validate()` refuse to boot on the dev JWT secret
+or an H2 URL. That is the backstop against shipping the signing key that is
+currently printed in a source file.
+
+---
+
+## Testing and the quality bar
+
+```powershell
+# the gate, in order
+.\.mdfiles\check-boundaries.ps1        # architecture boundaries   (< 5s)
+.\.mdfiles\check-contrast.ps1          # WCAG contrast + ratchets (< 5s)
+.\gradlew.bat :app:compileDebugKotlin :app:testDebugUnitTest :server:test --console=plain
+```
+
+The first two also run in CI, as a `gates` job in `.github/workflows/ci.yml`, so
+running them locally is a fast feedback loop rather than the only enforcement.
+
+For HTTP-level checks, use a **separate** seeded server on port 8100 so the
+live demo on 8099 keeps a clean database:
+
+```powershell
+.\server\scripts\smoke.ps1 -Base http://127.0.0.1:8100   # 24 checks; mutates demo data
+```
+
+- **`:server:test`** — in-process, no port. 59 tests across 7 classes:
+  `AuthServiceTest` (24, covering sign-in, OTP request/verify, five-attempt
+  lockout, username normalisation, and registration), `AppointmentLifecycleTest`
+  (13), `DoctorSearchTest` (9, what `GET /doctors?search=` matches — name,
+  specialty display name, and specialty wire value, and deliberately *not* the
+  building), `AvailableDatesTest` (4), `BookingConcurrencyTest` (4),
+  `OtpLockoutTest` (3), `ProfileUpdateTest` (2). `BookingConcurrencyTest` is the
+  one that cannot be checked by hand.
+- **`:app:testDebugUnitTest`** - 182 tests, hand-written fakes, no mocking
+  framework: `ApiErrorsTest` (11, error-body parsing), `UnknownWireValueTest` (8,
+  how unrecognised wire values resolve), `GsonLeniencyTest` (3, JSON parsing
+  behaviour), `RegisterViewModelTest` (22, the registration wizard),
+  `AppointmentDetailsViewModelTest` (27, loading one appointment by id, then
+  cancelling and rescheduling it through a slot picker), `DoctorsViewModelTest`
+  (24, initial load, search debounce and stale-response guard),
+  `BookingViewModelTest` (19, the booking submit and the `slot_taken` 409), `SignInViewModelTest` (16, credentials and the error
+  contract), `ProfileViewModelTest` (14, session read and sign-out),
+  `HomeViewModelTest` (14, the soonest appointment),
+  `NotificationsViewModelTest` (10, empty list vs error), and
+  `MediQBottomBarLabelsTest` (6, labels and accessible-name data). **All ten
+  ViewModels are covered.** The 94 newest ViewModel tests were mutation-checked — the ViewModel was
+  deliberately broken and the suite had to fail — because a test that has never
+  failed is not evidence.
+- **`smoke.ps1`** — the actual HTTP status of every route, the double-booking
+  refusal, and that signing out kills the token mid-flight. Needs the server up.
+  It has **no OTP or register coverage**; the registration contract is proven
+  in-process by `AuthServiceTest` and, over HTTP, by replaying the three calls by
+  hand against a running server.
+
+`CONSTRAINTS.md` states the quality bar as numbers with a command per rule, plus
+a ratchet per metric that must not worsen. Its reason for existing is worth
+knowing: this repo's recurring failure is **a rule stated in prose and never
+checked**. Two independent defects got through that way with fully green builds
+— the unread error contract described above, and seven ViewModels importing from
+`data/`. The scripts exist to stop that recurring.
+
+### Testing traps
+
+Seeding a fixture through a data-class `.copy()` writes nothing.
+`users.create(...).copy(address = "…")` mutates the returned `UserRow` and leaves
+the column `NULL`, so the assertion compares against nothing while looking like
+a real failure. Pass optional columns to the store method instead.
+`ProfileUpdateTest` had exactly this bug — the `COALESCE` logic it guards was
+correct all along.
+
+In PowerShell, reading an error body needs `$_.ErrorDetails.Message`.
+`$_.Exception.Response.GetResponseStream()` is already drained by
+`Invoke-RestMethod` and returns an empty string, which makes every
+error-handling assertion compare against `''`. `ErrorDetails.Message` arrives as
+a decoded array, so take `[0]` before `ConvertFrom-Json`. `smoke.ps1` does this
+correctly.
+
+---
+
+## Repo layout
+
+```
+.
+  app/                    Android client (Compose, MVVM, Retrofit)
+  server/                 Ktor backend (Netty, hand-written JDBC, H2 in dev)
+  gradle/                 wrapper + libs.versions.toml
+  tasks/                  plan.md (design record), todo.md (task checklist)
+  .mdfiles/               standing documentation
+    AGENTS.md             orientation: environment, architecture, conventions,
+                          and the reasoning behind the rules
+    CONSTRAINTS.md        the quality bar, as numbers with a command per rule
+    CHANGELOG.md          what changed, grouped by impact
+    check-boundaries.ps1  architecture boundary enforcement
+    check-contrast.ps1    WCAG contrast enforcement
+    README.md             this file's predecessor; see Further reading
+    MediQ_App_Development_Spec.md.pdf   the original product spec
+  app-tree.txt            a snapshot of the app module's file tree
+```
+
+---
+
+## Further reading
+
+- **`.mdfiles/AGENTS.md`** — the orientation file. Build environment quirks, the
+  layered architecture in detail, conventions, and the reasoning behind each
+  rule. Read this before changing anything.
+- **`.mdfiles/CONSTRAINTS.md`** — the quality bar with a command per rule, plus
+  the ratchet metrics that must not move backwards. Read before writing code.
+- **`.mdfiles/CHANGELOG.md`** — what changed, grouped by impact.
+- **`tasks/plan.md`** — the design record for the current piece of work.
+- **`tasks/todo.md`** — the task checklist, with acceptance criteria.
+- **`.mdfiles/MediQ_App_Development_Spec.md.pdf`** — the original product spec
+  this was built from.
