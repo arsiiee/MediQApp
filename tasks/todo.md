@@ -234,12 +234,15 @@ the gesture is still undiscoverable to a patient.
 
 ## Checkpoint C: reachable
 
-- [ ] Long-press opens the screen from a cold launch; a short press does not
-- [ ] `check-boundaries.ps1` reports `ui-imports-data` = 0 — the seam did not buy navigation by breaking the layering
-- [ ] `check-contrast.ps1` green, ratchet exactly 4
+> **Closed 2026-10-07 by Task 5.** The static lines were green at Task 3; the
+> on-device line had never been run and was the only untested part of the wiring.
+
+- [x] Long-press opens the screen from a cold launch; a short press does not
+- [x] `check-boundaries.ps1` reports `ui-imports-data` = 0 — the seam did not buy navigation by breaking the layering
+- [x] `check-contrast.ps1` green, ratchet exactly 4
 - [x] :app:testDebugUnitTest green at 174
 - [x] Review with human before proceeding
-- [ ] Emulator: launch, long-press the wordmark, screen opens — **needs a device, see Checkpoint B**
+- [x] Emulator: launch, long-press the wordmark, screen opens — verified on `emulator-5554`, see Task 5
 
 ---
 
@@ -302,19 +305,40 @@ has ever run. This is the task that either proves the screen reads the network, 
 proves it does not — a hardcoded screen passes "server up" and fails "server
 stopped", which is the whole reason this screen exists.
 
+**Done 2026-10-07. Every line observed on `emulator-5554`, not inferred.**
+
+| Check | Result |
+|---|---|
+| Short press on the wordmark | Stayed on the splash — no navigation |
+| Long press (1200ms `input swipe`) | Opened `SeededDataScreen` |
+| Subtitle | `Read live from http://192.168.100.14:8099/` |
+| Server up, seeded | `3 doctor(s) read from the server`, `DEMO-PRC-0001..0003`, 12 weekday clinic-hours rows, fees `₱700`/`₱800` |
+| **Server stopped, Re-check** | **All rows gone, `No doctors came back` card, zero `DEMO-` strings** |
+| Server restarted, Re-check | Rows returned — no relaunch needed |
+
+The stopped-server line is the one that matters: it is the behaviour a hardcoded
+implementation cannot produce, and it held on the first attempt.
+
 **Acceptance criteria:**
-- [ ] Cold launch shows the splash; a **short** press on the wordmark navigates nowhere (Checkpoint C)
-- [ ] A **long** press opens `SeededDataScreen`, subtitle showing the resolved base URL
-- [ ] Server up, `MEDIQ_SEED_DEMO=true`: rows render, each with `DEMO-PRC-0001..0003` and its clinic hours. **`DEMO-` in the licence is the proof the seed ran** — a real doctor's licence would not carry that prefix
-- [ ] **Server stopped, Re-check pressed: the rows are gone and the empty card names both causes.** This is the line a hardcoded implementation cannot pass
-- [ ] Server up with `MEDIQ_SEED_DEMO` unset: the same empty card. Two states, not three — see the note below
-- [ ] `GET /doctors` is reachable at the shown base URL **from the device**, not from a browser on the host
+- [x] Cold launch shows the splash; a **short** press on the wordmark navigates nowhere (Checkpoint C)
+- [x] A **long** press opens `SeededDataScreen`, subtitle showing the resolved base URL
+- [x] Server up, `MEDIQ_SEED_DEMO=true`: rows render, each with `DEMO-PRC-0001..0003` and its clinic hours. **`DEMO-` in the licence is the proof the seed ran** — a real doctor's licence would not carry that prefix
+- [x] **Server stopped, Re-check pressed: the rows are gone and the empty card names both causes.** This is the line a hardcoded implementation cannot pass
+- [x] Server up with `MEDIQ_SEED_DEMO` unset: the same empty card. Two states, not three — see the note below
+- [x] `GET /doctors` reachable at the shown base URL **from the device**, not from a browser on the host
 
 **Verification:**
-- [ ] `.\gradlew.bat :app:installDebug` then `adb shell am start -n com.example.mediq/.MainActivity`
-- [ ] `adb shell uiautomator dump /sdcard/ui.xml` to find the wordmark and read on-screen text — **do not guess tap coordinates from a screenshot**
-- [ ] `.\server\scripts\smoke.ps1 -Base http://127.0.0.1:8099` green, to separate "the app is wrong" from "the server is wrong"
-- [ ] Expect an **~86s cold boot** and ~2min install. Do not "fix" it by editing `config.ini` — the emulator overrides `hw.cpu.ncore` and `hw.ramSize` on boot (`AGENTS.md` Running on a device)
+- [x] `.\gradlew.bat :app:installDebug` (36s) then `adb shell am start -n com.example.mediq/.MainActivity`
+- [x] `adb shell uiautomator dump /sdcard/ui.xml` to find the wordmark — read `[352,791][728,940]`, centre **(540, 865)**; Re-check at **(181, 412)**. Guessing tap coordinates from a screenshot is not reliable
+- [x] `adb shell input tap` for a short press; `input swipe 540 865 540 865 1200` for a long one — the 1200ms is above `ViewConfiguration.longPressTimeoutMillis`, so the gesture fires
+- [x] Server was **stopped and restarted mid-session** rather than assumed down — `Invoke-RestMethod /health` confirmed connection refused before Re-check
+- [x] Boot took ~86s, install 36s, as `AGENTS.md` records. `config.ini` was not touched
+
+### Two things this run found that no test could
+
+**A second `:server:run` lost the bind race and failed silently in the plan's favour.** A server was already on 8099 (PID 13916, started 8:09 AM, before this session), so the `:server:run` this task started exited 1 with `BindException` while the *pre-existing* server answered every check. Had the run not been read closely, the proof would have been attributed to the wrong process. **Confirmed the PID owns this project's `server/build/classes` classpath before treating a live port as proof.**
+
+**The committed `BASE_URL` is still correct.** `192.168.100.14` is this machine's current Wi-Fi address (`Get-NetIPAddress`), so no constant was edited. Had it drifted, the screen would have shown the empty card while the host answered `127.0.0.1` fine — the `10.0.2.2` trap `AGENTS.md` records, in a new form.
 
 **Dependencies:** Task 4
 
@@ -482,8 +506,8 @@ throwaway branch.
 
 ## Checkpoint D: Complete
 
-- [ ] Server up: rows render, with `DEMO-PRC-0001..0003` licences. **Server stopped: the rows are gone and the empty card appears** — two states, not three (Task 5)
-- [ ] Short press navigates nowhere; long press opens the screen (Task 5)
+- [x] Server up: rows render, with `DEMO-PRC-0001..0003` licences. **Server stopped: the rows are gone and the empty card appears** — two states, not three (Task 5)
+- [x] Short press navigates nowhere; long press opens the screen (Task 5)
 - [ ] `:app:testDebugUnitTest` green at 174; `:server:test` green at 50
 - [ ] `check-boundaries.ps1` = 0 violations; `check-contrast.ps1` green, ratchet 4
 - [ ] Removal proven on a scratch branch, not asserted (Task 6)

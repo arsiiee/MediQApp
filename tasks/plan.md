@@ -102,7 +102,7 @@ The in-flight test needs `FakeDoctorRepository.getDoctorsGate`, a
 ### Phase 3: The entry point
 - [x] Task 3: route + nav host + splash long-press — **written and compiling, but never run on a device**
 - [ ] Task 4: **commit the v3 code** — `ui/feature/debug/` (new), `SeededDataViewModelTest.kt` (new), and the 4 modified files. No doc edits in this commit.
-- [ ] Task 5: **Checkpoint B + C on the emulator** — the live proof, and the only proof that Task 3's gesture works at runtime
+- [x] Task 5: **Checkpoint B + C on the emulator** — **done 2026-10-07.** Server up → 3 doctors with `DEMO-PRC-0001..0003`; server stopped → rows gone, empty card; server back → rows return. The stopped-server line held first try
 - [ ] Task 6: **the removal proof** — scratch branch, delete, compile, discard
 - [ ] Task 7: **Task 4's remaining docs** — floor 166 → 174, `AGENTS.md` entry, `README.md` line, `CHANGELOG.md`
 - [ ] Checkpoint D: complete
