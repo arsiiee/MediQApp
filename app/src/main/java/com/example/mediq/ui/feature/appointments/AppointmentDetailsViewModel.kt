@@ -17,9 +17,11 @@ import com.example.mediq.domain.model.TimeSlot
 import com.example.mediq.domain.repository.AppointmentRepository
 import com.example.mediq.domain.repository.DoctorRepository
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.YearMonth
@@ -148,22 +150,23 @@ class AppointmentDetailsViewModel(
             actionError = null,
         )
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(
-                availableDates = try {
-                    LoadState.Success(
-                        doctorRepository.getAvailableDates(doctorId, YearMonth.now().atDay(1))
-                    )
-                } catch (e: BackendNotConnectedException) {
-                    // A list read: "nothing to show" and "no backend" look the
-                    // same, and an error here would put a red sentence above an
-                    // appointment the patient can still cancel.
-                    LoadState.Success(emptyList())
-                } catch (e: ApiFailure) {
-                    LoadState.Error(e.message)
-                } catch (e: Exception) {
-                    LoadState.Error("Couldn't load available dates.")
-                }
-            )
+            val result = try {
+                LoadState.Success(
+                    doctorRepository.getAvailableDates(doctorId, YearMonth.now().atDay(1))
+                )
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: BackendNotConnectedException) {
+                // A list read: "nothing to show" and "no backend" look the
+                // same, and an error here would put a red sentence above an
+                // appointment the patient can still cancel.
+                LoadState.Success(emptyList())
+            } catch (e: ApiFailure) {
+                LoadState.Error(e.message)
+            } catch (e: Exception) {
+                LoadState.Error("Couldn't load available dates.")
+            }
+            _uiState.update { it.copy(availableDates = result) }
         }
     }
 
@@ -211,19 +214,20 @@ class AppointmentDetailsViewModel(
     private suspend fun loadSlots(date: LocalDate) {
         val doctorId = currentDoctorId() ?: return
 
-        _uiState.value = _uiState.value.copy(
-            slots = try {
-                LoadState.Success(
-                    doctorRepository.getSlots(doctorId, date).filter { it.isBookable }
-                )
-            } catch (e: BackendNotConnectedException) {
-                LoadState.Success(emptyList())
-            } catch (e: ApiFailure) {
-                LoadState.Error(e.message)
-            } catch (e: Exception) {
-                LoadState.Error("Couldn't load slots for that date.")
-            }
-        )
+        val result = try {
+            LoadState.Success(
+                doctorRepository.getSlots(doctorId, date).filter { it.isBookable }
+            )
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: BackendNotConnectedException) {
+            LoadState.Success(emptyList())
+        } catch (e: ApiFailure) {
+            LoadState.Error(e.message)
+        } catch (e: Exception) {
+            LoadState.Error("Couldn't load slots for that date.")
+        }
+        _uiState.update { it.copy(slots = result) }
     }
 
     /** The doctor this appointment is with — availability is per doctor. */

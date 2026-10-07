@@ -14,9 +14,11 @@ import com.example.mediq.domain.model.LoadState
 import com.example.mediq.domain.model.TimeSlot
 import com.example.mediq.domain.repository.DoctorRepository
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.YearMonth
@@ -69,58 +71,64 @@ class DoctorDetailsViewModel(
 
     private fun loadDoctor() {
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(
-                doctor = try {
-                    if (doctorId == null) {
-                        LoadState.Error("No doctor was selected.")
-                    } else {
-                        LoadState.Success(doctorRepository.getDoctor(doctorId))
-                    }
-                } catch (e: BackendNotConnectedException) {
-                    LoadState.Error("This doctor's profile isn't available yet.")
-                } catch (e: ApiFailure) {
-                    LoadState.Error(e.message)
-                } catch (e: Exception) {
-                    LoadState.Error("Couldn't load this doctor. Try again in a moment.")
+            // The suspend (getDoctor) must finish BEFORE this reads the latest
+            // value — `_uiState.value.copy(doctor = try {...})` evaluates the
+            // receiver first, so a concurrent dates update would be clobbered.
+            val result = try {
+                if (doctorId == null) {
+                    LoadState.Error("No doctor was selected.")
+                } else {
+                    LoadState.Success(doctorRepository.getDoctor(doctorId))
                 }
-            )
+            } catch (e: BackendNotConnectedException) {
+                LoadState.Error("This doctor's profile isn't available yet.")
+            } catch (e: ApiFailure) {
+                LoadState.Error(e.message)
+            } catch (e: Exception) {
+                LoadState.Error("Couldn't load this doctor. Try again in a moment.")
+            }
+            _uiState.update { it.copy(doctor = result) }
         }
     }
 
     private fun loadAvailableDates() {
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(
-                availableDates = try {
-                    val dates = if (doctorId == null) {
-                        emptyList()
-                    } else {
-                        doctorRepository.getAvailableDates(doctorId, YearMonth.now().atDay(1))
-                    }
-                    LoadState.Success(dates)
-                } catch (e: BackendNotConnectedException) {
-                    LoadState.Success(emptyList())
-                } catch (e: ApiFailure) {
-                    LoadState.Error(e.message)
-                } catch (e: Exception) {
-                    LoadState.Error("Couldn't load available dates.")
+            val result = try {
+                val dates = if (doctorId == null) {
+                    emptyList()
+                } else {
+                    doctorRepository.getAvailableDates(doctorId, YearMonth.now().atDay(1))
                 }
-            )
-        }
-    }
-
-    private suspend fun loadSlots(date: LocalDate) {
-        _uiState.value = _uiState.value.copy(
-            slots = try {
-                val loaded = if (doctorId == null) emptyList() else doctorRepository.getSlots(doctorId, date)
-                LoadState.Success(loaded)
+                LoadState.Success(dates)
             } catch (e: BackendNotConnectedException) {
                 LoadState.Success(emptyList())
             } catch (e: ApiFailure) {
                 LoadState.Error(e.message)
             } catch (e: Exception) {
-                LoadState.Error("Couldn't load slots for that date.")
+                LoadState.Error("Couldn't load available dates.")
             }
-        )
+            _uiState.update { it.copy(availableDates = result) }
+        }
+    }
+
+    private suspend fun loadSlots(date: LocalDate) {
+        // Compute first, assign atomically. The original form evaluated
+        // `_uiState.value` before the suspend, so a later slots load could
+        // overwrite an earlier one's Loading placeholder, and inherits the same
+        // stale-copy clobbering as loadDoctor.
+        val result = try {
+            val loaded = if (doctorId == null) emptyList() else doctorRepository.getSlots(doctorId, date)
+            LoadState.Success(loaded)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: BackendNotConnectedException) {
+            LoadState.Success(emptyList())
+        } catch (e: ApiFailure) {
+            LoadState.Error(e.message)
+        } catch (e: Exception) {
+            LoadState.Error("Couldn't load slots for that date.")
+        }
+        _uiState.update { it.copy(slots = result) }
     }
 
     companion object {
