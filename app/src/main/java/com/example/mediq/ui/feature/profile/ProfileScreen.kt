@@ -2,6 +2,7 @@ package com.example.mediq.ui.feature.profile
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -38,6 +39,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -180,13 +182,15 @@ private fun ProfileHeader(session: AuthSession) {
         shape    = CircleShape,
         color    = MaterialTheme.colorScheme.primaryContainer,
     ) {
-        Text(
-            text     = initials,
-            modifier = Modifier.padding(top = 20.dp),
-            style    = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Bold,
-            color    = MaterialTheme.colorScheme.onPrimaryContainer,
-        )
+        Box(contentAlignment = Alignment.Center) {
+            Text(
+                text       = initials,
+                textAlign  = TextAlign.Center,
+                style      = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Bold,
+                color      = MaterialTheme.colorScheme.onPrimaryContainer,
+            )
+        }
     }
     Spacer(modifier = Modifier.height(8.dp))
     Text(

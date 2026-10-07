@@ -40,7 +40,7 @@ import retrofit2.converter.gson.GsonConverterFactory
  */
 object RetrofitClient {
 
-    const val BASE_URL = "http://192.168.100.14:8099/"
+    const val BASE_URL = "http://10.0.2.2:8099/"
 
     fun create(tokenStore: TokenStore): MediQApiService {
         val client = OkHttpClient.Builder()

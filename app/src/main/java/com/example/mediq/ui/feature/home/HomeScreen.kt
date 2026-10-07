@@ -79,7 +79,7 @@ fun HomeScreen(navController: NavController) {
             Spacer(modifier = Modifier.height(32.dp))
             BrowseBySpecialty(navController)
             Spacer(modifier = Modifier.height(32.dp))
-            MostOpenSlots(state.doctorsWithOpenSlots)
+            MostOpenSlots(state.doctorsWithOpenSlots, navController)
         }
     }
 }
@@ -221,7 +221,7 @@ private fun BrowseBySpecialty(navController: NavController) {
 }
 
 @Composable
-private fun MostOpenSlots(state: LoadState<List<Doctor>>) {
+private fun MostOpenSlots(state: LoadState<List<Doctor>>, navController: NavController) {
     val colors = LocalMediQColors.current
     Column {
         Text(text = "Most open slots this week", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
@@ -245,7 +245,12 @@ private fun MostOpenSlots(state: LoadState<List<Doctor>>) {
                     )
                 } else {
                     state.data.forEach { doctor ->
-                        DoctorSlotRow(doctor)
+                        DoctorSlotRow(
+                            doctor = doctor,
+                            onClick = {
+                                navController.navigate(Screen.DoctorDetails.createRoute(doctor.id))
+                            },
+                        )
                         Spacer(modifier = Modifier.height(12.dp))
                     }
                 }
@@ -255,12 +260,13 @@ private fun MostOpenSlots(state: LoadState<List<Doctor>>) {
 }
 
 @Composable
-private fun DoctorSlotRow(doctor: Doctor) {
+private fun DoctorSlotRow(doctor: Doctor, onClick: () -> Unit) {
     val colors = LocalMediQColors.current
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(12.dp))
+            .clickable(onClick = onClick)
             .padding(16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {

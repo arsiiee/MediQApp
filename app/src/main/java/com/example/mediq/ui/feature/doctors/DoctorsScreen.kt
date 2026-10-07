@@ -128,6 +128,8 @@ fun DoctorsScreen(navController: NavController) {
                         } else {
                             "Nothing matched \"${state.searchText}\". Try a different name or specialty."
                         },
+                        actionLabel = if (state.searchText.isBlank()) "Check again" else null,
+                        onAction = if (state.searchText.isBlank()) { { viewModel.refresh() } } else null,
                     )
                 } else {
                     LazyColumn(verticalArrangement = Arrangement.spacedBy(16.dp)) {
