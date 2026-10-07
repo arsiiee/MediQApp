@@ -18,6 +18,7 @@ import com.example.mediq.domain.repository.DoctorRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 /**
@@ -50,40 +51,50 @@ class HomeViewModel(
         loadDoctorsWithOpenSlots()
     }
 
+    /**
+     * The suspending read goes into a local, and only the write is atomic.
+     *
+     * Both this and [loadDoctorsWithOpenSlots] used to write with
+     * `_uiState.value = _uiState.value.copy(...)` — a read, a `suspend` inside the
+     * `copy`, then a write. They run concurrently, so each could read the state
+     * before either wrote, and the second write would resurrect `Loading` on the
+     * half the first had just filled.
+     *
+     * The read stays **outside** [update] on purpose: its block is re-invoked on
+     * contention, so a repository call inside it would be issued twice.
+     */
     private fun loadNextAppointment() {
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(
-                nextAppointment = try {
-                    LoadState.Success(
-                        appointmentRepository.getAppointments(AppointmentFilter.UPCOMING)
-                            .items
-                            .minByOrNull { it.startsAt }
-                    )
-                } catch (e: BackendNotConnectedException) {
-                    LoadState.Success(null)
-                } catch (e: ApiFailure) {
-                    LoadState.Error(e.message)
-                } catch (e: Exception) {
-                    LoadState.Error("Couldn't load your appointments. Try again in a moment.")
-                }
-            )
+            val next = try {
+                LoadState.Success(
+                    appointmentRepository.getAppointments(AppointmentFilter.UPCOMING)
+                        .items
+                        .minByOrNull { it.startsAt }
+                )
+            } catch (e: BackendNotConnectedException) {
+                LoadState.Success(null)
+            } catch (e: ApiFailure) {
+                LoadState.Error(e.message)
+            } catch (e: Exception) {
+                LoadState.Error("Couldn't load your appointments. Try again in a moment.")
+            }
+            _uiState.update { it.copy(nextAppointment = next) }
         }
     }
 
     private fun loadDoctorsWithOpenSlots() {
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(
-                doctorsWithOpenSlots = try {
-                    LoadState.Success(doctorRepository.getDoctors(DoctorQuery()).items)
-                } catch (e: BackendNotConnectedException) {
-                    // Expected until a backend exists. Not worth an error banner.
-                    LoadState.Success(emptyList())
-                } catch (e: ApiFailure) {
-                    LoadState.Error(e.message)
-                } catch (e: Exception) {
-                    LoadState.Error("Couldn't load doctors. Check your connection and try again.")
-                }
-            )
+            val doctors = try {
+                LoadState.Success(doctorRepository.getDoctors(DoctorQuery()).items)
+            } catch (e: BackendNotConnectedException) {
+                // Expected until a backend exists. Not worth an error banner.
+                LoadState.Success(emptyList())
+            } catch (e: ApiFailure) {
+                LoadState.Error(e.message)
+            } catch (e: Exception) {
+                LoadState.Error("Couldn't load doctors. Check your connection and try again.")
+            }
+            _uiState.update { it.copy(doctorsWithOpenSlots = doctors) }
         }
     }
 

@@ -24,7 +24,7 @@ Two caveats. The **machine**-level `JAVA_HOME` still points at `C:\Users\You\Dow
 
 Verify the app with `:app:compileDebugKotlin` (~2s warm, ~3min cold). Full APK: `:app:assembleDebug` (~80s).
 
-`:app` unit tests — 71, runnable with `.\gradlew.bat :app:testDebugUnitTest`:
+`:app` unit tests — 165, runnable with `.\gradlew.bat :app:testDebugUnitTest`:
 
 - `data/api/` — `ApiErrorsTest.kt` (11 tests over error-body parsing),
   `UnknownWireValueTest.kt` (8 pinning how unrecognised wire values resolve), and
@@ -43,6 +43,38 @@ Verify the app with `:app:compileDebugKotlin` (~2s warm, ~3min cold). Full APK: 
   date's slots, only bookable slots survive the filter, changing the date discards
   the chosen slot, and a picker cannot be opened on an appointment that cannot be
   changed. The bookable filter and the discard were both verified by mutation.
+- `ui/feature/auth/signin/SignInViewModelTest.kt` (16) — credentials reach
+  `AuthRepository.signIn` verbatim and untrimmed, the four validation branches
+  never call out, a wrong password shows the server's sentence rather than
+  `"HTTP 401 "`, and a double submit sends one request. The `e.message` mapping
+  and the `isLoading` guard were both verified by mutation.
+- `ui/feature/booking/BookingViewModelTest.kt` (19) — a booking cannot be built
+  without a real slot, the `slot_taken` 409 shows the server's "that time was
+  just taken" rather than a retry instruction, the selection is cleared on success
+  but **kept** on failure, and `canSubmit` needs a confirmed tick and a selection.
+  The clear-on-success was verified by mutation.
+- `ui/feature/doctors/DoctorsViewModelTest.kt` (22) — the 300 ms search debounce:
+  no request before it elapses, one per burst of keystrokes, the timer *restarts*
+  rather than letting the first keystroke through, a blank search is sent as a
+  null filter, and a specialty chip is **not** debounced. Removing `delay()` was
+  verified by mutation. This is the one file that does not use `MainDispatcherRule`
+  — see "Two traps in the ViewModel tests" below.
+- `ui/feature/profile/ProfileViewModelTest.kt` (14) — the stored session reaches
+  the state with its real name and not a hardcoded placeholder, an unconnected
+  backend is a `Success(null)` rather than an error, and **sign-out navigates away
+  even when the server refuses**, because the alternative is a patient stranded on
+  a signed-in screen. The `runCatching` was verified by mutation.
+- `ui/feature/home/HomeViewModelTest.kt` (13) — the next appointment is the
+  *soonest* one rather than the first the server returned, and the two loads are
+  independent so neither can blank the other. `minByOrNull` → `maxByOrNull` was
+  verified by mutation.
+- `ui/feature/notifications/NotificationsViewModelTest.kt` (10) — an unconnected
+  backend is an empty list and a 500 is an error, never the reverse. Also pins
+  *which layer* owns the network-failure rule: see "Which layer owns the
+  unreachable-server rule" below.
+
+**All ten ViewModels are now covered.** The remaining untested surface is the
+`ui/` composables themselves — see "Two traps in the ViewModel tests".
 
 **ViewModels are unit testable now.** They were not, and the reason is worth
 keeping: every one calls `viewModelScope`, which posts to `Dispatchers.Main`, and
@@ -54,7 +86,56 @@ swaps in an `UnconfinedTestDispatcher` so a launch runs to completion eagerly;
 without that, a test that never awaits its coroutine passes while proving
 nothing. The substantial suite is still `:server:test` (50 tests, see below).
 
-`ExampleInstrumentedTest` remains an untouched Android Studio template.
+## Two traps in the ViewModel tests
+
+Both cost real time to diagnose, and both produce a **green** suite while
+asserting nothing, so they are written down here rather than left to be
+rediscovered.
+
+**1. An eager dispatcher settles an `init` load before the fixture is set.** A
+ViewModel that loads in `init` — `HomeViewModel`, `ProfileViewModel`,
+`NotificationsViewModel` — must be built with `by lazy` in the test, not assigned
+in `setUp`. With `UnconfinedTestDispatcher`, `setUp { viewModel = X(repository) }`
+completes the `init` read *before the test body runs*, so every assertion reads a
+settled empty state instead of the fixture, and the failure message points at the
+assertion rather than at the cause. `by lazy { }` defers construction to the first
+read, which is after the fixture is in place.
+
+The same trap blocks observing an in-flight state at all: with no real
+suspension point in the fake, the ViewModel sets `Loading` and replaces it with
+`Success` inside one dispatcher pass, so `LoadState.Loading` exists for no
+observable instant. `FakeAuthRepository.signInGate`, `FakeDoctorRepository.getDoctorsGate`,
+and `FakeAppointmentRepository.bookGate` are `CompletableDeferred`s a test
+completes when it needs the request to genuinely be in flight — that is what makes
+the double-submit guards testable rather than vacuous.
+
+**2. A debounce cannot be tested against the shared rule.**
+`MainDispatcherRule`'s unconfined dispatcher runs a launch eagerly to completion,
+which collapses the `delay(300)` in `DoctorsViewModel` before a test can observe
+it. `DoctorsViewModelTest` therefore sets up its own `StandardTestDispatcher` on a
+`TestCoroutineScheduler` it drives by hand, and `Dispatchers.resetMain()` in
+`@After`. Every timing assertion there is about how far the clock was moved, which
+makes the debounce itself part of what is under test.
+
+Note `advanceTimeBy(299)` must **not** be followed by `advanceUntilIdle()` — that
+runs the still-pending 300 ms delay and makes the assertion below it unmakeable.
+Use `runCurrent()` when you need pending tasks to start without advancing time.
+
+## Which layer owns the unreachable-server rule
+
+`AGENTS.md` says an unreachable server on a *list read* becomes an empty result.
+`RetrofitNotificationRepository` and friends make that decision, catching
+`ApiFailure.isNetworkFailure` and returning an empty `Paged` before the ViewModel
+sees anything. So at the ViewModel layer an `ApiFailure` means the server was
+reachable and answered badly, and `LoadState.Error` is the honest mapping —
+`NotificationsViewModelTest` pins that explicitly, because writing the test as
+"an unreachable server is an empty list" is the plausible mistake and it passes
+nowhere.
+
+`HomeViewModel` is the exception that proves the rule: it maps an unconnected
+backend to `Success(null)` rather than `Success(emptyList())`, because its state
+is `LoadState<Appointment?>` and "no next appointment" is a real state the screen
+can draw.
 
 ## Running on a device
 
@@ -351,6 +432,31 @@ they are observations, not planned work, so they are not in `tasks/todo.md`.
   `true`. It reads as a server guarantee and provides none.
 
 ### Application
+
+- **The profile cannot be edited from the app, and `ProfileRepository` is a dead
+  constructor parameter.** `ProfileViewModel(profileRepository, authRepository)`
+  takes a `ProfileRepository` and never reads it; `ProfileScreen` calls only
+  `refresh()` and `signOut()`. Nothing in `ui/` reaches
+  `ProfileRepository.updateProfile`, so the profile is display-only — yet
+  `README.md` lists "Profile read and update" under **What works**. The repository
+  itself is live and the server route is real; it is the edit form that does not
+  exist. `ProfileViewModelTest` asserts the boundary (`signing out does not touch
+  the profile repository`) rather than pinning the dead parameter as intended
+  behaviour, because a test that enshrined it would make the gap harder to see.
+- **`BookingUiState.canSubmit` reads a global, so it is not part of the state.**
+  It is a getter over `BookingSelection.selection`, a mutable JVM singleton, which
+  means the value a composable reads is not derivable from the `StateFlow` it
+  collects and will not trigger recomposition when it changes. It is correct today
+  because `submit()` re-checks the selection itself; a future screen that renders
+  a disabled button off `canSubmit` would not re-render when the selection is
+  cleared on success. The global exists so the slot is a real object rather than a
+  route string — a fair trade, but the observability cost is not recorded anywhere.
+- **`HomeViewModel`'s two loads can clobber each other.** Both
+  `loadNextAppointment()` and `loadDoctorsWithOpenSlots()` do a read-modify-write
+  on `_uiState.value` from separate coroutines with no serialisation. Under
+  `UnconfinedTestDispatcher` they happen to serialise, which is why the unit tests
+  cannot see it; on a real dispatcher, if both suspend between reading and writing
+  the state, one write is lost. `MutableStateFlow.update { }` would close it.
 
 - **Reschedule searches the current month only.** `AppointmentDetailsViewModel`
   opens its picker on `YearMonth.now().atDay(1)` with no month stepper, so an

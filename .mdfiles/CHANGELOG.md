@@ -4,6 +4,51 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+- **Unit tests for the six ViewModels that had none.** `:app:testDebugUnitTest`
+  went from 71 to **165**, and all ten ViewModels are now covered. Every one of
+  the 94 new tests was mutation-checked — the ViewModel was deliberately broken
+  and the suite had to fail — because a test that has never failed is not
+  evidence. `DoctorsViewModelTest` (22), `BookingViewModelTest` (19),
+  `SignInViewModelTest` (16), `ProfileViewModelTest` (14),
+  `HomeViewModelTest` (13), `NotificationsViewModelTest` (10).
+  - The mutations that caught something real: swapping `SignInViewModel`'s
+    `ApiFailure?.message` back to `e.message` (the `HTTP 401 ` regression this
+    app already shipped once), removing its `isLoading` guard, turning
+    `HomeViewModel`'s `minByOrNull` into `maxByOrNull` so the home screen would
+    offer the *latest* appointment as "next", removing `ProfileViewModel`'s
+    `runCatching` around sign-out, dropping `BookingSelection.clear()` on
+    success, removing `DoctorsViewModel`'s debounce `delay`, and turning
+    `NotificationsViewModel`'s unconnected-backend branch into an error.
+  - Two harness traps are documented in `AGENTS.md` under "Two traps in the
+    ViewModel tests" because each yields a **green** suite that asserts nothing:
+    an eager `init` load settling before the fixture is set (build ViewModels
+    with `by lazy`), and a non-suspending fake making `LoadState.Loading`
+    unobservable (the `signInGate` / `getDoctorsGate` / `bookGate`
+    `CompletableDeferred`s).
+  - `DoctorsViewModelTest` deliberately does **not** use `MainDispatcherRule`: a
+    debounce cannot be tested against an eager dispatcher, so it drives its own
+    `StandardTestDispatcher` on a `TestCoroutineScheduler`.
+  - The fakes grew what these tests needed and previously hardcoded: settable
+    results and errors for every call, plus recording of queries, filters, and
+    login attempts. Two fakes that had no class at all —
+    `FakeNotificationRepository`, `FakeProfileRepository` — now exist.
+- **New known gaps recorded, all found while writing the tests above.**
+  - The profile **cannot be edited from the app**, and `ProfileRepository` is a
+    dead constructor parameter on `ProfileViewModel` — nothing in `ui/` ever calls
+    `updateProfile`. `README.md` had listed "Profile read and update" under
+    **What works**; that claim is now corrected to read-only.
+  - `BookingUiState.canSubmit` reads the `BookingSelection` global, so it is not
+    derivable from the `StateFlow` a composable collects and will not trigger
+    recomposition when the selection clears.
+  - `HomeViewModel`'s two concurrent loads read-modify-write `_uiState.value`
+    without serialisation, so one can clobber the other on a real dispatcher. The
+    unit tests cannot see it — the test dispatcher happens to serialise them.
+  - Which layer owns the unreachable-server rule is now pinned by a test rather
+    than only by prose: it is the repository's job, so at the ViewModel layer an
+    `ApiFailure` is honestly an error. `HomeViewModel` is the documented
+    exception, mapping it to `Success(null)`.
+
 ### Fixed
 - **Registration could not create an account from the app.** All four
   `ui/feature/auth/register/` screens held their values in local

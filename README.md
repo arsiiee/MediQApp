@@ -44,7 +44,7 @@ inferred from the source.
 | Check | Command | Result |
 |---|---|---|
 | App compiles | `:app:compileDebugKotlin` | Passes, 1 deprecation warning |
-| App unit tests | `:app:testDebugUnitTest` | 71 pass |
+| App unit tests | `:app:testDebugUnitTest` | 165 pass |
 | Server tests | `:server:test` | 50 pass |
 | Architecture boundaries | `check-boundaries.ps1` | Clean, 52 files |
 | Colour contrast | `check-contrast.ps1` | Clean, 24 token pairs + 6 status chips |
@@ -52,15 +52,15 @@ inferred from the source.
 | Server | `:server:run` | Starts, H2 in-memory |
 
 **Size:** 97 Kotlin files (~6,000 lines in `:app` main, ~3,800 in `:server`),
-19 HTTP endpoints, 50 server tests, 71 app tests, 15 screens, 10 ViewModels.
+19 HTTP endpoints, 50 server tests, 165 app tests, 15 screens, 10 ViewModels.
 
 The one remaining compile warning is the deprecated `statusBarColor` in
 `core/designsystem/theme/Theme.kt`.
 
 **"The build is green" does not mean "the app is tested."** All the business
-logic lives on the server and that is where the real coverage is. Four of the ten
-ViewModels have tests; the other six do not (see
-[Not done yet](#not-done-yet)).
+logic lives on the server and that is where the real coverage is. All ten
+ViewModels now have unit tests, but no composable does, and nothing here runs
+without a device (see [Not done yet](#not-done-yet)).
 
 ---
 
@@ -83,8 +83,9 @@ Verified end to end against a running server on a real device:
   appointment's** doctor, clinic-zone date and time, location, fee, status, and
   reason for visit.
 - **Notifications** list and mark-as-read.
-- **Profile read and update**, plus sign-out, which kills the token server-side
-  immediately rather than waiting for it to expire.
+- **Profile read**, plus sign-out, which kills the token server-side immediately
+  rather than waiting for it to expire. Editing the profile is *not* implemented
+  on the client — see [Not done yet](#not-done-yet).
 - **Dark mode that is actually legible.** Every colour pair clears WCAG AA, and
   `check-contrast.ps1` measures it rather than trusting the source.
 
@@ -135,6 +136,10 @@ This is the honest list. It is long because the work is not finished.
   holds.
 - **`DELETE /appointments/{id}` is not idempotent.** A retry after a lost
   response reports failure for an action that succeeded.
+- **The profile cannot be edited from the app at all.** The server endpoint and
+  `ProfileRepository` both exist and are tested, but no screen calls
+  `updateProfile` — `ProfileViewModel` takes a `ProfileRepository` and never uses
+  it. The profile is display-only.
 - **`PUT /profile` is a PATCH wearing a disguise, and fields cannot be cleared.**
   Omission and clearing are the same operation, so "remove my address" is
   impossible.
@@ -162,13 +167,12 @@ threw a developer-facing string that reached the UI; status codes are overloaded
 
 ### Tests and tooling
 
-- **Six of the ten ViewModels have no tests.** `RegisterViewModel`,
-  `AppointmentDetailsViewModel`, `AppointmentsViewModel` and `DoctorDetailsViewModel`
-  are covered; `DoctorsViewModel`, `HomeViewModel`, `NotificationsViewModel`,
-  `ProfileViewModel`, `SignInViewModel` and `BookingViewModel` are not. The harness
-  exists now — `kotlinx-coroutines-test`, hand-written fakes, and a
-  `MainDispatcherRule` — so this is a matter of writing them, not of tooling.
-  `ExampleInstrumentedTest` is still an untouched Android Studio template.
+- **All ten ViewModels have tests, and no composable does.** `165` app unit tests
+  cover the state machines, but the `ui/` composables are still unverified by
+  anything that runs without a device — no Compose test, no screenshot test, and
+  `ExampleInstrumentedTest` is still an untouched Android Studio template. Two
+  live traps are documented in `.mdfiles/AGENTS.md` under "Two traps in the
+  ViewModel tests", because each produces a green suite that asserts nothing.
 - **No CI.** Everything here is run by hand. Nothing stops a regression landing.
 - **No coverage tooling.** No JaCoCo, no Kover.
 - **No lint config.** No detekt, no ktlint, no `.editorconfig`.
@@ -495,12 +499,20 @@ Two more, over HTTP against a running server:
   (13), `AvailableDatesTest` (4), `BookingConcurrencyTest` (4), `OtpLockoutTest`
   (3), `ProfileUpdateTest` (2). `BookingConcurrencyTest` is the one that cannot
   be checked by hand.
-- **`:app:testDebugUnitTest`** - 71 tests, hand-written fakes, no mocking
+- **`:app:testDebugUnitTest`** - 165 tests, hand-written fakes, no mocking
   framework: `ApiErrorsTest` (11, error-body parsing), `UnknownWireValueTest` (8,
   how unrecognised wire values resolve), `GsonLeniencyTest` (3, JSON parsing
-  behaviour), `RegisterViewModelTest` (22, the registration wizard), and
+  behaviour), `RegisterViewModelTest` (22, the registration wizard),
   `AppointmentDetailsViewModelTest` (27, loading one appointment by id, then
-  cancelling and rescheduling it through a slot picker).
+  cancelling and rescheduling it through a slot picker), `DoctorsViewModelTest`
+  (22, the search debounce), `BookingViewModelTest` (19, the booking submit and
+  the `slot_taken` 409), `SignInViewModelTest` (16, credentials and the error
+  contract), `ProfileViewModelTest` (14, session read and sign-out),
+  `HomeViewModelTest` (13, the soonest appointment), and
+  `NotificationsViewModelTest` (10, empty list vs error). **All ten ViewModels
+  are covered.** The 94 newest were each mutation-checked — the ViewModel was
+  deliberately broken and the suite had to fail — because a test that has never
+  failed is not evidence.
 - **`smoke.ps1`** — the actual HTTP status of every route, the double-booking
   refusal, and that signing out kills the token mid-flight. Needs the server up.
   It has **no OTP or register coverage**; the registration contract is proven

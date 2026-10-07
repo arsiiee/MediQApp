@@ -1,4 +1,170 @@
-# Implementation Plan: Close the Two Functional Gaps in MediQ
+# Implementation Plan: Token Lifecycle (Expiry, 401 Handling, Refresh)
+
+> **Status: active.** Re-auth, not refresh — D2 resolved by the user, so no
+> `POST /auth/refresh` route and no `refresh_token` column. The previous plan
+> (registration + appointment details) is complete and archived at the bottom of
+> this file; its task list is checked off in `tasks/todo.md`.
+>
+> Spec: `tasks/SPEC-token-lifecycle.md`
+
+## Overview
+
+A patient whose token expires mid-session is told to sign in again by five
+screens and given no way to act on it — the only sign-in affordance in the app
+lives on Profile, which they have to find first. Separately, a stored session
+with a corrupt `expiresAt` permanently wedges the Profile screen, because
+`Instant.parse` throws before the expiry check runs and the token is never
+cleared.
+
+Both share a cause: expiry is tested in exactly one place, and that place is not
+on the request path. The fix is one seam — an OkHttp `Authenticator` that clears
+the token and raises a domain-owned signal, observed once in the nav host.
+
+## Current State (verified against the filesystem)
+
+| Fact | Evidence |
+|---|---|
+| `getAccessToken()` never tests expiry | `TokenStore.kt:32` is a bare field read; the only `isExpired` call is `RetrofitAuthRepository.kt:56` |
+| `currentSession()` has one caller | `ProfileViewModel.kt:53`; nothing on the request path consults it |
+| No screen branches on a 401 | no `status ==` comparison anywhere in `ui/`; every 401 becomes `LoadState.Error(e.message)` |
+| `LoadState.Error` carries only a message | `LoadState.kt:18` — no status, no code. The 401 prompt **cannot** ride on `LoadState` without changing 10 ViewModels |
+| `toDomain()` parses persisted bytes unguarded | `ApiMappers.kt:52` `Instant.parse(expiresAt)`; `LocalDate.parse` at `:62` is the same hazard |
+| `TokenStore.getSession()` guards Gson only | `TokenStore.kt:29` — `runCatching` wraps the parse, not the map, so a malformed timestamp survives it |
+| No OkHttp `Authenticator` exists | zero hits in `app/src/main`; `RetrofitClient.kt:46-49` sets only two interceptors |
+| `okhttp3.Authenticator` is already on the classpath | `app/build.gradle.kts:58` — no dependency change needed |
+| Every 401 already has a readable body | `Routes.kt:334-336` challenge sends `ErrorDto("unauthorized", …)`, so `ApiErrors.kt:65` uses the server's code |
+| `SessionSignal` must exist before the client | `AppContainer.kt:41` builds the Retrofit client first; a signal handed to `create()` has to be created above it |
+| `ui/` may import `di/` but not `data/` | `check-boundaries.ps1:108` bans `com.example.mediq.data.` in `ui/` — so the signal lives in `domain/` or `di/` |
+| Booking state already survives a failed submit | `BookingViewModel.kt:74-80` sets `error` and leaves `reasonForVisit` alone; `BookingSelection` is a process-wide singleton cleared only on success (`:68`) |
+| `:app` test floor is 165 | `CONSTRAINTS.md:37`; 165 `@Test` methods present. `:server` floor 50 |
+| No mocking framework, no Robolectric | `app/build.gradle.kts:62` — JUnit 4 + `kotlinx-coroutines-test` only |
+
+### Two traps the plan must route around
+
+**`TokenStore` is untestable as written.** Its constructor takes
+`android.content.Context` (`:18`) and there is no Robolectric, so the spec's
+planned `TokenStoreTest.kt` cannot construct one. The validation logic moves to a
+pure function that takes bytes and returns a session or null; `TokenStore` keeps
+only the `SharedPreferences` call. Testable, no new dependency.
+
+**A re-issue guard is mandatory, not a nicety.** OkHttp's `Authenticator`
+re-sends whatever request it was handed. `MediQApiService` has five
+non-idempotent routes — `POST /appointments`, `DELETE /appointments/{id}`,
+`PATCH`, `PUT`, `POST /…/reschedule-request`. Without an explicit method check,
+a 401 on a booking re-issues the `POST` and the patient is double-booked. D3's
+"never auto-retry a write" lands as a method allow-list inside the
+`Authenticator`, and as a mutation-checked test.
+
+## Architecture Decisions
+
+**D1 — `Authenticator` plus a domain-owned `SessionSignal`.** An interceptor
+sees the response; retrying is the `Authenticator`'s job. The signal is a
+`MutableStateFlow<Boolean>` in `domain/`, created in `AppContainer` before the
+Retrofit client and handed to both the OkHttp stack and the nav host, so `ui/`
+never imports `data/`. Rejected: handling 401 per-ViewModel — six places to get
+wrong, and the sixth gets written by someone who hasn't read this file.
+
+**D2 — re-auth, not a refresh token.** Decided. Closes every acceptance
+criterion with no server route, no schema column, and no second long-lived
+credential in plaintext prefs. The client seam is identical either way, so
+refresh can be added later without redoing this work.
+
+**D3 — abort writes, retry nothing.** With D2 = re-auth there is nothing to
+refresh with, so the retry path is closed entirely. The write guard is the
+point: reads may be re-issued once, writes never. The patient's booking form
+already survives a failed submit (`BookingViewModel.kt:74-80`), so this decision
+is about the navigation, not the ViewModel.
+
+**D4 — validate at the store, not at each read site.** `TokenStore.getSession()`
+returns null for a blob that does not map, and clears the key when one was
+present. `currentSession()` then has one contract: null means "no usable
+session". Bug 2 dies at the boundary instead of at five read sites.
+
+**The prompt is a nav-host concern, not a `LoadState` concern.**
+`LoadState.Error` carries a `String` and nothing else (`LoadState.kt:18`);
+threading a 401 through it would change 10 ViewModels and their tests. The
+signal already carries it, so the prompt listens to the signal.
+
+**Sign-in lands on Home.** Open Question 2 in the spec, decided as recommended.
+Returning to the screen the patient was on re-issues a read immediately, which
+is the request path this work exists to make predictable.
+
+## Task List
+
+### Phase 1: The signal and the failure flag
+
+- [ ] Task 1: `ApiFailure.isAuthFailure`
+- [ ] Task 2: `SessionSignal` in `domain/`
+- [ ] Task 3: Pure session validation + `TokenStore` validate-on-read
+
+### Checkpoint A: Signal and validation
+
+- [ ] `:app:compileDebugKotlin` green
+- [ ] `:app:testDebugUnitTest` green, above the 165 floor
+- [ ] `check-boundaries.ps1` reports `domain-imports-android` = 0
+- [ ] Review with human before proceeding
+
+### Phase 2: The request path
+
+- [ ] Task 4: `SessionAuthenticator` — clear, signal once, retry reads only
+- [ ] Task 5: `AppContainer` owns the signal; hand it to the OkHttp stack
+- [ ] Task 6: `currentSession()` contract simplification
+
+### Checkpoint B: Request path
+
+- [ ] Five concurrent 401s produce exactly one signal — proven by test
+- [ ] A 401 on `POST /appointments` issues zero additional requests
+- [ ] `:app:testDebugUnitTest` green
+
+### Phase 3: The patient-facing prompt
+
+- [ ] Task 7: `MediQNavHost` observes the signal, one-tap sign-in
+- [ ] Task 8: Clear the signal on sign-out
+- [ ] Task 9: `smoke.ps1` — a booking across an expiry produces exactly one `POST`
+
+### Checkpoint C: Prompt
+
+- [ ] `MEDIQ_TOKEN_TTL_MINUTES=2` verified on the emulator — one prompt per screen
+- [ ] `:server:test` green at its floor of 50
+
+### Phase 4: Documentation
+
+- [ ] Task 10: `AGENTS.md`, `CHANGELOG.md`, `README.md`, `CONSTRAINTS.md`
+
+### Checkpoint D: Complete
+
+- [ ] `:app:testDebugUnitTest` green at ≥172; `:server:test` green at 50
+- [ ] `ui-imports-data` = 0 and `domain-imports-android` = 0
+- [ ] `README.md:146-147` and the `AGENTS.md` known-gap bullet updated in the same commit
+
+## Risks and Mitigations
+
+| Risk | Impact | Mitigation |
+|---|---|---|
+| The `Authenticator` re-issues a write and double-books a patient | High | Method allow-list, GET/HEAD only. Mutation-checked: enable write retry and the suite must fail. |
+| `TokenStore` takes a `Context`, so its new validation is untestable | High | Validation is a pure function over bytes; `TokenStore` keeps only the prefs call. No new test dependency. |
+| The signal leaks the last user's state across sign-out | High | Cleared in `signOut()` alongside `TokenStore.clearSession()`. One test. |
+| Navigating to sign-in pops the in-progress booking form | Medium | `popUpTo` keeps the booking entry rather than clearing the stack. `BookingSelection` is process-wide and survives regardless. |
+| `toDomain()` is still the unguarded parse point | Medium | Fixing `getSession()` to validate before mapping is what makes the unguarded parse unreachable from persisted bytes. Documented, not left as a trap. |
+| `getSession()` clearing on a bad read means a transient write race signs the patient out | Low | `apply()` is async; the risk is one extra sign-in. Noted, not mitigated. |
+| `:server` floor of 50 does not move | Low | D2 = re-auth adds no route and no test. The floor stays; that is a real outcome, not a skipped task. |
+
+## Open Questions
+
+1. **Does the expired-session prompt replace the screen or sit above it?**
+   Decided at Task 7: a modal over the current content. It satisfies acceptance
+   criterion 1 (one tap, from that screen) without a seventh sign-in entry point.
+2. **Sign-in lands on Home.** Decided. See Architecture Decisions.
+3. **`refresh` later.** If it is ever added, the seam does not change — only the
+   `Authenticator` gains a body. Worth a note in `AGENTS.md` Auth so the next
+   session knows the seam was built for it.
+
+---
+
+# Archived: Plan v1 — Registration and Appointment Details
+
+Complete. Commits `c9df562` through `24d9ef2`. Kept for the decision record;
+its task list is checked off in `tasks/todo.md`.
 
 ## Overview
 

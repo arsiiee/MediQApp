@@ -34,7 +34,7 @@ no command is an aspiration, not a constraint.
 | Architecture | `secret-field-no-keyboard-options` = 0 | `.\.mdfiles\check-boundaries.ps1` | every edit, < 5s |
 | Architecture | `secret-field-not-password-keytype` = 0 | `.\.mdfiles\check-boundaries.ps1` | every edit, < 5s |
 | Tests | `:server:test` green, 50 tests minimum | `.\gradlew.bat :server:test` | task end |
-| Tests | `:app:testDebugUnitTest` green, 71 tests minimum | `.\gradlew.bat :app:testDebugUnitTest` | task end |
+| Tests | `:app:testDebugUnitTest` green, 165 tests minimum | `.\gradlew.bat :app:testDebugUnitTest` | task end |
 | Contrast | Every token pair clears WCAG AA; 0 hardcoded page backgrounds; raw-colour ratchet = 4 | `.\.mdfiles\check-contrast.ps1` | every edit, < 5s |
 
 Both check scripts resolve paths relative to the working directory, so they must
@@ -92,7 +92,7 @@ one. Move a number only when the code moves it.
 | `secret-field-no-keyboard-options` | 0 | must not grow | Was **5** on 2026-10-06 — every masked field in the app, sign-in included. See failure 3 above. |
 | `secret-field-not-password-keytype` | 0 | must not grow | Was **0**, and stays 0. Added at the same time as the rule above; nothing set the wrong key type because nothing set one at all. |
 | `:server:test` count | 50 | must not fall | `BookingConcurrencyTest` is 4 of those and cannot be checked by hand. Raised from 36 on 2026-10-06 — `AppointmentLifecycleTest` (13), `AvailableDatesTest` (4), `OtpLockoutTest` (3) and the 7 username-normalisation cases in `AuthServiceTest` were added, so the floor moves with the code. |
-| `:app:testDebugUnitTest` count | 71 | must not fall | Added 2026-10-06 at the current value, when ViewModels first became testable: 23 in `data/api/`, plus `RegisterViewModelTest` (22) and `AppointmentDetailsViewModelTest` (27). The 23 were the whole suite until then — every ViewModel was untested because the harness did not exist. Raised from 51 when the appointment cancel/reschedule actions were wired: 10 more cover the `isActionable` gate, a cancel that must reload, a refused cancel, and a reschedule that must carry the real id and a chosen slot. Raised again from 61 when the reschedule slot picker was built: 10 more cover the availability reads, the bookable-only filter, discarding a slot when the date changes, and that a picker cannot be opened on an appointment that cannot be changed. |
+| `:app:testDebugUnitTest` count | 165 | must not fall | Added 2026-10-06 at the current value, when ViewModels first became testable: 23 in `data/api/`, plus `RegisterViewModelTest` (22) and `AppointmentDetailsViewModelTest` (27). The 23 were the whole suite until then — every ViewModel was untested because the harness did not exist. Raised from 51 when the appointment cancel/reschedule actions were wired: 10 more cover the `isActionable` gate, a cancel that must reload, a refused cancel, and a reschedule that must carry the real id and a chosen slot. Raised again from 61 when the reschedule slot picker was built: 10 more cover the availability reads, the bookable-only filter, discarding a slot when the date changes, and that a picker cannot be opened on an appointment that cannot be changed. Raised from 71 to 165 when the six remaining untested ViewModels were covered: `DoctorsViewModel` (22), `BookingViewModel` (19), `SignInViewModel` (16), `ProfileViewModel` (14), `HomeViewModel` (13), `NotificationsViewModel` (10). Every one of those 94 was mutation-checked — the ViewModel was deliberately broken and the suite had to fail — so the count is 165 tests that can fail, not 165 that pass. |
 | Suppressions | 0 | must not grow | |
 | Stubs (`TODO(`) | 0 | must not grow | |
 | Raw colour literals in `ui/` | 4 | must not grow | The 4 are `SplashScreen`'s white-on-brand-green, which measures 6.63:1. Was **25** on 2026-10-06 — 22 `Color.Gray` at 3.95:1 and friends, all invisible to a green build because nothing measured them. |
@@ -113,7 +113,7 @@ None.
 
 | Dimension | Why not |
 |-----------|---------|
-| Test coverage | Needs JaCoCo or Kover in both modules. Worth adding — `:app` has 71 tests across 66 source files, and 49 of those tests are the only ones covering any ViewModel at all. The six ViewModels without tests are `DoctorsViewModel`, `HomeViewModel`, `NotificationsViewModel`, `ProfileViewModel`, `SignInViewModel`, and `BookingViewModel`. |
+| Test coverage | Needs JaCoCo or Kover in both modules. Worth adding — `:app` now has 165 tests and **every one of the ten ViewModels is covered**, but no instrumentation or Compose test exists, so the `ui/` composables themselves are still unverified by anything that runs without a device. `ExampleInstrumentedTest` remains an untouched Android Studio template. |
 | Security scanning | Semgrep/osv-scanner have nowhere to run without CI. Genuinely relevant: the repo has a dev JWT secret in source, guarded only by `MEDIQ_ENV=production`. |
 | Lint | Zero lint config today (no detekt, ktlint, or `.editorconfig`). Adopting one means writing a config and absorbing findings across the existing tree. |
 | Secrets scanning | Would flag the intentional dev JWT secret in `Db.kt` on every run until it is allowlisted. |

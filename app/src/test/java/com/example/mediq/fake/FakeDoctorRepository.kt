@@ -6,6 +6,7 @@ import com.example.mediq.domain.model.DoctorQuery
 import com.example.mediq.domain.model.Paged
 import com.example.mediq.domain.model.TimeSlot
 import com.example.mediq.domain.repository.DoctorRepository
+import kotlinx.coroutines.CompletableDeferred
 import java.time.LocalDate
 
 /**
@@ -29,16 +30,50 @@ class FakeDoctorRepository : DoctorRepository {
     var slots: List<TimeSlot> = emptyList()
     var slotsError: Throwable? = null
 
+    /** What `getDoctors` returns. Empty by default, so a test must opt in. */
+    var doctors: List<Doctor> = emptyList()
+    var getDoctorsError: Throwable? = null
+    var nextCursor: String? = null
+
     // --- What the ViewModel asked for ---------------------------------------
 
     val requestedDoctorIds = mutableListOf<String>()
     val requestedDates = mutableListOf<LocalDate>()
 
+    /**
+     * Every `getDoctors` query, in order.
+     *
+     * A separate list from [requestedDoctorIds] on purpose: that one records
+     * *which* doctor an availability read was about, and mixing a list query in
+     * would make `requestedDoctorIds.contains(doctorId)` — the assertion the
+     * appointment-details tests use — pass for a query that never fetched
+     * anything.
+     */
+    val requestedQueries = mutableListOf<DoctorQuery>()
+
     /** True when no availability read reached the repository at all. */
     val wasCalledAtAll: Boolean get() = requestedDates.isNotEmpty()
 
-    override suspend fun getDoctors(query: DoctorQuery): Paged<Doctor> =
-        Paged(emptyList())
+    /** True when no doctor list query reached the repository at all. */
+    val wasQueriedAtAll: Boolean get() = requestedQueries.isNotEmpty()
+
+    /**
+     * When set, `getDoctors` waits on this before answering.
+     *
+     * Without it a fake read never really suspends, so `Loading` exists for no
+     * observable instant: the ViewModel sets it and replaces it with `Success`
+     * inside the same dispatcher pass, and a test asserting on the in-flight
+     * state is asserting on something unreachable. Completing the gate is what
+     * makes the request genuinely in flight.
+     */
+    var getDoctorsGate: CompletableDeferred<Unit>? = null
+
+    override suspend fun getDoctors(query: DoctorQuery): Paged<Doctor> {
+        requestedQueries += query
+        getDoctorsGate?.await()
+        getDoctorsError?.let { throw it }
+        return Paged(doctors, nextCursor)
+    }
 
     override suspend fun getDoctor(doctorId: String): Doctor {
         requestedDoctorIds += doctorId
