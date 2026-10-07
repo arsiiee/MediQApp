@@ -84,25 +84,90 @@ class DoctorsViewModelTest {
     private fun doctorsOf(state: DoctorsUiState) =
         (state.doctors as? LoadState.Success)?.data
 
-    // --- Nothing is fetched until asked --------------------------------------
+    // --- Opening the screen fetches ------------------------------------------
 
     @Test
-    fun `nothing is fetched before the screen asks`() {
-        viewModel()
+    fun `opening the screen queries the list`() = testScope.runTest {
+        repository.doctors = listOf(TestFixtures.doctor(fullName = "Rivera"))
+        val viewModel = viewModel()
 
-        assertFalse(
-            "`DoctorsViewModel` has no `init` load, so an unqueried list is expected",
-            repository.wasQueriedAtAll,
+        advanceUntilIdle()
+
+        assertEquals(
+            "a patient who opens Doctors must not be left looking at a spinner forever",
+            listOf(null),
+            repository.requestedQueries.map { it.searchText },
         )
-        assertTrue(
-            "and the screen shows a loading state until then",
-            viewModel().uiState.value.doctors is LoadState.Loading,
+        assertEquals(
+            listOf("Rivera"),
+            doctorsOf(viewModel.uiState.value)?.map { it.fullName },
         )
     }
 
     @Test
-    fun `an explicit refresh queries straight away`() = testScope.runTest {
+    fun `an initial response arriving after a search cannot replace the search results`() = testScope.runTest {
+        val initialRead = CompletableDeferred<Unit>()
+        repository.getDoctorsGate = initialRead
         val viewModel = viewModel()
+        runCurrent() // initial read is suspended inside the fake
+
+        repository.getDoctorsGate = null
+        repository.doctors = listOf(TestFixtures.doctor(fullName = "Filtered Rivera"))
+        viewModel.onSearchTextChange("Rivera")
+        advanceTimeBy(300)
+        advanceUntilIdle()
+        assertEquals(listOf(null, "Rivera"), repository.requestedQueries.map { it.searchText })
+        assertEquals(listOf("Filtered Rivera"), doctorsOf(viewModel.uiState.value)?.map { it.fullName })
+
+        repository.doctors = listOf(TestFixtures.doctor(fullName = "Stale unfiltered"))
+        initialRead.complete(Unit)
+        advanceUntilIdle()
+        assertEquals(
+            "a late opening response must not overwrite a newer filtered result",
+            listOf("Filtered Rivera"),
+            doctorsOf(viewModel.uiState.value)?.map { it.fullName },
+        )
+    }
+
+    @Test
+    fun `typing invalidates an initial read even before the debounce has elapsed`() = testScope.runTest {
+        val initialRead = CompletableDeferred<Unit>()
+        repository.getDoctorsGate = initialRead
+        val viewModel = viewModel()
+        runCurrent()
+
+        viewModel.onSearchTextChange("Rivera")
+        repository.doctors = listOf(TestFixtures.doctor(fullName = "Stale unfiltered"))
+        initialRead.complete(Unit)
+        runCurrent()
+        assertTrue(
+            "do not briefly show all doctors for a query the patient already typed",
+            viewModel.uiState.value.doctors is LoadState.Loading,
+        )
+    }
+
+    /**
+     * A screen whose ViewModel has already run its initial load, with the query
+     * log cleared.
+     *
+     * Every test below this point is about what the *patient's* next action does
+     * — a keystroke, a chip press — and each asserts on an exact query count.
+     * Without clearing the log the opening load would sit in front of it as
+     * `requestedQueries[0]` and every count would be off by one, so the tests
+     * would have to be rewritten to tolerate it. Clearing it instead keeps each
+     * assertion reading exactly as it did before: given a loaded screen, when the
+     * patient types, then …
+     */
+    private suspend fun TestScope.loadedViewModel(): DoctorsViewModel {
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        repository.requestedQueries.clear()
+        return viewModel
+    }
+
+    @Test
+    fun `an explicit refresh queries straight away`() = testScope.runTest {
+        val viewModel = loadedViewModel()
 
         viewModel.refresh()
         advanceUntilIdle()
@@ -114,7 +179,7 @@ class DoctorsViewModelTest {
 
     @Test
     fun `typing does not query before the debounce elapses`() = testScope.runTest {
-        val viewModel = viewModel()
+        val viewModel = loadedViewModel()
 
         viewModel.onSearchTextChange("Riv")
         advanceTimeBy(299)
@@ -127,7 +192,7 @@ class DoctorsViewModelTest {
 
     @Test
     fun `typing queries once the debounce elapses`() = testScope.runTest {
-        val viewModel = viewModel()
+        val viewModel = loadedViewModel()
 
         viewModel.onSearchTextChange("Riv")
         advanceTimeBy(300)
@@ -139,7 +204,7 @@ class DoctorsViewModelTest {
     @Test
     fun `a burst of keystrokes produces exactly one query`() = testScope.runTest {
         // The real shape of typing: six characters in quick succession.
-        val viewModel = viewModel()
+        val viewModel = loadedViewModel()
 
         listOf("R", "Ri", "Riv", "Rive", "River", "Rivera").forEach { viewModel.onSearchTextChange(it) }
         advanceTimeBy(300)
@@ -155,7 +220,7 @@ class DoctorsViewModelTest {
 
     @Test
     fun `the debounce restarts rather than letting the first keystroke through`() = testScope.runTest {
-        val viewModel = viewModel()
+        val viewModel = loadedViewModel()
 
         viewModel.onSearchTextChange("R")
         advanceTimeBy(250)
@@ -177,7 +242,7 @@ class DoctorsViewModelTest {
 
     @Test
     fun `the request carries the text as finally typed`() = testScope.runTest {
-        val viewModel = viewModel()
+        val viewModel = loadedViewModel()
 
         viewModel.onSearchTextChange("Rivera")
         advanceTimeBy(300)
@@ -188,7 +253,7 @@ class DoctorsViewModelTest {
 
     @Test
     fun `a cleared search field is sent as no filter at all`() = testScope.runTest {
-        val viewModel = viewModel()
+        val viewModel = loadedViewModel()
 
         viewModel.onSearchTextChange("Rivera")
         advanceTimeBy(300)
@@ -207,7 +272,7 @@ class DoctorsViewModelTest {
 
     @Test
     fun `a whitespace-only search field is sent as no filter at all`() = testScope.runTest {
-        val viewModel = viewModel()
+        val viewModel = loadedViewModel()
 
         viewModel.onSearchTextChange("   ")
         advanceTimeBy(300)
@@ -231,7 +296,7 @@ class DoctorsViewModelTest {
 
     @Test
     fun `choosing a specialty queries immediately`() = testScope.runTest {
-        val viewModel = viewModel()
+        val viewModel = loadedViewModel()
 
         viewModel.onSpecialtySelected(Specialty.PEDIATRICS)
         advanceUntilIdle()
@@ -246,7 +311,7 @@ class DoctorsViewModelTest {
 
     @Test
     fun `clearing the specialty queries immediately and sends no filter`() = testScope.runTest {
-        val viewModel = viewModel()
+        val viewModel = loadedViewModel()
 
         viewModel.onSpecialtySelected(Specialty.PEDIATRICS)
         advanceUntilIdle()
