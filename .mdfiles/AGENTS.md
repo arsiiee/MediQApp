@@ -79,9 +79,50 @@ its tests.
   backend is an empty list and a 500 is an error, never the reverse. Also pins
   *which layer* owns the network-failure rule: see "Which layer owns the
   unreachable-server rule" below.
+- `ui/feature/debug/seededdata/SeededDataViewModelTest.kt` (8) — **TEMPORARY,
+  goes with its screen.** The one that matters is `the state holds exactly what
+  the repository returned`: a fallback list behind the repository call would make
+  the screen report "backend working" with the backend dead, which is the exact
+  failure it exists to catch. Verified by mutation — both mutations (`e.toString()`
+  for the error branch, `.ifEmpty { listOf(doctor) }` behind the read) failed the
+  suite on 2 tests each.
 
 **All ten ViewModels are now covered.** The remaining untested surface is the
 `ui/` composables themselves — see "Two traps in the ViewModel tests".
+
+## The seeded-data screen (TEMPORARY)
+
+A backend check, not a feature. **Long-press the "MediQ" wordmark on
+`SplashScreen`** to open it; there is no button and no bottom-nav entry, so
+nothing about it is visible to a patient. It reads `GET /doctors` live and shows
+the doctors, their `DEMO-*` licence numbers, and their clinic hours, or the reason
+there are none.
+
+It hardcodes **no** doctor, fee, licence, hour, or count. That is the whole point:
+a hardcoded list renders identically whether the backend is alive or dead, so it
+would report a healthy clinic while proving nothing. Proven live on
+`emulator-5554` on 2026-10-07 — server up renders three doctors; server stopped
+and Re-check pressed empties the screen completely; server restarted and Re-check
+brings them back. **The stopped-server case is the one that matters** — it is
+what a hardcoded screen cannot produce.
+
+**Two states, not three.** `RetrofitDoctorRepository.kt:38-40` returns an empty
+`Paged` when the server is unreachable, which is correct for every other screen, so
+"server down" and "seed did not run" arrive here as the *same*
+`Success(emptyList())`. The empty state names both causes and says it cannot
+separate them, rather than guessing one. A real third state is available cheaply
+if ever wanted: `getDoctor` is a single-entity read, so it lets `ApiFailure`
+propagate and an unknown id 404s — one call with a non-existent id gives a true
+reachability signal on an existing public route. **Not done:** this is a
+temporary screen and the honest wording already shipped.
+
+**Removal is 7 touchpoints, not 6.** `AppContainer.baseUrl` was added for this
+screen alone and is dead code once it is gone — invisible to the compiler, to
+both check scripts, and to the test suite, which is precisely how a temporary
+screen becomes permanent dead code. The deletion was proven on a scratch branch
+rather than asserted; `CONSTRAINTS.md:113` carries the note that the `:app` floor
+must come **down** to 166 in the same commit as the removal. That is the ratchet
+working, not a regression.
 
 **ViewModels are unit testable now.** They were not, and the reason is worth
 keeping: every one calls `viewModelScope`, which posts to `Dispatchers.Main`, and

@@ -6,16 +6,18 @@
 |---|---|---|
 | v1 — registration + appointment details | **Complete**, commits `c9df562`..`24d9ef2` | Close the two "Known gaps" in `.mdfiles/AGENTS.md` |
 | v2 — token lifecycle | **Planned, not started** — 93 boxes below are open | 401 handling, session expiry, corrupt-session recovery |
-| v3 — seeded-data screen | **Active** — Tasks 4-7 remain | One temporary screen that verifies the live backend |
-| v4 — doctor specialty filter | **Spec'd, queued behind v3** | `DoctorsScreen.kt:89` filters to `PEDIATRICS` no matter which chip is tapped |
+| v3 — seeded-data screen | **Complete** 2026-10-07 | One temporary screen that verifies the live backend |
+| v4 — doctor specialty filter | **Spec'd, next** | `DoctorsScreen.kt:89` filters to `PEDIATRICS` no matter which chip is tapped |
 
 **Active plan:** `tasks/plan.md` → Temporary Seeded-Data Screen (backend
-verification), spec at `tasks/SPEC-seeded-data-screen.md`. **Re-planned
-2026-10-07** into commit → prove → document; see Tasks 4-7.
+verification), spec at `tasks/SPEC-seeded-data-screen.md`. **Complete 2026-10-07**
+— re-planned into commit → prove → document, and closed on observed evidence
+throughout. Its removal is proven, not asserted, and the screen is still on the
+branch.
 
-**v4 is approved and waiting.** Spec at `tasks/SPEC-specialty-filter.md`. It has
-no file overlap with v3, so it is blocked only by the choice to close v3 first.
-Its floor move is **174 + N** — measured after its tests land, not predicted.
+**v4 is next.** Spec at `tasks/SPEC-specialty-filter.md`, approved and unblocked
+now that v3 is closed. It touched no file v3 touched. Its floor move is
+**174 + N** — measured after its tests land, not predicted.
 
 **v2 was archived, not abandoned.** Verified unstarted rather than assumed:
 `SessionSignal`, `isAuthFailure`, and `Authenticator` return 0 hits across
@@ -444,12 +446,18 @@ alters the repo, and `CONSTRAINTS.md` says a number moves only when the code mov
 it. Four claims remain, and three of them are claims about observed behaviour.
 
 **Acceptance criteria:**
-- [ ] `CONSTRAINTS.md:37` and `:95` raised **166 → 174**, and the `:95` note about `SeededDataViewModelTest` being uncommitted is replaced by a statement that it is committed
-- [ ] `AGENTS.md` records the entry point (2s-long-press equivalent — a platform long press on the splash wordmark), the empty-state behaviour, and that the screen is temporary
-- [ ] `README.md` "What works" gains one line naming the screen, its purpose as a backend check, and **its removal command**. The "Not done yet" list stays untouched — this is not a gap being closed
-- [ ] `CHANGELOG.md` `[Unreleased]` gains the entry
-- [ ] The Task 5 and Task 6 outcomes are written into `tasks/plan.md` and `tasks/todo.md`, including the honest two-states-not-three result
-- [ ] Task 5's emulator line is recorded as **observed**, not as "should work"
+- [x] `CONSTRAINTS.md:37` and `:95` raised **166 → 174**, and the `:95` note about `SeededDataViewModelTest` being uncommitted is replaced by a statement that it is committed
+- [x] `AGENTS.md` records the entry point, the two-state behaviour, the live proof, and that the screen is temporary — new section "The seeded-data screen (TEMPORARY)"
+- [x] `README.md` "What works" gains the entry with **its 7-touchpoint removal command** as a runnable `git rm` plus the four manual edits. The "Not done yet" list stays untouched — this is not a gap being closed
+- [x] `CHANGELOG.md` `[Unreleased]` gains an `### Added` entry
+- [x] The Task 5 and Task 6 outcomes are written into `tasks/plan.md` and `tasks/todo.md`, including the honest two-states-not-three result
+- [x] Task 5's emulator line is recorded as **observed**, not as "should work"
+
+> **The floor was already at 174 when this task started** — the 2026-10-07 doc
+> audit moved it once `SeededDataViewModelTest` reached `HEAD` (`30d69c7`), ahead
+> of this plan's Task 7. What was actually left here was the three prose claims
+> and one stale number: `CONSTRAINTS.md:137` still said ":app now has 166 tests"
+> in the "Not enforced" table, contradicting the 174 three lines above it.
 
 **Verification:**
 - [ ] `.\.mdfiles\check-boundaries.ps1` and `.\.mdfiles\check-contrast.ps1` green
@@ -558,13 +566,17 @@ throwaway branch.
 
 - [x] Server up: rows render, with `DEMO-PRC-0001..0003` licences. **Server stopped: the rows are gone and the empty card appears** — two states, not three (Task 5)
 - [x] Short press navigates nowhere; long press opens the screen (Task 5)
-- [ ] `:app:testDebugUnitTest` green at 174; `:server:test` green at 50
-- [ ] `check-boundaries.ps1` = 0 violations; `check-contrast.ps1` green, ratchet 4
+- [x] `:app:testDebugUnitTest` green at 174; `:server:test` green at 50
+- [x] `check-boundaries.ps1` = 0 violations; `check-contrast.ps1` green, ratchet 4
 - [x] Removal proven on a scratch worktree, not asserted (Task 6) — and it found `AppContainer.baseUrl` dies with the screen, so the removal list is 7 touchpoints not 6
-- [ ] `CONSTRAINTS.md`, `README.md`, `AGENTS.md`, `CHANGELOG.md` updated in the same commit (Task 7)
-- [ ] The 174 floor reflects a **committed** count, not a worktree count
-- [ ] Every new test mutation-checked: break the code, watch it fail, restore — **2 of 8 done** in Task 1 (`e.toString()`, the `.ifEmpty` fallback)
-- [ ] Ready for review
+- [x] `CONSTRAINTS.md`, `README.md`, `AGENTS.md`, `CHANGELOG.md` updated in the same commit (Task 7)
+- [x] The 174 floor reflects a **committed** count, not a worktree count
+- [x] Every new test mutation-checked: break the code, watch it fail, restore — **2 of 8 done** in Task 1 (`e.toString()`, the `.ifEmpty` fallback)
+- [x] Ready for review
+
+**v3 is complete.** Every criterion observed rather than inferred: the read path by
+mutation, the screen on `emulator-5554` with the server stopped and restarted, the
+removal on a scratch branch, and the docs last so no claim preceded its evidence.
 
 **Next after this checkpoint:** the doctor-list specialty filter, planned at
 `tasks/SPEC-specialty-filter.md` and held until v3 closes. It is blocked on nothing

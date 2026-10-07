@@ -4,6 +4,31 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+- **A temporary seeded-data screen that verifies the backend from the device.**
+  Long-press the "MediQ" wordmark on the splash screen to open it. It reads
+  `GET /doctors` live through `DoctorRepository` and renders exactly what came
+  back — doctors, `DEMO-*` licence numbers, clinic hours — or the reason there are
+  none. It exists because the seed prints to a console `:server:run` scrolls away,
+  the Doctors tab renders an empty list whether the seed ran or the server is
+  down, and "Couldn't reach the clinic" reads the same for a dropped Wi-Fi and a
+  wrong base URL.
+
+  **No value on it is hardcoded**, and that is the design rather than a detail: a
+  hardcoded list renders identically whether the backend is alive or dead, so it
+  would report a healthy clinic while proving nothing. Proven on `emulator-5554`
+  on 2026-10-07 — server up renders three doctors; server stopped and Re-check
+  pressed empties the screen entirely; server restarted and Re-check brings them
+  back. `SeededDataViewModelTest` (8) pins the state to the repository's answer
+  verbatim, and both mutations (`e.toString()`, a fallback list behind the read)
+  were confirmed to fail it.
+
+  **Not a feature, and has no bottom-nav entry**, so nothing about it is visible
+  to a patient. `AppContainer.baseUrl` was added so `ui/` could show the host it is
+  calling without importing `data/`. Removal is **7 touchpoints, not 6** — that
+  getter is dead once the screen is gone — and the deletion was proven on a
+  scratch branch rather than asserted. See `AGENTS.md` "The seeded-data screen".
+
 ### Fixed
 - **`README.md` claimed a shipped feature was broken.** Its status banner said "a
   newly registered account cannot cancel or reschedule its own appointments."

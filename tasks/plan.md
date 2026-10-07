@@ -1,11 +1,17 @@
 # Implementation Plan: Temporary Seeded-Data Screen (backend verification)
 
-> **Status: active.** The previous plan (token lifecycle) is spec'd and planned
+> **Status: complete, 2026-10-07.** The seeded-data screen was proven on a device,
+> its removal was proven on a scratch branch, and its docs were written last so no
+> claim preceded its evidence. The plan (token lifecycle) is spec'd and planned
 > but **unstarted** — verified, not assumed — and is archived below. Plan v1
 > (registration + appointment details) is complete and archived at the bottom.
 > Task lists for all three live in `tasks/todo.md`.
 >
 > Spec: `tasks/SPEC-seeded-data-screen.md`
+>
+> **Next up:** the doctor-list specialty filter, spec at
+> `tasks/SPEC-specialty-filter.md`. It was approved before v3 closed and touches
+> no file v3 touched.
 
 ## Overview
 
@@ -104,8 +110,8 @@ The in-flight test needs `FakeDoctorRepository.getDoctorsGate`, a
 - [x] Task 4: **commit the v3 code** — done as `30d69c7`. 7 paths, no `.md`. `HEAD` then measured 174
 - [x] Task 5: **Checkpoint B + C on the emulator** — **done 2026-10-07.** Server up → 3 doctors with `DEMO-PRC-0001..0003`; server stopped → rows gone, empty card; server back → rows return. The stopped-server line held first try
 - [x] Task 6: **the removal proof** — **done 2026-10-07.** Green at 174 before, `BUILD SUCCESSFUL` at 166 after, zero `SeededData` references, ratchet still 4, branch discarded. **It found that `AppContainer.baseUrl` dies with the screen** — see Task 7
-- [ ] Task 7: **the remaining docs** — floor 166 → 174, `AGENTS.md` entry, `README.md` line, `CHANGELOG.md`, **plus adding `AppContainer.baseUrl` to the removal list**
-- [ ] Checkpoint D: complete
+- [x] Task 7: **the remaining docs** — done 2026-10-07. `AGENTS.md` section on the screen, `README.md` What-works entry with the 7-touchpoint removal command, `CHANGELOG.md` `[Unreleased]`, and a stale `CONSTRAINTS.md:137` corrected from 166 to 174. The floor was already at 174 — the 2026-10-07 doc audit moved it once `SeededDataViewModelTest` reached `HEAD`
+- [x] Checkpoint D: complete — **v3 closed.** 174/50 green, boundaries clean, ratchet 4, removal proven, docs written after the evidence
 
 ### Why this order, and not "docs then commit"
 
