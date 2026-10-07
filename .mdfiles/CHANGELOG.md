@@ -4,14 +4,102 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+- **`README.md` claimed a shipped feature was broken.** Its status banner said "a
+  newly registered account cannot cancel or reschedule its own appointments."
+  That was written at `3a112fb` and fixed at `21977ad`/`24d9ef2`, but the line was
+  never revisited. `AppointmentDetailsViewModel.cancel()`/`requestReschedule()`
+  exist, are gated on `AppointmentStatus.isActionable`, and are covered by
+  `AppointmentDetailsViewModelTest`. The banner now names three real blockers
+  (OTP returned in the response body, plaintext token storage, no idempotency key
+  on booking), and **What works** gained the cancel/reschedule bullet it had been
+  missing — that omission is why nothing contradicted the stale banner.
+- **The raw-colour ratchet is narrower than its name, and the mutation proved
+  it.** `check-contrast.ps1:177` matches `Color.Gray`, `LightGray`, `DarkGray`,
+  `White`, `Black`, plus the single hex `0xFFD32F2F`. Adding
+  `Color(0xFF00FF00)` to a `ui/` file left the ratchet at 4 and exited 0. So
+  "raw-colour ratchet = 4" means *those five constants*, not raw colour in
+  general, and `CONSTRAINTS.md` now says so. Seven `Color(0x…)` sites exist in
+  `ui/` today: six are the status chips, measured by a separate rule, and
+  `NotificationsScreen.kt:122`'s `Color(0xFFF5F5F5)` is measured by nothing.
+  Widening the pattern is a separate change — it moves the bar and the floor at
+  once — and is recorded rather than done here.
+- **Documentation drift, measured rather than eyeballed.** The standing docs had
+  fallen behind the tree in ways that asserted the absence of things that exist.
+  Three of the corrections overturned a claim rather than refreshing a number:
+  - `README.md` said "**No CI.** Everything here is run by hand." CI exists —
+    `.github/workflows/ci.yml`, `android-emulator.yml`, `dependabot.yml`, added
+    in `ef106ef`. It runs `:server:test`, `:app:lintDebug`,
+    `:app:testDebugUnitTest`, `:app:assembleDebug` on every push and PR.
+  - `README.md` said "No lint config". `:app:lintDebug` is a CI gate on the stock
+    Android rules. No detekt/ktlint is still true, but the line was wrong as
+    written.
+  - `README.md` claimed `statusBarColor` was "the one remaining compile warning".
+    `--warning-mode all` reports **6** — that one plus 5 uses of the deprecated
+    `KeyboardOptions` constructor at `RegisterCredentialsScreen.kt:91,115,143` and
+    `SignInScreen.kt:107,134`. The default warning mode hides this behind one
+    line about deprecated Gradle features.
+  - `CONSTRAINTS.md` and `README.md` both said the build needs "JDK 21+". True of
+    the daemon only: `:server` pins `JavaLanguageVersion.of(17)` and
+    `gradle-daemon-jvm.properties` requests 25, so `:server:run` executes on
+    Adoptium 17. Harmless today, but it is why a `:server:run` failure names a
+    JVM the build docs never mention.
+  - Numbers: `:app` tests 165 → **174**; `HomeViewModelTest` 13 → **14** (the six
+    classes `CONSTRAINTS.md` lists sum to 166, not 165 — the floor was one low
+    from the day it was written); Kotlin files 97 → **110**; `:app` main ~6,000 →
+    **~6,900** lines; boundary-check files 52 → **54**.
+  - **Gradle 10 will not build this repo.** `--warning-mode all` reports
+    `Configuration.setVisible(boolean) … removed in Gradle 11`. `visible` appears
+    0 times in all four build scripts, so it comes from AGP 9.3.3 or KGP 2.2.10.
+    Recorded as known debt; only a plugin bump clears it.
+  - The `:app` ratchet floor moves 165 → **174** in two steps, both recorded in
+    `CONSTRAINTS.md`: 165 → 166 when the stale floor was corrected, then
+    166 → 174 once `SeededDataViewModelTest` (8) reached `HEAD`. It is expected to
+    come back **down** to 166 when the temporary seeded-data screen is deleted,
+    which the v3 removal proof has already shown builds green — a lower number
+    with a stated reason is the ratchet working, so that drop must be made in the
+    same commit as the deletion.
+
 ### Added
+- **The two `.mdfiles` check scripts are CI gates.** `check-boundaries.ps1` and
+  `check-contrast.ps1` now run on every push and PR in a new `gates` job in
+  `.github/workflows/ci.yml`. Until this, `CONSTRAINTS.md` described nine rows as
+  "enforced with numbers" while six of them named a command that ran only when a
+  human remembered — a boundary or contrast violation merged green. The recorded
+  reason this repo keeps hitting is *a rule stated in prose and never checked*;
+  this removes the hand-run step from that failure mode.
+  - A separate job, not steps inside `android`. The scripts read source files and
+    need no JVM, no Android SDK, and no Gradle, so they finish in ~10s. Hanging
+    them off the Android job would park a 10-second check behind a 3-minute SDK
+    download, which is the cost that teaches people to ignore a red pipeline. They
+    run in parallel with both build jobs.
+  - `shell: pwsh` on `ubuntu-latest`, where PowerShell is preinstalled — the job
+    needs no setup step.
+  - **No `paths:` filter, deliberately.** These scripts check the current state of
+    the tree, not a diff; `check-boundaries.ps1`'s own header argues that a
+    diff-scoped check only catches a violation on the change that introduced it and
+    never on the file it was added to afterwards. Filtering by path would
+    reintroduce that hole one layer up, where nothing would catch it.
+  - Neither step sets `continue-on-error`. The scripts use the floor-guard exit
+    contract — 0 clean, 1 violation, 2 could not run — and all three fail the step,
+    because **a 2 must never read as a 0.**
+  - Both were proven to fail on a real violation before being wired, rather than
+    assumed: adding an `import com.example.mediq.data.api.RetrofitClient` to a
+    `ui/` file made `check-boundaries.ps1` exit 1 with `ui-imports-data`, and a
+    fifth `Color.Gray` made `check-contrast.ps1` exit 1 against the ratchet of 4.
+    Both were restored and re-verified clean.
+- **CI.** `.github/workflows/ci.yml` (server build + tests, Android lint, unit
+  tests, `assembleDebug`, dependency graph) and `android-emulator.yml`
+  (instrumented tests on `main` pushes, off the PR critical path because a booted
+  AVD costs ~10 minutes), plus `.github/dependabot.yml` for Gradle and
+  GitHub Actions. Both gate on every push and PR to `main`.
 - **Unit tests for the six ViewModels that had none.** `:app:testDebugUnitTest`
-  went from 71 to **165**, and all ten ViewModels are now covered. Every one of
-  the 94 new tests was mutation-checked — the ViewModel was deliberately broken
+  went from 71 to **166**, and all ten ViewModels are now covered. Every one of
+  the 95 new tests was mutation-checked — the ViewModel was deliberately broken
   and the suite had to fail — because a test that has never failed is not
   evidence. `DoctorsViewModelTest` (22), `BookingViewModelTest` (19),
   `SignInViewModelTest` (16), `ProfileViewModelTest` (14),
-  `HomeViewModelTest` (13), `NotificationsViewModelTest` (10).
+  `HomeViewModelTest` (14), `NotificationsViewModelTest` (10).
   - The mutations that caught something real: swapping `SignInViewModel`'s
     `ApiFailure?.message` back to `e.message` (the `HTTP 401 ` regression this
     app already shipped once), removing its `isLoading` guard, turning

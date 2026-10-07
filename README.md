@@ -11,8 +11,8 @@ but deliberately not one wire format.
 > covered by tests; large parts are stubs, screens that render nothing, and known
 > defects that would matter to a real patient. **Do not put real patient data in
 > this.** Several of the open items below are security or data-integrity problems
-> that must be closed first, and a newly registered account cannot cancel or
-> reschedule its own appointments.
+> that must be closed first — the one-time code is returned in the HTTP response
+> body, the token is stored in plaintext, and booking a slot is not idempotent.
 >
 > Read [Not done yet](#not-done-yet) before assuming a feature exists. It is
 > organised by how much is actually implemented, not by what the screens suggest.
@@ -43,19 +43,28 @@ inferred from the source.
 
 | Check | Command | Result |
 |---|---|---|
-| App compiles | `:app:compileDebugKotlin` | Passes, 1 deprecation warning |
-| App unit tests | `:app:testDebugUnitTest` | 165 pass |
+| App compiles | `:app:compileDebugKotlin` | Passes, 6 deprecation warnings |
+| App unit tests | `:app:testDebugUnitTest` | 174 pass |
 | Server tests | `:server:test` | 50 pass |
-| Architecture boundaries | `check-boundaries.ps1` | Clean, 52 files |
+| Architecture boundaries | `check-boundaries.ps1` | Clean, 54 files |
 | Colour contrast | `check-contrast.ps1` | Clean, 24 token pairs + 6 status chips |
 | Runs on a device | `:app:installDebug` + launch | Works on the `mediq_api36` AVD and on a physical phone |
 | Server | `:server:run` | Starts, H2 in-memory |
+| CI | `.github/workflows/ci.yml` | `gates` (both `.mdfiles` check scripts), `:server:test`, `:app:lintDebug`, `:app:testDebugUnitTest`, `:app:assembleDebug` on every push and PR |
 
-**Size:** 97 Kotlin files (~6,000 lines in `:app` main, ~3,800 in `:server`),
-19 HTTP endpoints, 50 server tests, 165 app tests, 15 screens, 10 ViewModels.
+**Size:** 110 Kotlin files (~6,900 lines in `:app` main, ~3,800 in `:server`
+including tests), 19 HTTP endpoints, 50 server tests, 174 app tests, 15 screens,
+10 ViewModels.
 
-The one remaining compile warning is the deprecated `statusBarColor` in
-`core/designsystem/theme/Theme.kt`.
+The `:app` count is 174 with `SeededDataViewModelTest` (8) included, and
+`HomeViewModelTest` holds 14. Use `--rerun-tasks` when counting: the Gradle task
+reports UP-TO-DATE and the previous run's XML survives, which reads as a stale
+number rather than a skipped suite.
+
+`:app` compiles with **6** deprecation warnings, not one: `statusBarColor` in
+`core/designsystem/theme/Theme.kt`, plus 5 uses of the old `KeyboardOptions`
+constructor in `RegisterCredentialsScreen.kt` and `SignInScreen.kt`. See
+[Cosmetic and unfinished polish](#cosmetic-and-unfinished-polish).
 
 **"The build is green" does not mean "the app is tested."** All the business
 logic lives on the server and that is where the real coverage is. All ten
@@ -82,6 +91,10 @@ Verified end to end against a running server on a real device:
 - **List and filter appointments** (upcoming / history), and **read one
   appointment's** doctor, clinic-zone date and time, location, fee, status, and
   reason for visit.
+- **Cancel an appointment**, which frees the slot server-side so it can be booked
+  again, and **request a reschedule** to a chosen open slot. Both are offered only
+  while the status permits a change, so a cancelled or completed appointment does
+  not show actions the server would refuse.
 - **Notifications** list and mark-as-read.
 - **Profile read**, plus sign-out, which kills the token server-side immediately
   rather than waiting for it to expire. Editing the profile is *not* implemented
@@ -167,19 +180,52 @@ threw a developer-facing string that reached the UI; status codes are overloaded
 
 ### Tests and tooling
 
-- **All ten ViewModels have tests, and no composable does.** `165` app unit tests
+- **All ten ViewModels have tests, and no composable does.** `174` app unit tests
   cover the state machines, but the `ui/` composables are still unverified by
   anything that runs without a device — no Compose test, no screenshot test, and
   `ExampleInstrumentedTest` is still an untouched Android Studio template. Two
   live traps are documented in `.mdfiles/AGENTS.md` under "Two traps in the
   ViewModel tests", because each produces a green suite that asserts nothing.
-- **No CI.** Everything here is run by hand. Nothing stops a regression landing.
+- **Both check scripts are now CI gates.** `.github/workflows/ci.yml` has a
+  `gates` job that runs `check-boundaries.ps1` and `check-contrast.ps1` on every
+  push and PR, in parallel with the build jobs and taking ~10s — they need no JVM
+  or Android SDK. Until this was wired they were **not** in CI: grep either
+  workflow for `ps1` and you got nothing, so the architecture-boundary and
+  colour-contrast ratchets that `CONSTRAINTS.md` describes as enforced were in
+  practice run by hand, and a violation of either merged green. Both were proven
+  to fail on a real violation before being wired, not assumed.
+- **The raw-colour ratchet is narrower than its name.** `check-contrast.ps1`
+  counts `Color.Gray`, `LightGray`, `DarkGray`, `White`, `Black`, and one
+  hardcoded hex — so an arbitrary literal like `Color(0xFF00FF00)` passes it.
+  That was proved by mutation, not assumed. Seven `Color(0x…)` sites exist in
+  `ui/` today; six are the status chips, which a separate rule measures, and
+  `NotificationsScreen.kt`'s `Color(0xFFF5F5F5)` is measured by nothing.
 - **No coverage tooling.** No JaCoCo, no Kover.
-- **No lint config.** No detekt, no ktlint, no `.editorconfig`.
-- **No security scanning.** There is nowhere to run it.
+- **Lint runs in CI, but there is no lint config in the repo.** `:app:lintDebug`
+  is a gate with the stock Android rules only — no detekt, no ktlint, no
+  `.editorconfig`.
+- **No security scanning.** Semgrep and osv-scanner have no workflow. There is
+  nowhere to run them.
 
 ### Cosmetic and unfinished polish
 
+- **Six deprecation warnings, not one.** `--warning-mode all` reports 6:
+  `statusBarColor` in `Theme.kt`, and 5 uses of the deprecated
+  `KeyboardOptions(capitalization, autoCorrect, …)` constructor at
+  `RegisterCredentialsScreen.kt:91,115,143` and `SignInScreen.kt:107,134`. The
+  constructor wants the new `autoCorrectEnabled` parameter. All committed and
+  pre-existing. Note the default warning mode hides this — it prints only
+  "Deprecated Gradle features were used", with no per-warning detail.
+- **Gradle 10 will not build this.** `--warning-mode all` reports
+  `Configuration.setVisible(boolean) has been deprecated … removed in Gradle 11`.
+  Not ours: `visible` appears 0 times across all four build scripts, so it comes
+  from AGP 9.3.3 or KGP 2.2.10. Only a plugin bump clears it.
+- **Three JVM versions in one build.** The daemon runs JBR 21,
+  `server/build.gradle.kts` pins `JavaLanguageVersion.of(17)`, and
+  `gradle-daemon-jvm.properties` requests 25. `:server:run` therefore launches on
+  Adoptium 17 while `:app` compiles on 21 — which is why a `:server:run` failure
+  names a JVM the build docs never mention. Harmless today (17 satisfies the
+  `VERSION_11` target), but the "JDK 21+" line below describes the daemon only.
 - **Dark mode is contrast-correct but not tonally tuned.** Status chips keep
   fixed light pastel containers, so they stay readable in both modes but read as
   bright blocks on a dark surface. Fixing that is a design decision, not a bug.
@@ -330,8 +376,13 @@ plaintext), an SMS provider, Argon2id.
 
 ## Running it
 
-Requires JDK 21+ for Gradle. `JAVA_HOME` should point at a real JDK — on
-Windows, Android Studio's bundled `jbr` works.
+Requires JDK 21+ for the Gradle **daemon**. `JAVA_HOME` should point at a real
+JDK — on Windows, Android Studio's bundled `jbr` works.
+
+That is not the only JVM in the build: `:server` pins its own toolchain to 17
+and `gradle-daemon-jvm.properties` requests 25, so `:server:run` and `:server:test`
+execute on 17 regardless of `JAVA_HOME`. See
+[Cosmetic and unfinished polish](#cosmetic-and-unfinished-polish).
 
 ### Server
 
@@ -486,6 +537,9 @@ currently printed in a source file.
 .\gradlew.bat :app:compileDebugKotlin :app:testDebugUnitTest :server:test --console=plain
 ```
 
+The first two also run in CI, as a `gates` job in `.github/workflows/ci.yml`, so
+running them locally is a fast feedback loop rather than the only enforcement.
+
 Two more, over HTTP against a running server:
 
 ```powershell
@@ -499,7 +553,7 @@ Two more, over HTTP against a running server:
   (13), `AvailableDatesTest` (4), `BookingConcurrencyTest` (4), `OtpLockoutTest`
   (3), `ProfileUpdateTest` (2). `BookingConcurrencyTest` is the one that cannot
   be checked by hand.
-- **`:app:testDebugUnitTest`** - 165 tests, hand-written fakes, no mocking
+- **`:app:testDebugUnitTest`** - 174 tests, hand-written fakes, no mocking
   framework: `ApiErrorsTest` (11, error-body parsing), `UnknownWireValueTest` (8,
   how unrecognised wire values resolve), `GsonLeniencyTest` (3, JSON parsing
   behaviour), `RegisterViewModelTest` (22, the registration wizard),
@@ -508,7 +562,7 @@ Two more, over HTTP against a running server:
   (22, the search debounce), `BookingViewModelTest` (19, the booking submit and
   the `slot_taken` 409), `SignInViewModelTest` (16, credentials and the error
   contract), `ProfileViewModelTest` (14, session read and sign-out),
-  `HomeViewModelTest` (13, the soonest appointment), and
+  `HomeViewModelTest` (14, the soonest appointment), and
   `NotificationsViewModelTest` (10, empty list vs error). **All ten ViewModels
   are covered.** The 94 newest were each mutation-checked — the ViewModel was
   deliberately broken and the suite had to fail — because a test that has never
