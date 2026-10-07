@@ -251,22 +251,30 @@ the gesture is still undiscoverable to a patient.
 > 174 only because `SeededDataViewModelTest` is untracked. Committing the code
 > first is what makes the 174 floor honest. Docs follow in Task 7, after the
 > behaviour is observed.
+>
+> **Done 2026-10-07 as `30d69c7`.** 7 paths, 736 insertions, no `.md`. `HEAD`
+> now measures 174 by `git grep -h "@Test" HEAD -- "app/src/test/**"`, which is
+> what unblocks Task 7. The `.md` files were already modified from the 2026-10-07
+> doc audit and stayed unstaged as intended — they are still uncommitted and are
+> Task 7's business. The re-plan itself went in as `46297f1`, separately, because
+> planning work is not v3's code.
 
 **Description:** Nothing here changes behaviour. The screen, its ViewModel, its
 8 tests, and the 4 wiring files are green and unstaged; this makes them reviewable
 as a diff and revertable as a unit.
 
 **Acceptance criteria:**
-- [ ] One commit containing: `ui/feature/debug/seededdata/` (2 new files), `ui/feature/debug/seededdata/SeededDataViewModelTest.kt` (new), `Routes.kt`, `MediQNavHost.kt`, `SplashScreen.kt`, `AppContainer.kt`
-- [ ] **No doc file in this commit.** `.mdfiles/` and `README.md` are already modified from the 2026-10-07 doc audit and stay unstaged — that is a separate change with its own diff
-- [ ] Commit message states this is the temporary seeded-data verification screen, and that it is deleted on use
-- [ ] `HEAD` now measures 174 tests — the precondition for Task 7's floor move
+- [x] One commit containing: `ui/feature/debug/seededdata/` (2 new files), `ui/feature/debug/seededdata/SeededDataViewModelTest.kt` (new), `Routes.kt`, `MediQNavHost.kt`, `SplashScreen.kt`, `AppContainer.kt`
+- [x] **No doc file in this commit.** `.mdfiles/` and `README.md` are already modified from the 2026-10-07 doc audit and stayed unstaged — that is a separate change with its own diff
+- [x] Commit message states this is the temporary seeded-data verification screen, and that it is deleted on use
+- [x] `HEAD` now measures 174 tests — the precondition for Task 7's floor move
 
 **Verification:**
-- [ ] `.\gradlew.bat :app:compileDebugKotlin --console=plain` green before committing
-- [ ] `.\gradlew.bat :app:testDebugUnitTest --rerun-tasks` green; count from the JUnit XML, **not** the task output
-- [ ] `git show --stat HEAD` lists exactly the 6 code paths and no `.md`
-- [ ] `git status --short` afterwards shows only the `.md` files and `tasks/`
+- [x] `.\gradlew.bat :app:compileDebugKotlin --console=plain` green before committing
+- [x] `.\gradlew.bat :app:testDebugUnitTest --rerun-tasks` green — **174 app / 50 server**, counted from the JUnit XML, not the task output
+- [x] `git show --stat HEAD` lists exactly the 7 code paths and no `.md`
+- [x] `git status --short` afterwards shows only the `.md` files
+- [x] Secret scan on the staged diff: the only match is `demo12345`, already committed at `HEAD` in `DemoData.kt:132`, `smoke.ps1:13`, and `README.md:93,345`. Not a new secret — a 5th reference to an already-public demo credential
 
 **Dependencies:** Tasks 1, 2, 3
 
