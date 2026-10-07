@@ -27,7 +27,9 @@ Verify the app with `:app:compileDebugKotlin` (~2s warm, ~3min cold). Full APK: 
 Note the 6 deprecation warnings it prints — see "Toolchain notes". A `:server:run`
 failure naming an Adoptium 17 JVM is the toolchain, not the daemon.
 
-`:app` unit tests — 174, runnable with `.\gradlew.bat :app:testDebugUnitTest`.
+`:app` unit tests — 182, runnable with `.\gradlew.bat :app:testDebugUnitTest`.
+`MediQBottomBarSemanticsTest` is the first real Compose instrumentation test; run
+`.\gradlew.bat :app:connectedDebugAndroidTest` with `mediq_api36` attached (2 tests).
 Count them with `--rerun-tasks`: the task otherwise reports UP-TO-DATE and the
 previous run's XML is still in `app/build/test-results/`, so a stale count reads
 as a skipped suite. `:app` main is ~6,900 lines; `:server` is ~3,800 including
@@ -60,12 +62,12 @@ its tests.
   just taken" rather than a retry instruction, the selection is cleared on success
   but **kept** on failure, and `canSubmit` needs a confirmed tick and a selection.
   The clear-on-success was verified by mutation.
-- `ui/feature/doctors/DoctorsViewModelTest.kt` (22) — the 300 ms search debounce:
-  no request before it elapses, one per burst of keystrokes, the timer *restarts*
-  rather than letting the first keystroke through, a blank search is sent as a
-  null filter, and a specialty chip is **not** debounced. Removing `delay()` was
-  verified by mutation. This is the one file that does not use `MainDispatcherRule`
-  — see "Two traps in the ViewModel tests" below.
+- `ui/feature/doctors/DoctorsViewModelTest.kt` (24) — the opening load, the
+  300 ms search debounce, and two delayed-response regressions: a slow opening
+  read must not replace newer search results or flash unfiltered rows while a
+  typed search waits for its debounce. Removing `delay()` was verified by
+  mutation. This file uses `StandardTestDispatcher`, not `MainDispatcherRule` —
+  see "Two traps in the ViewModel tests" below.
 - `ui/feature/profile/ProfileViewModelTest.kt` (14) — the stored session reaches
   the state with its real name and not a hardcoded placeholder, an unconnected
   backend is a `Success(null)` rather than an error, and **sign-out navigates away
@@ -87,8 +89,12 @@ its tests.
   for the error branch, `.ifEmpty { listOf(doctor) }` behind the read) failed the
   suite on 2 tests each.
 
-**All ten ViewModels are now covered.** The remaining untested surface is the
-`ui/` composables themselves — see "Two traps in the ViewModel tests".
+**All ten ViewModels are covered.** The bottom navigation now has a rendered
+Compose semantics test, but other composables remain untested. The unit test for
+`BottomNavItem` passed while Material3 dropped the icon's `contentDescription`
+from the merged clickable node — only the on-device test caught that. Attach the
+name to `NavigationBarItem` itself, not to its decorative icon. See "Two traps
+in the ViewModel tests" for the separate dispatcher traps.
 
 ## The seeded-data screen (TEMPORARY)
 
@@ -120,9 +126,9 @@ temporary screen and the honest wording already shipped.
 screen alone and is dead code once it is gone — invisible to the compiler, to
 both check scripts, and to the test suite, which is precisely how a temporary
 screen becomes permanent dead code. The deletion was proven on a scratch branch
-rather than asserted; `CONSTRAINTS.md:113` carries the note that the `:app` floor
-must come **down** to 166 in the same commit as the removal. That is the ratchet
-working, not a regression.
+rather than asserted; `CONSTRAINTS.md` records that the `:app` floor must come
+**down by 8**, after remeasuring, in the same commit as the removal. That is the
+ratchet working, not a regression.
 
 **ViewModels are unit testable now.** They were not, and the reason is worth
 keeping: every one calls `viewModelScope`, which posts to `Dispatchers.Main`, and
@@ -132,7 +138,7 @@ harness, and there is no mocking framework — a fake that records what it was a
 for says more about a state machine than a verify-count does. `MainDispatcherRule`
 swaps in an `UnconfinedTestDispatcher` so a launch runs to completion eagerly;
 without that, a test that never awaits its coroutine passes while proving
-nothing. The substantial suite is still `:server:test` (50 tests, see below).
+nothing. The substantial suite is still `:server:test` (59 tests, see below).
 
 ## Two traps in the ViewModel tests
 
@@ -168,6 +174,53 @@ makes the debounce itself part of what is under test.
 Note `advanceTimeBy(299)` must **not** be followed by `advanceUntilIdle()` — that
 runs the still-pending 300 ms delay and makes the assertion below it unmakeable.
 Use `runCurrent()` when you need pending tasks to start without advancing time.
+
+## A test that pins a bug is worse than no test
+
+This is a third class of test failure, and it is the one that cost a real bug its
+fix. The two traps above are about the harness lying to you. This one is about a
+test that is **correct, green, and describing the implementation rather than the
+requirement.**
+
+`DoctorsViewModel` had no `init` block. `DoctorsUiState.doctors` initialises to
+`LoadState.Loading`, and the only thing that moved it was
+`onSearchTextChange` — so a patient who opened the Doctors tab saw a spinner
+forever unless they happened to type in the search box. Every other patient saw
+a spinner. Confirmed on the emulator: four taps over ninety seconds produced
+**zero** `GET /doctors` requests in logcat; one keystroke produced the request
+immediately.
+
+The suite was green, and it was green *because of* a test. `DoctorsViewModelTest`
+carried one named `nothing is fetched before the screen asks`, which asserted the
+repository was never queried and carried the message:
+
+> `DoctorsViewModel` has no `init` load, so an unqueried list is expected
+
+That is the whole failure in one line. It read like documentation, it was named
+like a requirement, and its assertion message explained *why the code was the way
+it was* rather than *what the screen must do*. Nothing about it would ever go red
+when the bug was fixed — so the bug could not be fixed without also rewriting the
+test, and the test is what a future session reads to decide the behaviour is
+intended. The other 21 tests in the file could not have caught it either: each
+one called `onSearchTextChange` or `onSpecialtySelected` explicitly, so each
+created the state it needed and none observed a missing initial load.
+
+**The rule:** a test that asserts a behaviour is *absent* must justify the absence
+from a requirement — "the list is not fetched until the patient asks" — not from
+the current code, "there is no `init` load". If the assertion message contains the
+reason the implementation is shaped the way it is, it has frozen the
+implementation. The tell is that such a test must be rewritten when the behaviour
+changes, which is exactly backwards: it means the test, not the code, was wrong.
+
+The fix is an `init { refresh() }` and one test asserting the opening query. Note
+what it cost: adding the initial load made **ten** existing tests fail on the
+off-by-one initial query, because each asserted an exact query count. They were
+not loosened to `>= 1`. A `loadedViewModel()` helper lets the opening load land
+and then clears the fake's query log, so every debounce and filter assertion reads
+exactly as it did before — given a loaded screen, when the patient types, then… —
+and none of them had to give up its meaning. If a fix makes many tests fail by
+one, the honest reading is that the tests were pinned to an implementation detail
+the fix happened to touch, not that they were wrong in what they asserted.
 
 ## Which layer owns the unreachable-server rule
 
@@ -286,7 +339,7 @@ $env:MEDIQ_PORT="8099"   # 8080 is often already taken on this machine
 Two ways to verify, and they cover different things:
 
 - `.\gradlew.bat :server:test` — in-process. `BookingConcurrencyTest` is the one that cannot be checked by hand.
-- `.\server\scripts\smoke.ps1 -Base http://127.0.0.1:8099` — over HTTP against a running server. 19 checks covering the status of every route, the double-booking refusal, and that signing out kills the token mid-flight. Needs the server up first.
+- `.\server\scripts\smoke.ps1 -Base http://127.0.0.1:8099` — over HTTP against a running server. 24 checks covering the status of every route, the double-booking refusal, and that signing out kills the token mid-flight. Needs the server up first.
 
 Use `installDist` plus `server/build/install/server/bin/server.bat` when you want a server that survives the Gradle daemon. `:server:run` dies with the shell that started it.
 

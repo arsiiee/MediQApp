@@ -30,6 +30,142 @@ All notable changes to this project will be documented in this file.
   scratch branch rather than asserted. See `AGENTS.md` "The seeded-data screen".
 
 ### Fixed
+- **`GET /doctors?search=` ignored the specialty it advertises.** The Doctors
+  screen is labelled *"Search doctor name or specialty"*, and the query matched
+  `doctors.full_name` and nothing else. A patient who typed "dermatology" got
+  zero results and no explanation, which reads as "this clinic has no
+  dermatologists" rather than "the search ignored half of what I typed".
+  Measured against a running server before the change: `?search=Rivera` returned
+  1, `?search=dermatology` returned 0, `?search=pediatrics` returned 0.
+  - `search` is now a case-insensitive substring match on the doctor's name, the
+    specialty's **display name** (`Internal Medicine`, `Ob-Gynecology`), and its
+    **wire value** (`internal_medicine`, `ob_gynecology`). Both specialty
+    spellings are searched because neither derives from the other — a
+    display-name-only match fails on the wire form, and an id-only match fails on
+    anything with a space or hyphen in it.
+  - **Wider result set.** Existing name matches still match, but specialty terms
+    may add doctors to a page. No endpoint, DTO or schema change; pagination
+    consumers should not assume searches return the previous count.
+  - `building` is deliberately still *not* searched. It has its own query
+    parameter and its own filter chip, so overlapping them would leave the patient
+    unable to tell which one they were using. Pinned by a test.
+  - Uses an `EXISTS` subquery because specialty is only a search predicate; the
+    doctor row projection remains unchanged. A join with explicit doctor columns
+    would also work, but the subquery keeps the filter local to `search`.
+  - **A first attempt used `REPLACE(s.id, '_', ' ')` and was rejected by its own
+    mutation check.** That clause was unreachable by any test — display name
+    already covers every specialty where the two forms agree, and the id covers
+    the rest — so no query could fail *only* because it was removed. A clause
+    nothing can distinguish is dead weight; the two real columns are each covered
+    by a named test. Removing the `display_name` clause now fails exactly 2 of 9.
+  - New `DoctorSearchTest` (9). `:server:test` goes 50 → **59**, so the
+    `CONSTRAINTS.md` floor moved with the code in the same change.
+  - **Still not fixed:** an empty search result and an unreachable server both
+    reach the screen as an empty list. `RetrofitDoctorRepository` maps an
+    unreachable server to an empty `Paged`, which is correct everywhere else, so
+    the screen cannot tell "matched nothing" from "could not reach the clinic".
+- **The bottom navigation's "Appointments" label wrapped onto two lines**,
+  rendering as "Appointment" / "s" and making the bar taller than its four
+  siblings. Fixed in `MediQBottomBar`.
+  - **The label is now "Bookings", not smaller.** The reason is arithmetic, and
+    Material3's own decompiled AAR (1.4.0, BOM `2026.02.01`) supplies the terms:
+    `NavigationBar` lays its items out with `Arrangement.spacedBy(8.dp)`, so each
+    of five labels gets `(screenWidth - 32.dp) / 5` — **75.8 dp** at 411 dp,
+    **65.6 dp** at 360 dp, **57.6 dp** at 320 dp. "Appointments" at the repo's
+    `labelMedium` (12 sp, 0.5 sp) is about **78.5 dp**, which exceeds the 411 dp
+    budget — hence the original wrap. "Bookings" is about **52 dp** and fits at
+    every width at the default font scale.
+  - **Two intermediate fixes were tried and rejected on measurement.** Dropping
+    to `labelSmall` with `letterSpacing = 0.sp` fixed 411 dp but still truncated
+    at 360 dp ("Appointe…") and 320 dp ("Appointm…"). `labelSmall` is also *not* a
+    token in `Type.kt` — seven are defined and it is not one of them, so it falls
+    through to the Material3 baseline, meaning the change traded the repo's own
+    12 sp `labelMedium` for an undefined 11 sp fallback plus a hand-patched
+    tracking value at the call site. Reverted to `labelMedium` untouched.
+  - **An earlier diagnosis in this change's own comment was wrong.** It attributed
+    the shortfall to Material3's internal label padding. There is none: the 8 dp
+    is inter-item spacing in `NavigationBar`'s `Row`, and `NavigationBar` exposes
+    no `arrangement` parameter, so the 32 dp is unreachable through any public API
+    or `Modifier`. A custom item layout would recover the gaps and still fail at
+    320 dp. The comment now states the verified mechanism.
+  - **The clickable tab's accessible name starts with its visible label.** The
+    bookings entry uses "Bookings, appointments" for voice control (WCAG 2.5.3).
+    A JVM test caught that "Appointments" alone did not contain "Bookings", but
+    an on-device Compose test caught a second bug: Material3 swallowed the icon's
+    `contentDescription` in the merged clickable node. The name now belongs to
+    `NavigationBarItem`'s semantics, and the icon is decorative. The screen's
+    own header still reads "My appointments".
+  - `maxLines = 1` with an explicit `TextOverflow.Ellipsis` is kept as a guard
+    rail for any future label that is too long. Both other failure modes were
+    observed on a device first: wrapping to "Appointment" / "s", and a mid-word
+    clip to "Appointmen'" when `softWrap = false` arrived without an overflow.
+  - **A wrong claim was caught before shipping.** This was first reported as "a
+    product decision, not a defect, so I would leave it". Measuring disproved
+    that: 360 dp is the most common Android width, so a truncated label there is
+    a real defect. An adversarial review then found two further errors in the
+    first fix — the wrong padding mechanism, and `labelSmall` not being a token —
+    both corrected above.
+  - Related, and *not* a bug: at 360 × 640 dp the Login button measured 6 px tall.
+    That was a short-screen squeeze rather than a wrapping label, recorded so it
+    is not mistaken for this defect, which it resembles.
+  - **Still open — WCAG 1.4.4 Resize Text.** At `fontScale` 1.3 on a 320 dp
+    screen, "Doctors", "Bookings" and "Messages" all truncate ("Docto…",
+    "Booki…", "Mess…"); "Home" and "Profile" still fit. Headroom at the default
+    scale is thin — "Messages" measures 57.5 dp against a 57.6 dp budget — so
+    truncation begins at roughly `fontScale` 1.18 on 320 dp and 1.24 on 360 dp.
+    Not fixed: 200% text in a five-item bar needs a different layout (icon-only
+    at large scales), not a shorter word. `check-contrast.ps1` cannot see this —
+    it measures colour pairs only, with no notion of width or truncation.
+  - **Coverage boundary:** six JVM tests pin navigation label data and one
+    on-device Compose test verifies the rendered accessible name; neither proves
+    text is untruncated at 320 dp or with large font scaling. That still requires
+    a layout test or visual check. `ExampleInstrumentedTest` remains a template.
+- **A short screen can hide the sign-in button entirely.** At 320 × 568 dp the
+  form is cut off after "Forgot Password?" with no scroll, and no `Login` button
+  appears in the accessibility tree at all — a patient on such a device cannot
+  sign in. Confirmed by `uiautomator` dump rather than by eye: the string "Login"
+  is absent from the dump. It reproduces on **height**, not width alone — at
+  360 × 800 dp the same screen is fine. **Not fixed**; it is a different defect
+  from the nav label and was found while measuring that one.
+  - Related, and *not* a bug: at 360 × 640 dp the Login button measured 6 px tall.
+    That was a short-screen squeeze rather than a wrapping label, recorded here so
+    it is not mistaken for the label defect it resembles.
+- **The doctor list never loaded when a patient opened the screen.**
+  `DoctorsViewModel` had no `init` block. `DoctorsUiState.doctors` starts as
+  `LoadState.Loading` (`DoctorsViewModel.kt:26`) and only `onSearchTextChange`
+  moved it, so the Doctors tab showed a spinner indefinitely unless the patient
+  typed in the search box. Fixed with `init { refresh() }` — the same
+  `viewModelScope.launch { loadDoctors() }` the Re-check affordance uses, so there
+  is one way to start a read rather than two.
+  - **The suite was green because a test pinned it.** `DoctorsViewModelTest`
+    carried a test asserting the repository was *never* queried, with the message
+    "`DoctorsViewModel` has no `init` load, so an unqueried list is expected". It
+    described the implementation rather than the requirement, so it could never
+    go red when the bug was fixed. The other 21 tests could not catch it either —
+    each called `onSearchTextChange` or `onSpecialtySelected` explicitly and so
+    created the state it needed.
+  - Proven on the emulator, not inferred: before the fix, four taps over ninety
+    seconds produced **zero** `GET /doctors` requests in logcat and one keystroke
+    produced the request immediately; after it, tapping Doctors fires the request
+    with no interaction. Screenshots `.artifacts/04-doctors.png` (spinner),
+    `08-doctors-after-typing.png` (loads only after typing), and
+    `10-doctors-fixed.png` (loads on open, all three seeded doctors).
+  - Adding the initial load made **ten** existing tests fail on the off-by-one
+    initial query. They were not loosened to `>= 1`; a `loadedViewModel()` helper
+    lets the opening load land and clears the fake's query log, so every debounce
+    and filter assertion keeps its original meaning.
+  - Review exposed a second bug from that initial read: its job was not owned by
+    the search or filter job, so a slow opening response could replace newer
+    filtered results. A request-version guard now invalidates older reads as soon
+    as text or specialty changes, including during the 300 ms debounce. Two
+    deterministic delayed-response tests failed before the guard and pass after;
+    the app suite rises from 180 to 182.
+  - The trap is recorded in `AGENTS.md` under "A test that pins a bug is worse
+    than no test", alongside the reasoning for why the counts were not relaxed.
+  - Found by driving the emulator to take screenshots, which is the argument for
+    having a device in the loop: no unit test, no boundary script, and no CI gate
+    could have surfaced this, and `smoke.ps1` does not assert that a screen loads
+    on open.
 - **`README.md` claimed a shipped feature was broken.** Its status banner said "a
   newly registered account cannot cancel or reschedule its own appointments."
   That was written at `3a112fb` and fixed at `21977ad`/`24d9ef2`, but the line was

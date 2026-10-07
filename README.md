@@ -44,20 +44,20 @@ inferred from the source.
 | Check | Command | Result |
 |---|---|---|
 | App compiles | `:app:compileDebugKotlin` | Passes, 6 deprecation warnings |
-| App unit tests | `:app:testDebugUnitTest` | 174 pass |
-| Server tests | `:server:test` | 50 pass |
+| App unit tests | `:app:testDebugUnitTest` | 182 pass |
+| Server tests | `:server:test` | 59 pass |
 | Architecture boundaries | `check-boundaries.ps1` | Clean, 54 files |
 | Colour contrast | `check-contrast.ps1` | Clean, 24 token pairs + 6 status chips |
 | Runs on a device | `:app:installDebug` + launch | Works on the `mediq_api36` AVD and on a physical phone |
 | Server | `:server:run` | Starts, H2 in-memory |
 | CI | `.github/workflows/ci.yml` | `gates` (both `.mdfiles` check scripts), `:server:test`, `:app:lintDebug`, `:app:testDebugUnitTest`, `:app:assembleDebug` on every push and PR |
 
-**Size:** 110 Kotlin files (~6,900 lines in `:app` main, ~3,800 in `:server`
-including tests), 19 HTTP endpoints, 50 server tests, 174 app tests, 15 screens,
+**Size:** 113 Kotlin files (~6,900 lines in `:app` main, ~3,800 in `:server`
+including tests), 19 HTTP endpoints, 59 server tests, 182 app unit tests, 15 screens,
 10 ViewModels.
 
-The `:app` count is 174 with `SeededDataViewModelTest` (8) included, and
-`HomeViewModelTest` holds 14. Use `--rerun-tasks` when counting: the Gradle task
+The `:app` count includes `SeededDataViewModelTest` (8) and
+`MediQBottomBarLabelsTest` (6); `HomeViewModelTest` holds 14. Use `--rerun-tasks` when counting: the Gradle task
 reports UP-TO-DATE and the previous run's XML survives, which reads as a stale
 number rather than a skipped suite.
 
@@ -66,10 +66,10 @@ number rather than a skipped suite.
 constructor in `RegisterCredentialsScreen.kt` and `SignInScreen.kt`. See
 [Cosmetic and unfinished polish](#cosmetic-and-unfinished-polish).
 
-**"The build is green" does not mean "the app is tested."** All the business
-logic lives on the server and that is where the real coverage is. All ten
-ViewModels now have unit tests, but no composable does, and nothing here runs
-without a device (see [Not done yet](#not-done-yet)).
+**"The build is green" does not mean "the app is fully tested."** All ten
+ViewModels have unit tests. One on-device Compose test now checks the bottom
+bar's merged accessibility semantics; other composables remain untested
+(see [Not done yet](#not-done-yet)).
 
 ---
 
@@ -198,12 +198,14 @@ threw a developer-facing string that reached the UI; status codes are overloaded
 
 ### Tests and tooling
 
-- **All ten ViewModels have tests, and no composable does.** `174` app unit tests
-  cover the state machines, but the `ui/` composables are still unverified by
-  anything that runs without a device — no Compose test, no screenshot test, and
-  `ExampleInstrumentedTest` is still an untouched Android Studio template. Two
-  live traps are documented in `.mdfiles/AGENTS.md` under "Two traps in the
-  ViewModel tests", because each produces a green suite that asserts nothing.
+- **All ten ViewModels have tests; one composable has an on-device semantics
+  test.** `182` app unit tests cover state and label data.
+  `MediQBottomBarSemanticsTest` checks the *rendered* accessible name on an
+  emulator: the unit test alone passed while Material3 swallowed the icon's
+  description. Run `:app:connectedDebugAndroidTest` with `mediq_api36` attached
+  (2 tests including the still-template `ExampleInstrumentedTest`). Other screens
+  have no Compose or screenshot tests. The two ViewModel harness traps remain in
+  `.mdfiles/AGENTS.md`.
 - **Both check scripts are now CI gates.** `.github/workflows/ci.yml` has a
   `gates` job that runs `check-boundaries.ps1` and `check-contrast.ps1` on every
   push and PR, in parallel with the build jobs and taking ~10s — they need no JVM
@@ -452,9 +454,32 @@ adb shell am start -n com.example.mediq/.MainActivity
 ```
 
 There is an AVD, `mediq_api36` (API 36). Boot it headless with
-`-no-window -no-audio -no-boot-anim` and expect roughly 90 seconds cold; budget
-several minutes for install-plus-launch. Treat a slow first launch as the
-environment, not a code problem.
+`-no-window -no-audio -no-boot-anim`. A `default_boot` snapshot resumes in about
+4 seconds; a full cold boot has taken 50–90 seconds. The emulator can still be
+slow because it runs with one vCPU on this machine.
+
+### Local demo (invented data only)
+
+1. From the repo root, start the server on port 8099 with
+   `MEDIQ_SEED_DEMO=true` as shown above; leave its terminal open. The default H2
+   database is **in-memory**: restarting the server erases sessions and bookings.
+   Never point the demo seed at a database holding real patients.
+2. Check `http://127.0.0.1:8099/health` for `{"status":"ok"}`, then check
+   `/doctors?search=dermatology` returns `DEMO-PRC-0003`. This also detects an
+   older server still occupying port 8099. The app's URL must match the PC's
+   current LAN address; see the table above.
+3. Start `mediq_api36`, install the debug APK and launch with the commands above.
+   On the splash screen, **long-press the MediQ wordmark** to show three live
+   `DEMO-PRC-*` records with clinic hours. Back out, sign in as
+   `demo_patient` / `demo12345`, open Doctors and search `dermatology` for
+   Dr. Placeholder Cruz. The bottom bar calls appointments **Bookings**.
+4. Run `:app:connectedDebugAndroidTest` with the emulator attached to verify the
+   bottom bar's accessible name. For the HTTP smoke suite, use a separate seeded
+   server on port 8100 (`MEDIQ_PORT=8100`) and run
+   `.\server\scripts\smoke.ps1 -Base http://127.0.0.1:8100`: it creates and
+   cancels appointments, so keep the 8099 walkthrough database untouched.
+   **This is not a production environment:** OTP is returned in HTTP responses,
+   tokens are stored in plaintext and Messages is still a stub.
 
 ---
 
@@ -558,31 +583,34 @@ currently printed in a source file.
 The first two also run in CI, as a `gates` job in `.github/workflows/ci.yml`, so
 running them locally is a fast feedback loop rather than the only enforcement.
 
-Two more, over HTTP against a running server:
+For HTTP-level checks, use a **separate** seeded server on port 8100 so the
+live demo on 8099 keeps a clean database:
 
 ```powershell
-.\gradlew.bat :server:test
-.\server\scripts\smoke.ps1 -Base http://127.0.0.1:8099   # 19 checks
+.\server\scripts\smoke.ps1 -Base http://127.0.0.1:8100   # 24 checks; mutates demo data
 ```
 
-- **`:server:test`** — in-process, no port. 50 tests across 6 classes:
+- **`:server:test`** — in-process, no port. 59 tests across 7 classes:
   `AuthServiceTest` (24, covering sign-in, OTP request/verify, five-attempt
   lockout, username normalisation, and registration), `AppointmentLifecycleTest`
-  (13), `AvailableDatesTest` (4), `BookingConcurrencyTest` (4), `OtpLockoutTest`
-  (3), `ProfileUpdateTest` (2). `BookingConcurrencyTest` is the one that cannot
-  be checked by hand.
-- **`:app:testDebugUnitTest`** - 174 tests, hand-written fakes, no mocking
+  (13), `DoctorSearchTest` (9, what `GET /doctors?search=` matches — name,
+  specialty display name, and specialty wire value, and deliberately *not* the
+  building), `AvailableDatesTest` (4), `BookingConcurrencyTest` (4),
+  `OtpLockoutTest` (3), `ProfileUpdateTest` (2). `BookingConcurrencyTest` is the
+  one that cannot be checked by hand.
+- **`:app:testDebugUnitTest`** - 182 tests, hand-written fakes, no mocking
   framework: `ApiErrorsTest` (11, error-body parsing), `UnknownWireValueTest` (8,
   how unrecognised wire values resolve), `GsonLeniencyTest` (3, JSON parsing
   behaviour), `RegisterViewModelTest` (22, the registration wizard),
   `AppointmentDetailsViewModelTest` (27, loading one appointment by id, then
   cancelling and rescheduling it through a slot picker), `DoctorsViewModelTest`
-  (22, the search debounce), `BookingViewModelTest` (19, the booking submit and
-  the `slot_taken` 409), `SignInViewModelTest` (16, credentials and the error
+  (24, initial load, search debounce and stale-response guard),
+  `BookingViewModelTest` (19, the booking submit and the `slot_taken` 409), `SignInViewModelTest` (16, credentials and the error
   contract), `ProfileViewModelTest` (14, session read and sign-out),
-  `HomeViewModelTest` (14, the soonest appointment), and
-  `NotificationsViewModelTest` (10, empty list vs error). **All ten ViewModels
-  are covered.** The 94 newest were each mutation-checked — the ViewModel was
+  `HomeViewModelTest` (14, the soonest appointment),
+  `NotificationsViewModelTest` (10, empty list vs error), and
+  `MediQBottomBarLabelsTest` (6, labels and accessible-name data). **All ten
+  ViewModels are covered.** The 94 newest ViewModel tests were mutation-checked — the ViewModel was
   deliberately broken and the suite had to fail — because a test that has never
   failed is not evidence.
 - **`smoke.ps1`** — the actual HTTP status of every route, the double-booking
