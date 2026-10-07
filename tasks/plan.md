@@ -100,11 +100,11 @@ The in-flight test needs `FakeDoctorRepository.getDoctorsGate`, a
 - [x] Task 2: `SeededDataScreen` — done, 174 green, contrast ratchet still 4
 
 ### Phase 3: The entry point
-- [x] Task 3: route + nav host + splash long-press — **written and compiling, but never run on a device**
-- [ ] Task 4: **commit the v3 code** — `ui/feature/debug/` (new), `SeededDataViewModelTest.kt` (new), and the 4 modified files. No doc edits in this commit.
+- [x] Task 3: route + nav host + splash long-press — done, and **run on a device in Task 5**
+- [x] Task 4: **commit the v3 code** — done as `30d69c7`. 7 paths, no `.md`. `HEAD` then measured 174
 - [x] Task 5: **Checkpoint B + C on the emulator** — **done 2026-10-07.** Server up → 3 doctors with `DEMO-PRC-0001..0003`; server stopped → rows gone, empty card; server back → rows return. The stopped-server line held first try
-- [ ] Task 6: **the removal proof** — scratch branch, delete, compile, discard
-- [ ] Task 7: **Task 4's remaining docs** — floor 166 → 174, `AGENTS.md` entry, `README.md` line, `CHANGELOG.md`
+- [x] Task 6: **the removal proof** — **done 2026-10-07.** Green at 174 before, `BUILD SUCCESSFUL` at 166 after, zero `SeededData` references, ratchet still 4, branch discarded. **It found that `AppContainer.baseUrl` dies with the screen** — see Task 7
+- [ ] Task 7: **the remaining docs** — floor 166 → 174, `AGENTS.md` entry, `README.md` line, `CHANGELOG.md`, **plus adding `AppContainer.baseUrl` to the removal list**
 - [ ] Checkpoint D: complete
 
 ### Why this order, and not "docs then commit"

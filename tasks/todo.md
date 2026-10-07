@@ -374,16 +374,55 @@ it is the reason the screen has no bottom-nav entry, and the reason the removal
 mechanism is a KDoc rather than a build flag. A claim that is never tested is how
 a debug screen reaches a real patient.
 
+**Done 2026-10-07 on `scratch/removal-proof`, then discarded.** Ran in a
+**git worktree** rather than by stashing, because the main tree had four
+uncommitted `.md` files and a branch switch would have forced them to travel.
+
+| Step | Result |
+|---|---|
+| Baseline before deleting anything | **174** app / 50 server, green |
+| Deleted the 3 files | `SeededDataScreen.kt`, `SeededDataViewModel.kt`, `SeededDataViewModelTest.kt` |
+| Removed the 3 wirings | `Screen.SeededData`, the `composable` block + its import, the gesture + 2 imports |
+| `Select-String 'SeededData\|seeded_data'` over `app/src` | **NONE** |
+| `:app:compileDebugKotlin :app:testDebugUnitTest :server:test` | **BUILD SUCCESSFUL**, 166 / 50 |
+| `check-boundaries.ps1` | clean, 52 files |
+| `check-contrast.ps1` | clean, ratchet **4** — unchanged |
+| Branch | deleted; main tree still at `8c7d25d` with the screen present |
+
+**The count moved 174 → 166, not up.** `SeededDataViewModelTest` went with the
+screen, which is correct: its 8 tests could not survive it. That is also why Task 7's
+floor move to 174 must be reverted rather than applied — see below.
+
 **Acceptance criteria:**
-- [ ] On a scratch branch: delete `SeededDataScreen.kt` and `SeededDataViewModel.kt`, remove `Screen.SeededData` from `Routes.kt`, remove the one `composable(Screen.SeededData.route)` block from `MediQNavHost.kt`, and remove the `combinedClickable` + `onLongPress` from `SplashScreen.kt`
-- [ ] `.\gradlew.bat :app:compileDebugKotlin` green on that branch
-- [ ] `:app:testDebugUnitTest` green — `SeededDataViewModelTest` deleted **with** the screen, not left behind failing
-- [ ] `rg -n "SeededData|seeded_data" app/src` returns nothing on that branch
-- [ ] **Branch discarded.** The screen stays. This proves deletability, it does not delete
+- [x] On a scratch branch: delete `SeededDataScreen.kt` and `SeededDataViewModel.kt`, remove `Screen.SeededData` from `Routes.kt`, remove the one `composable(Screen.SeededData.route)` block from `MediQNavHost.kt`, and remove the `combinedClickable` + `onLongPress` from `SplashScreen.kt`
+- [x] `.\gradlew.bat :app:compileDebugKotlin` green on that branch
+- [x] `:app:testDebugUnitTest` green — `SeededDataViewModelTest` deleted **with** the screen, not left behind failing
+- [x] `rg -n "SeededData|seeded_data" app/src` returns nothing on that branch
+- [x] **Branch discarded.** The screen stays. This proves deletability, it does not delete
 
 **Verification:**
-- [ ] `git checkout -b scratch/removal-proof`, make the deletions, compile, then `git checkout -` and `git branch -D scratch/removal-proof`
-- [ ] `git status --short` afterwards — no deletion should have escaped onto the main branch
+- [x] `git worktree add -b scratch/removal-proof <tmp>`, make the deletions, compile, then `git worktree remove --force` and `git branch -D scratch/removal-proof`
+- [x] `git status --short` afterwards — only the 4 pre-existing `.md` files, no deletion escaped
+
+### The proof found something the KDoc got wrong
+
+**`AppContainer.baseUrl` is now dead code.** It was added in Task 3 solely so the
+screen could show its host, and after removal nothing reads it —
+`Select-String 'baseUrl' app/src` returns only its own declaration plus
+`RetrofitClient`'s `.baseUrl(BASE_URL)` builder call. The removal is therefore
+**7 touchpoints, not 6**, and the KDoc's own instruction lists 5.
+
+This is the point of running the proof. The claim as written was wrong in a way
+only deletion could reveal, and it is exactly the kind of leftover that turns a
+temporary screen into permanent dead code — an unused public API on `AppContainer`
+that nothing flags. **Task 7 must add `AppContainer.baseUrl` to the removal list**
+so the eventual deletion takes it too.
+
+### One environment note for anyone repeating this
+
+The worktree needed `local.properties` copied in: it is gitignored (`.gitignore:10`)
+and machine-specific, so a fresh worktree fails with *"SDK location not found"*.
+That is the worktree path, not a repo defect.
 
 **Dependencies:** Task 4
 
@@ -479,12 +518,12 @@ throwaway branch.
 **Acceptance criteria:**
 - [x] `CONSTRAINTS.md:37` and `:95` updated 165 -> 166 in the same commit, and the stale-165 discrepancy (measured 166) corrected rather than carried. Set to 166, not 174 — see the note at the head of this task
 - [ ] **→ Task 7.** `CONSTRAINTS.md:37` and `:95` raised 166 -> 174 once Tasks 1-3 are committed, so the ratchet reaches the measured value
-- [ ] **→ Task 7.** `README.md` "What works" gains one line naming the screen, its purpose as a backend check, and its removal command. The "Not done yet" list is untouched — this is not a gap being closed
+- [ ] **→ Task 7.** `README.md` "What works" gains one line naming the screen, its purpose as a backend check, and its removal command. The removal command must include `AppContainer.baseUrl` — Task 6 proved it is dead once the screen goes. The "Not done yet" list is untouched — this is not a gap being closed
 - [x] The stale numbers corrected in the same change: `README.md` 165 -> 174 (worktree) with 109 Kotlin files and ~6,600 `:app` main lines; `AGENTS.md` 165 -> 174 and `HomeViewModelTest` 13 -> 14; `CHANGELOG.md` 165 -> 166 and 13 -> 14, since that entry records the committed state
 - [x] `README.md` and `CONSTRAINTS.md` stop claiming "No CI" and "no lint", and state that the two check scripts are not in CI — verified by grepping both workflows for `ps1`
 - [ ] **→ Task 7.** `AGENTS.md` records the entry point, the two-state behaviour, and the fact that the screen is temporary. *Note: not three-state — see Task 5.*
-- [ ] **→ Task 6.** **Removal proven, not asserted:** on a scratch branch, delete the 4 production files and the 2 insertions, then `:app:compileDebugKotlin` green. Discard the branch
-- [ ] **→ Task 6.** `rg -n "SeededData|seeded_data" app/src` returns exactly 6 files, and no file outside `ui/feature/debug/seededdata/` depends on them
+- [ ] **→ Task 6, done.** **Removal proven, not asserted:** on a scratch worktree, delete the 3 files and the 3 wirings, then `:app:compileDebugKotlin` green. Branch discarded. **Correction: it is 7 touchpoints, not 6** — `AppContainer.baseUrl` is dead afterwards and must be deleted too
+- [x] **→ Task 6, done.** `Select-String 'SeededData|seeded_data'` over `app/src` returns **nothing** after removal, and no file outside `ui/feature/debug/seededdata/` depended on them
 - [ ] **→ Task 7.** `CHANGELOG.md` `[Unreleased]` gains the entry
 
 **Verification:**
@@ -510,7 +549,7 @@ throwaway branch.
 - [x] Short press navigates nowhere; long press opens the screen (Task 5)
 - [ ] `:app:testDebugUnitTest` green at 174; `:server:test` green at 50
 - [ ] `check-boundaries.ps1` = 0 violations; `check-contrast.ps1` green, ratchet 4
-- [ ] Removal proven on a scratch branch, not asserted (Task 6)
+- [x] Removal proven on a scratch worktree, not asserted (Task 6) — and it found `AppContainer.baseUrl` dies with the screen, so the removal list is 7 touchpoints not 6
 - [ ] `CONSTRAINTS.md`, `README.md`, `AGENTS.md`, `CHANGELOG.md` updated in the same commit (Task 7)
 - [ ] The 174 floor reflects a **committed** count, not a worktree count
 - [ ] Every new test mutation-checked: break the code, watch it fail, restore — **2 of 8 done** in Task 1 (`e.toString()`, the `.ifEmpty` fallback)
