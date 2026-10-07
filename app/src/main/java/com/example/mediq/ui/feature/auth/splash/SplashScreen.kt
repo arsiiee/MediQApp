@@ -1,6 +1,7 @@
 package com.example.mediq.ui.feature.auth.splash
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -16,6 +17,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -33,11 +35,28 @@ fun SplashScreen(navController: NavController) {
         contentAlignment = Alignment.Center
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            // TEMPORARY. A long press on the wordmark opens the seeded-data
+            // screen, a backend check. It is a gesture rather than a button on
+            // purpose: this screen has no business leaving a visible control in
+            // the app, and a long press is the one affordance that costs nothing
+            // to delete. Remove this `Modifier.pointerInput` block and nothing
+            // else about the layout changes.
+            //
+            // The platform's own long-press timeout applies, not a hand-rolled
+            // one — `detectTapGestures` reads `ViewConfiguration
+            // .longPressTimeoutMillis`, so this is the same ~500ms as a long
+            // press anywhere else in Android. A short tap does nothing, as
+            // before.
             Text(
                 text = "MediQ",
                 color = Color.White,
                 fontSize = 48.sp,
-                fontWeight = FontWeight.Bold
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.pointerInput(Unit) {
+                    detectTapGestures(
+                        onLongPress = { navController.navigate(Screen.SeededData.route) }
+                    )
+                }
             )
             Spacer(modifier = Modifier.height(16.dp))
             Text(

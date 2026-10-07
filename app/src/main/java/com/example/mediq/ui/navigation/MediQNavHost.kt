@@ -8,6 +8,7 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.navigation
+import com.example.mediq.di.AppContainer
 import com.example.mediq.ui.feature.appointments.AppointmentDetailsScreen
 import com.example.mediq.ui.feature.appointments.AppointmentsScreen
 import com.example.mediq.ui.feature.auth.register.RegisterCredentialsScreen
@@ -19,6 +20,7 @@ import com.example.mediq.ui.feature.auth.signin.SignInScreen
 import com.example.mediq.ui.feature.auth.splash.SplashScreen
 import com.example.mediq.ui.feature.booking.BookingFlowScreen
 import com.example.mediq.ui.feature.booking.BookingSuccessScreen
+import com.example.mediq.ui.feature.debug.seededdata.SeededDataScreen
 import com.example.mediq.ui.feature.doctors.DoctorDetailsScreen
 import com.example.mediq.ui.feature.doctors.DoctorsScreen
 import com.example.mediq.ui.feature.home.HomeScreen
@@ -98,5 +100,16 @@ fun MediQNavHost(navController: NavHostController) {
             AppointmentDetailsScreen(navController, appointmentId)
         }
         composable(Screen.Notifications.route) { NotificationsScreen(navController) }
+
+        // TEMPORARY. The only route with no entry point a patient can find —
+        // it is reached by long-pressing the splash wordmark, never from the
+        // bottom bar. Delete this block, `Screen.SeededData`, and the gesture.
+        //
+        // `baseUrl` comes from `AppContainer` rather than `RetrofitClient`
+        // because `ui/` may not import `data/` (`check-boundaries.ps1` Rule 2).
+        // The screen shows it so a wrong host is visible rather than assumed.
+        composable(Screen.SeededData.route) {
+            SeededDataScreen(baseUrl = AppContainer.baseUrl)
+        }
     }
 }

@@ -36,6 +36,19 @@ object AppContainer {
     lateinit var profileRepository: ProfileRepository
     lateinit var authRepository: AuthRepository
 
+    /**
+     * The host the app is actually calling, re-exported for `ui/`.
+     *
+     * `RetrofitClient.BASE_URL` is the single source of truth and stays in
+     * `data/api/` — but `check-boundaries.ps1` Rule 2 bans `ui/` from importing
+     * `com.example.mediq.data.`, and `ui/` importing `di/` is legal (every
+     * ViewModel already does). A getter rather than a copied value so the two
+     * cannot drift, which is the failure this whole arrangement exists to avoid:
+     * `README.md:363-378` records a diagnostic pass lost to a base URL and a
+     * cleartext allow-list disagreeing with each other.
+     */
+    val baseUrl: String get() = RetrofitClient.BASE_URL
+
     fun init(context: Context) {
         tokenStore = TokenStore(context.applicationContext)
         val api = RetrofitClient.create(tokenStore)
