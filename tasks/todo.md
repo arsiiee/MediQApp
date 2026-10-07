@@ -5,11 +5,500 @@
 | Plan | Status | Scope |
 |---|---|---|
 | v1 — registration + appointment details | **Complete**, commits `c9df562`..`24d9ef2` | Close the two "Known gaps" in `.mdfiles/AGENTS.md` |
-| v2 — token lifecycle | **Active**, see below | 401 handling, session expiry, corrupt-session recovery |
+| v2 — token lifecycle | **Planned, not started** — 93 boxes below are open | 401 handling, session expiry, corrupt-session recovery |
+| v3 — seeded-data screen | **Active** — Tasks 4-7 remain | One temporary screen that verifies the live backend |
+| v4 — doctor specialty filter | **Spec'd, queued behind v3** | `DoctorsScreen.kt:89` filters to `PEDIATRICS` no matter which chip is tapped |
 
-**Active plan:** `tasks/plan.md` → Token Lifecycle (Expiry, 401 Handling, Refresh),
-spec at `tasks/SPEC-token-lifecycle.md`. D2 resolved as **re-auth, no refresh
-endpoint** — no server route, no `refresh_token` column.
+**Active plan:** `tasks/plan.md` → Temporary Seeded-Data Screen (backend
+verification), spec at `tasks/SPEC-seeded-data-screen.md`. **Re-planned
+2026-10-07** into commit → prove → document; see Tasks 4-7.
+
+**v4 is approved and waiting.** Spec at `tasks/SPEC-specialty-filter.md`. It has
+no file overlap with v3, so it is blocked only by the choice to close v3 first.
+Its floor move is **174 + N** — measured after its tests land, not predicted.
+
+**v2 was archived, not abandoned.** Verified unstarted rather than assumed:
+`SessionSignal`, `isAuthFailure`, and `Authenticator` return 0 hits across
+`app/src/main`. Its 93 boxes are untouched. Pick it up after v3 — it is the
+higher-severity of the two.
+
+---
+
+# v3 — Temporary Seeded-Data Screen
+
+Plan: `tasks/plan.md`. Spec: `tasks/SPEC-seeded-data-screen.md`.
+
+**One question this answers:** is the backend actually working? Today the seed
+prints to a console that scrolls away, the Doctors tab shows an empty list whether
+the seed ran or the server is down, and "Couldn't reach the clinic" reads the same
+for a dropped Wi-Fi and a wrong base URL.
+
+**Verification commands used throughout** (all must stay green):
+
+```powershell
+.\gradlew.bat :app:compileDebugKotlin --console=plain
+.\gradlew.bat :app:testDebugUnitTest --console=plain     # floor 166, target >= 174
+.\gradlew.bat :server:test --console=plain               # floor 50, unchanged
+.\.mdfiles\check-boundaries.ps1                          # ui-imports-data = 0
+.\.mdfiles\check-contrast.ps1                            # raw-colour ratchet stays 4
+
+# live
+$env:MEDIQ_SEED_DEMO="true"
+$env:MEDIQ_PORT="8099"
+.\gradlew.bat :server:run --console=plain
+.\server\scripts\smoke.ps1 -Base http://127.0.0.1:8099
+```
+
+Three traps to carry into the tasks:
+
+- **`buildConfig` is off** (`app/build.gradle.kts:37-39`), so `BuildConfig.DEBUG`
+  does not exist. Gating this screen behind it costs a build-file change. D3 says
+  do not; removal is proven by a command in Task 4 instead.
+- **`ui/` may not import `data/`** (`check-boundaries.ps1:108`). The base-URL
+  string cannot be read from `RetrofitClient` — it is passed in as a parameter.
+- **Unreachable and empty are indistinguishable at this layer.**
+  `RetrofitDoctorRepository` maps an unreachable server to an empty `Paged`, and
+  that is correct everywhere else. D4 separates the two messages in `ui/` alone;
+  do not "fix" it in the repository.
+
+---
+
+## Task 1: `SeededDataViewModel` with 8 tests
+
+**Description:** The whole logic of the screen, written before any composable so
+it is testable in isolation. `DoctorsViewModel` with the debounce and the filters
+removed: one `read()`, one `LoadState<List<Doctor>>`, the same three-branch catch
+(`BackendNotConnectedException` → `Success(emptyList())`, `ApiFailure` →
+`Error(e.message)`, `Exception` → a written sentence).
+
+**One test is the point of this task.** "No hardcoded fallback" asserts the state
+holds exactly what the repository returned — a fake returning three doctors yields
+three rows and never a fourth. A fallback list behind the repository call would
+make this screen report "backend working" with the backend dead, which is the one
+failure it exists to catch.
+
+**Acceptance criteria:**
+- [x] `SeededDataViewModel` exposes `SeededDataUiState(doctors: LoadState<List<Doctor>>)` and `read()`/`refresh()`, with `Factory` reading `AppContainer.doctorRepository` — the `DoctorsViewModel.kt:88-94` pattern
+- [x] `DoctorQuery()` with no filters; no hardcoded doctor, fee, licence, hour, or count anywhere in the file
+- [x] `BackendNotConnectedException` → `Success(emptyList())`; `ApiFailure` → `Error(e.message)`; other `Exception` → a written sentence, never a framework message
+- [x] KDoc states the screen is temporary and names exactly what to delete
+- [x] 8 tests: success-with-rows, unfiltered-read, empty, unreachable, 500, `ApiFailure` message mapping, no-hardcoded-fallback, reload-re-queries. (Planned as 7; the unfiltered-read case was added during Task 1 because a query carrying a filter could return fewer rows than the seed created and read as a partial seed.)
+- [x] The ViewModel is built with `by lazy` in the test, not assigned in `setUp` (`AGENTS.md` trap §1)
+
+**Verification:**
+- [x] `.\gradlew.bat :app:testDebugUnitTest --console=plain` green at 174 (measured from the JUnit XML, 166 baseline + 8)
+- [x] `.\.mdfiles\check-boundaries.ps1` green — `ui-imports-data` = 0 (53 files, up from 52)
+- [x] **Mutation check** — two run, both caught, both restored:
+  - [x] `Error(e.message)` → `Error(e.toString())`: **2 failed** (`a failure message is the server's…`, `a server failure shows the server's own sentence`)
+  - [x] `.ifEmpty { listOf(doctor) }` behind the repository call: **2 failed** (`the state holds exactly what the repository returned`, `an empty list is a success, not an error`) — this is the guard the screen exists for, and it fails on the fallback, not on a typo
+- [x] Manual check: `Select-String SeededDataViewModel.kt -Pattern 'DEMO-|Clinic 2|Demo Rivera|Sample|Placeholder'` returns nothing
+
+**Dependencies:** None
+
+**Files likely touched:**
+- `app/src/main/java/com/example/mediq/ui/feature/debug/seededdata/SeededDataViewModel.kt` (new)
+- `app/src/test/java/com/example/mediq/ui/feature/debug/seededdata/SeededDataViewModelTest.kt` (new)
+
+**Estimated scope:** M (2 files)
+
+---
+
+## Task 2: `SeededDataScreen` — three states, base-URL subtitle
+
+**Description:** Renders the state Task 1 produces. Rows, an empty result, and the
+server's own error sentence each get their own rendering, because they have
+different fixes. The resolved base URL is a subtitle so the host is visible — a
+green screen pointed at the wrong machine is the dangerous case, and `10.0.2.2` on a
+physical phone is the recorded trap.
+
+**Corrected during Task 2: there are two distinguishable outcomes, not three.**
+`RetrofitDoctorRepository.kt:38-40` returns an empty page when the server is
+unreachable, which is correct for every other screen. So "server down" and "seed
+did not run" arrive here as the *same* `Success(emptyList())` and cannot be told
+apart at this layer. Rather than guess, the empty state names both causes and says
+why it cannot choose. See the note under Checkpoint B for the probe that would
+give a real third state.
+
+**Acceptance criteria:**
+- [x] `when` over all three `LoadState` cases, with a visible `Loading` state
+- [x] Non-empty: name, specialty, years, fee, location, licence, and the weekday clinic-hours list, so the `doctors` → `clinic_hours` join is visible rather than assumed
+- [x] Empty: a message naming `MEDIQ_SEED_DEMO` **and** the unreachable case, stating it cannot separate them. `DEMO-PRC-0001` is shown per row because "is the seed labelled DEMO-*" is a question this screen exists to answer
+- [x] Error: `e.message` verbatim, and the "what this does not prove" footnote present on every state
+- [x] `baseUrl` is a **parameter**; the file imports nothing from `com.example.mediq.data.`
+- [x] Every colour from `MaterialTheme.colorScheme.*` or `LocalMediQColors.current.*` — **zero** raw literals, so the ratchet stays 4
+- [x] The demo credential block shows `demo_patient` / `demo12345`, labelled demo-only. No clipboard, no tap-to-fill (spec OQ3)
+- [x] Money via `Money.format()`; no formatted string built in the composable
+- [x] A **Re-check** button calls `refresh()`. A verification screen that cannot be re-run after a restart is only half a tool
+
+**Verification:**
+- [x] `.\gradlew.bat :app:compileDebugKotlin --console=plain` green, no new warnings
+- [x] `.\.mdfiles\check-contrast.ps1` green, ratchet still exactly 4
+- [x] `.\.mdfiles\check-boundaries.ps1` green — 54 files, up from 53
+- [x] `.\gradlew.bat :app:testDebugUnitTest :server:test --console=plain` green at 174 / 50
+- [x] Manual check: `Select-String SeededDataScreen.kt -Pattern 'import com\.example\.mediq\.data'` returns nothing
+- [x] Manual check: no `Color.White|Black|Gray|…` or `0x[0-9A-F]{6}` in the file — grepped, none
+- [x] Manual check: the only literals are `DEMO_USERNAME`, `DEMO_PASSWORD`, the `HH:mm` formatter, and UI copy. No doctor name, fee, licence, or hour
+
+**Dependencies:** Task 1
+
+**Files likely touched:**
+- `app/src/main/java/com/example/mediq/ui/feature/debug/seededdata/SeededDataScreen.kt` (new)
+
+**Estimated scope:** S (1 file)
+
+---
+
+## Checkpoint B: the live proof
+
+This is the checkpoint that matters, and it cannot be skipped or deferred to an
+emulator walkthrough at the end.
+
+- [ ] Server up with `MEDIQ_SEED_DEMO=true`: the screen renders rows, each with `DEMO-PRC-0001..0003` and its clinic hours
+- [ ] **Server stopped, Re-check pressed: the rows are gone and the empty card appears.** This is the line that proves the screen reads the network — a hardcoded screen passes the line above and fails this one, which is the entire reason this screen exists
+- [ ] Server up with `MEDIQ_SEED_DEMO` unset: **the same** empty card. Not a third message — see below
+- [ ] `GET /doctors` reachable at the shown base URL, from the device, not from a browser on the host
+
+### Why "server stopped" and "seed unset" cannot read differently here
+
+The plan originally promised three distinct messages. It cannot deliver that, and
+the spec's D4 already conceded the limit; this records it so nobody re-litigates it
+mid-task.
+
+`RetrofitDoctorRepository.getDoctors` catches `ApiFailure` and returns
+`Paged(emptyList())` when `isNetworkFailure` — `RetrofitDoctorRepository.kt:38-40`.
+That mapping is **correct** and documented in `AGENTS.md`: an unreachable backend
+on a list read is the expected development state, not a failure. By the time
+`SeededDataViewModel` sees anything, both cases are `Success(emptyList())`.
+
+Changing the repository to expose it is listed under **Ask first** in the spec's
+Boundaries, so it was not done unilaterally.
+
+**The cheap fix, if three states are wanted:** `DoctorRepository.getDoctor` is a
+*single-entity* read, so it lets `ApiFailure` propagate (`RetrofitDoctorRepository.kt:42-43`),
+and an unknown id returns 404 (`DoctorStore.kt:104`). One extra call with a
+non-existent id therefore yields a real reachability signal — `isNetworkFailure`
+true means down, a 404 means up — on an existing public route, with no repository
+change and no new endpoint. Cost: a second request per read, one more test, and a
+deliberate 404 in the log. **Not done: the wording that names both causes is honest,
+and this is a temporary screen.** Say the word and it is a 15-minute change.
+
+---
+
+## Task 3: Route, nav host, splash long-press
+
+**Description:** The entry point. A long-press on the "MediQ" wordmark in
+`SplashScreen`, a `Screen.SeededData` object, and one `composable` in the nav host.
+
+**`baseUrl` could not come from `RetrofitClient` directly.** `MediQNavHost` is in
+`ui/`, and `check-boundaries.ps1:108` bans `com.example.mediq.data.` there, so
+importing `RetrofitClient.BASE_URL` would be a violation even though the compiler
+accepts it — the exact class of bug `CONSTRAINTS.md` records as having shipped
+twice. `AppContainer.baseUrl` is a **getter** over the same constant rather than a
+copied value, so `ui/` reaches it through a layer it may already import and the two
+cannot drift. That is why this task touches 4 files, not the planned 3.
+
+**The gesture uses the platform long-press timeout, not a 2-second one.**
+`detectTapGestures` reads `ViewConfiguration.longPressTimeoutMillis`, so this is
+the same ~500 ms as any Android long press. Hand-rolling a 2 s timer would mean
+`awaitEachGesture` and a manual clock for no gain. Corrected in the spec and plan;
+the gesture is still undiscoverable to a patient.
+
+**Acceptance criteria:**
+- [x] `Screen.SeededData : Screen("seeded_data")` in `Routes.kt`
+- [x] One `composable(Screen.SeededData.route)` in `MediQNavHost`, passing `AppContainer.baseUrl`
+- [x] `AppContainer.baseUrl` is a `val … get() = RetrofitClient.BASE_URL` — single source of truth stays in `data/api/`, `ui/` reads it through `di/`
+- [x] `SplashScreen`'s wordmark takes a long press; the two existing buttons and every other literal on that screen are untouched
+- [x] A short press on the wordmark navigates nowhere
+- [x] No bottom-nav entry: `MediQBottomBar.kt` has 0 references to `SeededData`
+- [x] No route reachable from any screen but the splash gesture
+
+**Verification:**
+- [x] `.\gradlew.bat :app:compileDebugKotlin --console=plain` green
+- [x] `.\.mdfiles\check-contrast.ps1` green — ratchet still exactly 4, `SplashScreen`'s existing 4 unchanged
+- [x] `.\.mdfiles\check-boundaries.ps1` green — 54 files, `ui-imports-data` = 0. This is the check that would have caught the direct `RetrofitClient` import
+- [x] `.\gradlew.bat :app:testDebugUnitTest :server:test --console=plain` green at 174 / 50
+- [x] `git diff SplashScreen.kt` is +20/-1 — the gesture and its imports only, no layout change
+- [x] 6 files reference `SeededData`, matching the plan's removal claim
+
+**Dependencies:** Task 2
+
+**Files likely touched:**
+- `app/src/main/java/com/example/mediq/ui/navigation/Routes.kt`
+- `app/src/main/java/com/example/mediq/ui/navigation/MediQNavHost.kt`
+- `app/src/main/java/com/example/mediq/ui/feature/auth/splash/SplashScreen.kt`
+- `app/src/main/java/com/example/mediq/di/AppContainer.kt` — **added, not in the original plan**, for the boundary reason above
+
+**Estimated scope:** S (4 files)
+
+---
+
+## Checkpoint C: reachable
+
+- [ ] Long-press opens the screen from a cold launch; a short press does not
+- [ ] `check-boundaries.ps1` reports `ui-imports-data` = 0 — the seam did not buy navigation by breaking the layering
+- [ ] `check-contrast.ps1` green, ratchet exactly 4
+- [x] :app:testDebugUnitTest green at 174
+- [x] Review with human before proceeding
+- [ ] Emulator: launch, long-press the wordmark, screen opens — **needs a device, see Checkpoint B**
+
+---
+
+## Task 4: Commit the v3 code
+
+> **Added 2026-10-07.** The original Task 4 bundled the commit with the docs.
+> It cannot: `CONSTRAINTS.md` is explicit that a ratchet records what the
+> **committed** tree guarantees, and the floor is 166 while the worktree measures
+> 174 only because `SeededDataViewModelTest` is untracked. Committing the code
+> first is what makes the 174 floor honest. Docs follow in Task 7, after the
+> behaviour is observed.
+
+**Description:** Nothing here changes behaviour. The screen, its ViewModel, its
+8 tests, and the 4 wiring files are green and unstaged; this makes them reviewable
+as a diff and revertable as a unit.
+
+**Acceptance criteria:**
+- [ ] One commit containing: `ui/feature/debug/seededdata/` (2 new files), `ui/feature/debug/seededdata/SeededDataViewModelTest.kt` (new), `Routes.kt`, `MediQNavHost.kt`, `SplashScreen.kt`, `AppContainer.kt`
+- [ ] **No doc file in this commit.** `.mdfiles/` and `README.md` are already modified from the 2026-10-07 doc audit and stay unstaged — that is a separate change with its own diff
+- [ ] Commit message states this is the temporary seeded-data verification screen, and that it is deleted on use
+- [ ] `HEAD` now measures 174 tests — the precondition for Task 7's floor move
+
+**Verification:**
+- [ ] `.\gradlew.bat :app:compileDebugKotlin --console=plain` green before committing
+- [ ] `.\gradlew.bat :app:testDebugUnitTest --rerun-tasks` green; count from the JUnit XML, **not** the task output
+- [ ] `git show --stat HEAD` lists exactly the 6 code paths and no `.md`
+- [ ] `git status --short` afterwards shows only the `.md` files and `tasks/`
+
+**Dependencies:** Tasks 1, 2, 3
+
+**Files likely touched:**
+- 2 new under `app/src/main/java/com/example/mediq/ui/feature/debug/seededdata/`
+- 1 new under `app/src/test/java/com/example/mediq/ui/feature/debug/seededdata/`
+- `app/src/main/java/com/example/mediq/ui/navigation/Routes.kt`
+- `app/src/main/java/com/example/mediq/ui/navigation/MediQNavHost.kt`
+- `app/src/main/java/com/example/mediq/ui/feature/auth/splash/SplashScreen.kt`
+- `app/src/main/java/com/example/mediq/di/AppContainer.kt`
+
+**Estimated scope:** S (6 paths, no behaviour change)
+
+---
+
+## Task 5: The live proof — Checkpoints B and C
+
+> **Merges the old Checkpoint B and Checkpoint C.** Both needed the emulator and
+> neither had it. Checkpoint C's static lines were already green and are checked;
+> its on-device line had never been run, which is the only untested part of Task 3.
+> Same emulator session, so one boot serves both.
+
+**Description:** Everything so far is a green build and a passing suite. Nothing
+has ever run. This is the task that either proves the screen reads the network, or
+proves it does not — a hardcoded screen passes "server up" and fails "server
+stopped", which is the whole reason this screen exists.
+
+**Acceptance criteria:**
+- [ ] Cold launch shows the splash; a **short** press on the wordmark navigates nowhere (Checkpoint C)
+- [ ] A **long** press opens `SeededDataScreen`, subtitle showing the resolved base URL
+- [ ] Server up, `MEDIQ_SEED_DEMO=true`: rows render, each with `DEMO-PRC-0001..0003` and its clinic hours. **`DEMO-` in the licence is the proof the seed ran** — a real doctor's licence would not carry that prefix
+- [ ] **Server stopped, Re-check pressed: the rows are gone and the empty card names both causes.** This is the line a hardcoded implementation cannot pass
+- [ ] Server up with `MEDIQ_SEED_DEMO` unset: the same empty card. Two states, not three — see the note below
+- [ ] `GET /doctors` is reachable at the shown base URL **from the device**, not from a browser on the host
+
+**Verification:**
+- [ ] `.\gradlew.bat :app:installDebug` then `adb shell am start -n com.example.mediq/.MainActivity`
+- [ ] `adb shell uiautomator dump /sdcard/ui.xml` to find the wordmark and read on-screen text — **do not guess tap coordinates from a screenshot**
+- [ ] `.\server\scripts\smoke.ps1 -Base http://127.0.0.1:8099` green, to separate "the app is wrong" from "the server is wrong"
+- [ ] Expect an **~86s cold boot** and ~2min install. Do not "fix" it by editing `config.ini` — the emulator overrides `hw.cpu.ncore` and `hw.ramSize` on boot (`AGENTS.md` Running on a device)
+
+**Dependencies:** Task 4
+
+**Files likely touched:** none — this is an observation, not a change. A failure here is a bug to fix in its own task, not an edit to this one.
+
+**Estimated scope:** S (no files; minutes of wall-clock, most of it waiting on the emulator)
+
+### Why "server stopped" and "seed unset" read the same here
+
+Recorded so nobody re-litigates it mid-task. `RetrofitDoctorRepository.getDoctors`
+returns `Paged(emptyList())` when `isNetworkFailure`
+(`RetrofitDoctorRepository.kt:38-40`) — **correct**, and documented in `AGENTS.md`
+for every other screen. By the time the ViewModel sees anything, both cases are
+`Success(emptyList())`. Changing the repository is **Ask first** in the spec's
+Boundaries, so the wording names both causes and says it cannot choose.
+
+The cheap fix, if a real third state is wanted: `getDoctor` is a *single-entity*
+read, so it lets `ApiFailure` propagate, and an unknown id returns 404. One extra
+call with a non-existent id gives a true reachability signal on an existing public
+route — no repository change, no new endpoint. **Not done:** this is a temporary
+screen and the honest wording already shipped.
+
+---
+
+## Task 6: The removal proof
+
+> **Split out of the old Task 4** so it runs *before* the docs claim it. The
+> original plan asserted the screen deletes in one commit; asserting it costs one
+> throwaway branch, so it gets proven.
+
+**Description:** The claim "temporary, deletable in one commit" is load-bearing —
+it is the reason the screen has no bottom-nav entry, and the reason the removal
+mechanism is a KDoc rather than a build flag. A claim that is never tested is how
+a debug screen reaches a real patient.
+
+**Acceptance criteria:**
+- [ ] On a scratch branch: delete `SeededDataScreen.kt` and `SeededDataViewModel.kt`, remove `Screen.SeededData` from `Routes.kt`, remove the one `composable(Screen.SeededData.route)` block from `MediQNavHost.kt`, and remove the `combinedClickable` + `onLongPress` from `SplashScreen.kt`
+- [ ] `.\gradlew.bat :app:compileDebugKotlin` green on that branch
+- [ ] `:app:testDebugUnitTest` green — `SeededDataViewModelTest` deleted **with** the screen, not left behind failing
+- [ ] `rg -n "SeededData|seeded_data" app/src` returns nothing on that branch
+- [ ] **Branch discarded.** The screen stays. This proves deletability, it does not delete
+
+**Verification:**
+- [ ] `git checkout -b scratch/removal-proof`, make the deletions, compile, then `git checkout -` and `git branch -D scratch/removal-proof`
+- [ ] `git status --short` afterwards — no deletion should have escaped onto the main branch
+
+**Dependencies:** Task 4
+
+**Files likely touched:** none on the main branch. The deletions live only on the scratch branch.
+
+**Estimated scope:** S (no committed change; the output is the recorded result)
+
+---
+
+## Task 7: Ratchets and docs
+
+> **The remainder of the old Task 4.** Its docs half landed 2026-10-07 as a
+> separate correction; what is left is the four claims that depend on Tasks 4-6
+> having happened. Last, deliberately — see the note at the head of the old task.
+
+**Description:** `AGENTS.md` states it must be updated in the same change that
+alters the repo, and `CONSTRAINTS.md` says a number moves only when the code moves
+it. Four claims remain, and three of them are claims about observed behaviour.
+
+**Acceptance criteria:**
+- [ ] `CONSTRAINTS.md:37` and `:95` raised **166 → 174**, and the `:95` note about `SeededDataViewModelTest` being uncommitted is replaced by a statement that it is committed
+- [ ] `AGENTS.md` records the entry point (2s-long-press equivalent — a platform long press on the splash wordmark), the empty-state behaviour, and that the screen is temporary
+- [ ] `README.md` "What works" gains one line naming the screen, its purpose as a backend check, and **its removal command**. The "Not done yet" list stays untouched — this is not a gap being closed
+- [ ] `CHANGELOG.md` `[Unreleased]` gains the entry
+- [ ] The Task 5 and Task 6 outcomes are written into `tasks/plan.md` and `tasks/todo.md`, including the honest two-states-not-three result
+- [ ] Task 5's emulator line is recorded as **observed**, not as "should work"
+
+**Verification:**
+- [ ] `.\.mdfiles\check-boundaries.ps1` and `.\.mdfiles\check-contrast.ps1` green
+- [ ] `.\gradlew.bat :app:compileDebugKotlin :app:testDebugUnitTest :server:test --console=plain` green at 174 / 50
+- [ ] `git diff .mdfiles/ README.md` shows **only** documentation edits
+- [ ] The 174 in every doc matches a measured count, not a prediction
+
+**Dependencies:** Tasks 4, 5, 6
+
+**Files likely touched:**
+- `.mdfiles/CONSTRAINTS.md`
+- `.mdfiles/AGENTS.md`
+- `.mdfiles/CHANGELOG.md`
+- `README.md`
+
+**Estimated scope:** S (4 files, docs only)
+
+---
+
+## Superseded: the original Task 4, and why it was split
+
+> Retained for the decision record. All unchecked boxes below were **moved** into
+> Tasks 4-7 above, not deleted.
+
+**The docs half is done 2026-10-07, independently of Tasks 2-3.** A doc audit found
+> the standing docs had drifted from the tree, so the documentation edits below
+> were made in their own commit rather than waiting for the screen. **The
+> removal proof is still open** and Task 4 is not complete.
+>
+> Measured, `--rerun-tasks` (the task otherwise reports UP-TO-DATE and the prior
+> run's XML survives, which reads as a stale number):
+>
+> | Fact | Docs said | Actual |
+> |---|---|---|
+> | `:app` tests at `HEAD` | 165 | **166** — the floor was one low from the day it was written |
+> | `HomeViewModelTest` | 13 | **14** — the six listed classes sum to 166, not 165 |
+> | Kotlin files | 97 | **109** |
+> | `:app` main LOC | ~6,000 | **6,567** |
+> | `:server` LOC | ~3,800 | **3,833** incl. tests (main alone is 2,513) — was right |
+> | CI | "**No CI.** Everything here is run by hand." | **CI exists** — `ci.yml`, `android-emulator.yml`, `dependabot.yml`, added in `ef106ef`. The claim asserted the absence of the thing that commit added |
+> | Lint | "No lint config" | CI runs `:app:lintDebug` and uploads the report. No detekt/ktlint, but the line was wrong as written |
+>
+> Two consequences beyond the numbers, now documented in both files:
+>
+> - **The two check scripts are not in CI.** `ci.yml` runs `:server:test`,
+>   `:app:lintDebug`, `:app:testDebugUnitTest`, `:app:assembleDebug` — but grep
+>   either workflow for `ps1` and you get nothing. Every row in `CONSTRAINTS.md`
+>   naming `check-boundaries.ps1` or `check-contrast.ps1` is a **manual** gate,
+>   and a violation of either merges green today. Adding them was deliberately
+>   deferred: it changes `.github/workflows/ci.yml`, which is outside a docs
+>   correction.
+> - **`SeededDataViewModelTest` (8) is in the worktree but uncommitted**, so the
+>   worktree measures 174 and `HEAD` measures 166. The ratchet floor is set to
+>   **166** — what the committed tree actually guarantees — and the original
+>   165 -> 174 target moves here when this task's removal proof lands.
+>
+> Per `CONSTRAINTS.md`, a ratchet records what the code guarantees, so setting it
+> to 174 now would have put a floor above the committed count and failed CI on a
+> fresh checkout.
+
+**Description:** `AGENTS.md` states it must be updated in the same change that
+alters the repo, and `CONSTRAINTS.md` says a number moves only when the code
+moves it. Also **prove the screen deletes in one commit** rather than asserting
+it — that claim is load-bearing for a temporary screen, and it costs one
+throwaway branch.
+
+**Acceptance criteria:**
+- [x] `CONSTRAINTS.md:37` and `:95` updated 165 -> 166 in the same commit, and the stale-165 discrepancy (measured 166) corrected rather than carried. Set to 166, not 174 — see the note at the head of this task
+- [ ] **→ Task 7.** `CONSTRAINTS.md:37` and `:95` raised 166 -> 174 once Tasks 1-3 are committed, so the ratchet reaches the measured value
+- [ ] **→ Task 7.** `README.md` "What works" gains one line naming the screen, its purpose as a backend check, and its removal command. The "Not done yet" list is untouched — this is not a gap being closed
+- [x] The stale numbers corrected in the same change: `README.md` 165 -> 174 (worktree) with 109 Kotlin files and ~6,600 `:app` main lines; `AGENTS.md` 165 -> 174 and `HomeViewModelTest` 13 -> 14; `CHANGELOG.md` 165 -> 166 and 13 -> 14, since that entry records the committed state
+- [x] `README.md` and `CONSTRAINTS.md` stop claiming "No CI" and "no lint", and state that the two check scripts are not in CI — verified by grepping both workflows for `ps1`
+- [ ] **→ Task 7.** `AGENTS.md` records the entry point, the two-state behaviour, and the fact that the screen is temporary. *Note: not three-state — see Task 5.*
+- [ ] **→ Task 6.** **Removal proven, not asserted:** on a scratch branch, delete the 4 production files and the 2 insertions, then `:app:compileDebugKotlin` green. Discard the branch
+- [ ] **→ Task 6.** `rg -n "SeededData|seeded_data" app/src` returns exactly 6 files, and no file outside `ui/feature/debug/seededdata/` depends on them
+- [ ] **→ Task 7.** `CHANGELOG.md` `[Unreleased]` gains the entry
+
+**Verification:**
+- [ ] `.\.mdfiles\check-boundaries.ps1` and `.\.mdfiles\check-contrast.ps1` green
+- [ ] `.\gradlew.bat :app:compileDebugKotlin :app:testDebugUnitTest :server:test --console=plain` green
+- [ ] Manual check: `git diff .mdfiles/ README.md` shows only documentation edits
+
+**Dependencies:** Tasks 1, 2, 3 — **superseded by Tasks 4-7 above, which split this in two**
+
+**Files likely touched:**
+- `.mdfiles/CONSTRAINTS.md`
+- `.mdfiles/AGENTS.md`
+- `.mdfiles/CHANGELOG.md`
+- `README.md`
+
+**Estimated scope:** S (4 files, docs only)
+
+---
+
+## Checkpoint D: Complete
+
+- [ ] Server up: rows render, with `DEMO-PRC-0001..0003` licences. **Server stopped: the rows are gone and the empty card appears** — two states, not three (Task 5)
+- [ ] Short press navigates nowhere; long press opens the screen (Task 5)
+- [ ] `:app:testDebugUnitTest` green at 174; `:server:test` green at 50
+- [ ] `check-boundaries.ps1` = 0 violations; `check-contrast.ps1` green, ratchet 4
+- [ ] Removal proven on a scratch branch, not asserted (Task 6)
+- [ ] `CONSTRAINTS.md`, `README.md`, `AGENTS.md`, `CHANGELOG.md` updated in the same commit (Task 7)
+- [ ] The 174 floor reflects a **committed** count, not a worktree count
+- [ ] Every new test mutation-checked: break the code, watch it fail, restore — **2 of 8 done** in Task 1 (`e.toString()`, the `.ifEmpty` fallback)
+- [ ] Ready for review
+
+**Next after this checkpoint:** the doctor-list specialty filter, planned at
+`tasks/SPEC-specialty-filter.md` and held until v3 closes. It is blocked on nothing
+technical — no shared files with v3 — only on this plan finishing.
+
+---
+
+# v2 — Token Lifecycle (Expiry, 401 Handling, Refresh)
+
+> **Archived, not started.** 93 boxes below are open and untouched. `SessionSignal`,
+> `isAuthFailure`, and `Authenticator` return 0 hits across `app/src/main` —
+> verified, not assumed. Pick this up after v3.
+
+Plan: `tasks/plan.md` (archived section). Spec:
+`tasks/SPEC-token-lifecycle.md`. **D2 resolved as re-auth** — no
+`POST /auth/refresh`, no `refresh_token` column, `:server` floor stays at 50.
 
 ---
 

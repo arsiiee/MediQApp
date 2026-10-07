@@ -1,9 +1,167 @@
-# Implementation Plan: Token Lifecycle (Expiry, 401 Handling, Refresh)
+# Implementation Plan: Temporary Seeded-Data Screen (backend verification)
 
-> **Status: active.** Re-auth, not refresh — D2 resolved by the user, so no
-> `POST /auth/refresh` route and no `refresh_token` column. The previous plan
-> (registration + appointment details) is complete and archived at the bottom of
-> this file; its task list is checked off in `tasks/todo.md`.
+> **Status: active.** The previous plan (token lifecycle) is spec'd and planned
+> but **unstarted** — verified, not assumed — and is archived below. Plan v1
+> (registration + appointment details) is complete and archived at the bottom.
+> Task lists for all three live in `tasks/todo.md`.
+>
+> Spec: `tasks/SPEC-seeded-data-screen.md`
+
+## Overview
+
+One question has no single answer today: **is the backend actually working?**
+The seed prints to a console `:server:run` scrolls away, the Doctors tab renders
+an empty list whether the seed ran or the server is down, and "Couldn't reach the
+clinic" reads the same whether Wi-Fi dropped or the base URL points at the wrong
+host.
+
+This adds one temporary screen that calls the live backend through the normal
+repository and reports what came back: the rows that exist, or the specific
+reason there are none. Every value is read over HTTP when the screen opens.
+Nothing is hardcoded — not a doctor, not a count, not a placeholder row.
+
+**This is a temporary verification tool, not a feature.** It has no entry in the
+bottom nav, and Task 4 proves it deletes in one commit.
+
+## Current State (verified against the filesystem, 2026-10-07)
+
+| Fact | Evidence |
+|---|---|
+| The seed works and is invisible | `DemoData.kt` inserts 3 doctors + `demo_patient`; `Main.kt:42-44` gates it on `MEDIQ_SEED_DEMO`; the only evidence is `println` at `DemoData.kt:36,155` |
+| Seeding is already idempotent | `DemoData.kt:26-34` skips when `doctors` has rows, so a restart does not duplicate |
+| `GET /doctors` is public and needs no token | `README.md:406-407`; `Routes.kt` has no auth block on it. Reachable pre-sign-in, which is where the screen is entered |
+| No screen imports `data/` | `check-boundaries.ps1:108` bans it; ratchet `ui-imports-data` = 0. So the base-URL string must be passed in, not imported |
+| `SplashScreen` is the colour-ratchet exemption | `CONSTRAINTS.md:98` — its 4 raw literals measure 6.63:1 and are permitted. Adding a gesture there adds **zero** new literals |
+| `BuildConfig` does not exist | `app/build.gradle.kts:37-39` declares only `compose = true`; `rg BuildConfig` over the tree returns nothing. A debug gate needs a build-file change |
+| Unreachable → empty list is already the contract | `AGENTS.md` Conventions; `RetrofitDoctorRepository` returns an empty `Paged`. Unreachable and empty are **indistinguishable** at this layer |
+| `DoctorQuery` has all-default params | `Requests.kt:11-15` — `DoctorQuery()` is a valid unfiltered query |
+| `:app` baseline is 166 tests | counted at `HEAD` (166 `@Test` across the 11 committed test classes), matching `SPEC-token-lifecycle.md:61`. `CONSTRAINTS.md` floor said 165 — **corrected to 166 on 2026-10-07**; the docs were stale by one, not the tests. With this plan's Task 1 (+8) the worktree measures 174 |
+| `:server` baseline is 50 tests | counted from source; matches `CONSTRAINTS.md:36` |
+
+## Architecture Decisions
+
+Full reasoning is in the spec (D1-D4). The sequencing consequences:
+
+**D1 — no hardcoded rows, anywhere.** The screen is an ordinary consumer of
+`DoctorRepository.getDoctors()`. A hardcoded demo list would render identically
+with the backend dead, so it would report "working" while proving nothing — a
+green light wired to nothing. It would also break `AGENTS.md`'s *"No
+fake/invented data"* rule that `DemoData.kt:19` was written to respect. Task 1's
+seventh test exists solely to catch a fallback list appearing behind the
+repository call.
+
+**D2 — long-press the splash wordmark, 2 seconds.** Zero permanent UI, so
+deletion is 4 lines rather than a hunt. A bottom-nav tab would edit a shared
+component and survive into a release build.
+
+**D3 — no `BuildConfig.DEBUG` gate.** Enabling it costs a build-file change, and
+a gated screen is one nobody tests on release and nobody removes. Removal is
+verified by a command in Task 4 instead.
+
+**D4 — two distinguishable outcomes, and the third is not available.** Unreachable,
+reachable-but-empty, and server-errored: the first two arrive at this layer as the
+*same* `Success(emptyList())`, because `RetrofitDoctorRepository.kt:38-40` absorbs a
+network failure and returns an empty `Paged` — correctly, and as documented in
+`AGENTS.md` for every other screen. So the empty state names both causes and says it
+cannot separate them, instead of guessing one. A wrong guess about a dead backend
+costs a diagnostic pass, which is the trap the base-URL subtitle exists to reduce.
+
+A real third state is available cheaply if wanted: `getDoctor` is a single-entity
+read that propagates `ApiFailure`, and an unknown id 404s, so one extra call is a
+genuine reachability probe. Not done — it is **Ask first** in the spec's Boundaries,
+and this is a temporary screen. Recorded in full under Checkpoint B in `tasks/todo.md`.
+
+### Two traps the tasks must route around
+
+**An eager dispatcher settles an `init` load before the fixture is set.**
+`SeededDataViewModel` loads in `init`, so the test must build it with `by lazy`
+rather than assigning in `setUp`. With `UnconfinedTestDispatcher` the read
+completes first and every assertion reads a settled empty state — a green suite
+asserting nothing. `AGENTS.md`, "Two traps in the ViewModel tests" §1.
+
+**No real suspension point means `LoadState.Loading` never exists observably.**
+The in-flight test needs `FakeDoctorRepository.getDoctorsGate`, a
+`CompletableDeferred` the test completes, per the same section.
+
+## Task List
+
+> **Re-planned 2026-10-07** after a gate run. Tasks 1-3 were already written and
+> green — Task 3 in particular is in the worktree and compiles, which the original
+> plan did not know. What remains is **commit, prove, then document**, in that
+> order. The ordering is load-bearing: the ratchet floor cannot move to 174 until
+> `SeededDataViewModelTest` is committed, and no doc claim gets written before the
+> behaviour it describes has been observed.
+
+### Phase 1: The read path
+- [x] Task 1: `SeededDataViewModel` + 8 tests — done, 174 green, two mutations caught
+- [x] Checkpoint A: read path
+
+### Phase 2: The screen
+- [x] Task 2: `SeededDataScreen` — done, 174 green, contrast ratchet still 4
+
+### Phase 3: The entry point
+- [x] Task 3: route + nav host + splash long-press — **written and compiling, but never run on a device**
+- [ ] Task 4: **commit the v3 code** — `ui/feature/debug/` (new), `SeededDataViewModelTest.kt` (new), and the 4 modified files. No doc edits in this commit.
+- [ ] Task 5: **Checkpoint B + C on the emulator** — the live proof, and the only proof that Task 3's gesture works at runtime
+- [ ] Task 6: **the removal proof** — scratch branch, delete, compile, discard
+- [ ] Task 7: **Task 4's remaining docs** — floor 166 → 174, `AGENTS.md` entry, `README.md` line, `CHANGELOG.md`
+- [ ] Checkpoint D: complete
+
+### Why this order, and not "docs then commit"
+
+`CONSTRAINTS.md` is explicit that a ratchet records **what the committed tree
+guarantees**. The floor says 166 because `HEAD` measures 166; the worktree measures
+174 only because `SeededDataViewModelTest` is untracked. Raising the floor first
+would put the ratchet above the committed count and fail CI on a fresh checkout —
+the exact failure the earlier 166 correction was made to avoid.
+
+And the docs come **last** because three of the four remaining doc claims are
+claims about observed behaviour: that the screen renders rows, that stopping the
+server empties it, and that it deletes in one commit. Writing those before the
+observations is how a "Known gaps" bullet turns into a claim that work was done —
+`AGENTS.md`'s own maintenance rule forbids it.
+
+## Risks and Mitigations
+
+| Risk | Impact | Mitigation |
+|---|---|---|
+| Nobody deletes it, and a demo screen reaches a real patient showing invented doctors as real | High | The exact hazard `AGENTS.md` names. Zero nav-bar presence, a KDoc naming the deletion, and Task 4 proves removal by doing it |
+| A hardcoded fallback list sneaks in behind the repository call | High | Task 1's seventh test asserts the rendered set equals the repository's verbatim. The screen would then report "working" with the backend dead |
+| The screen reads as proof the whole backend is healthy | Medium | The "what this does not prove" table ships as an on-screen footnote — it only exercises `GET /doctors`, pre-auth, no writes |
+| A wrong LAN IP answers from another machine — green screen, wrong server | Medium | The resolved base URL is shown as a subtitle so the host is visible, not assumed (`10.0.2.2` on a physical phone is the recorded trap) |
+| `demo12345` is a credential in the APK | Medium | Already true of `README.md` and stdout. Weak password on a demo-only account, never a real database. Stated in the spec's Boundaries, not hidden |
+| The `:app` ratchet collides with the archived v2 plan, which targets ≥172 | Low | v2 is unstarted, so there is no conflict to resolve — whichever lands second re-measures. This plan targets 174 from a 166 baseline |
+
+## Open Questions
+
+1. **Skip the composable test?** Recommended yes, and do not start that project
+   here — `CONSTRAINTS.md:116` records that no Compose test exists and
+   `ExampleInstrumentedTest` is still a template. The ViewModel carries all the
+   logic; seven ViewModel tests beat one brittle instrumentation test on a screen
+   scheduled for deletion.
+2. **Ratchet numbering — resolved.** This plan targets 174 from a measured 166,
+   which moves `CONSTRAINTS.md:37` off its documented 165. **Done on 2026-10-07,
+   ahead of Task 4:** the stale-165 correction landed at **166**, not 174,
+   because a ratchet records what the committed tree guarantees and
+   `SeededDataViewModelTest` is still uncommitted — a 174 floor would have failed
+   CI on a fresh checkout. The 166 -> 174 step rides along in Task 4's removal
+   proof, when this plan's code is committed.
+
+---
+
+# Archived: Plan v2 — Token Lifecycle (Expiry, 401 Handling, Refresh)
+
+> **Status: planned, never started.** Kept for the decision record; its 93
+> task-list boxes are untouched in `tasks/todo.md`. Archived here on 2026-10-07
+> when the seeded-data screen plan became active — **not because it was
+> abandoned.** Verified unstarted rather than assumed:
+> `SessionSignal`, `isAuthFailure`, and `Authenticator` return **0 hits** across
+> `app/src/main`. It should be picked up after the seeded-data screen, and it is
+> the higher-severity of the two: five screens render an unactionable "Please
+> sign in again", and `POST /appointments` has no idempotency key.
+>
+> Status when active: re-auth, not refresh — D2 resolved by the user, so no
+> `POST /auth/refresh` route and no `refresh_token` column.
 >
 > Spec: `tasks/SPEC-token-lifecycle.md`
 
@@ -186,6 +344,13 @@ This plan closes both. Everything needed already exists on the server side, so
 changes.
 
 ## Current State (verified against the filesystem, not assumed)
+
+> **As of before this plan was executed.** This is the record of what was true
+> when the plan was written — every unchecked box below is preserved on purpose.
+> For the state of the tree today, read `README.md` "Current condition" and
+> `.mdfiles/AGENTS.md`. Two items in this table were the point of the plan and
+> are no longer true: the registration wizard now reaches the backend, and
+> `AppointmentDetailsScreen` loads, cancels, and reschedules.
 
 | Fact | Evidence |
 |---|---|
