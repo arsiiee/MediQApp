@@ -28,3 +28,38 @@ fun clinicDateTime(date: LocalDate, time: LocalTime): Instant =
 
 /** Whether an appointment has already happened, as of [now]. */
 fun Instant.isPast(now: Instant): Boolean = isBefore(now)
+
+private const val MINUTES_PER_DAY = 24 * 60
+
+/**
+ * The next session in [hours] that opens at or after [now], or null when the
+ * doctor has none.
+ *
+ * The doctors list draws `Next open: Tue 09:00` on each row, and this is what
+ * answers it. It reads the weekly [ClinicHours] the list already holds rather
+ * than asking the server, because the alternative is one availability request
+ * per row - an N+1 read on a list, for a value the list already has. The count
+ * the figure also draws (`4 slots`) is deliberately **not** answered here: that
+ * is a count of bookable slots for one date, which only `getAvailability` knows.
+ *
+ * "Next" is measured in the clinic's zone, from its day and time, not the
+ * phone's. A session that has already opened today is next week's - it is not
+ * offered as "next open" while the doctor is mid-clinic - and a session opening
+ * at exactly [now] counts as today's.
+ */
+fun nextClinicSession(hours: List<ClinicHours>, now: Instant): ClinicHours? {
+    if (hours.isEmpty()) return null
+    val nowAtClinic = now.atZone(CLINIC_ZONE)
+    val today = nowAtClinic.dayOfWeek
+    val timeNow = nowAtClinic.toLocalTime()
+
+    return hours.minByOrNull { session ->
+        val daysAhead = (session.dayOfWeek.value - today.value + 7) % 7
+        val minutesAhead = session.opensAt.toSecondOfDay() / 60
+        if (daysAhead == 0 && session.opensAt.isBefore(timeNow)) {
+            (7 * MINUTES_PER_DAY) + minutesAhead
+        } else {
+            daysAhead * MINUTES_PER_DAY + minutesAhead
+        }
+    }
+}

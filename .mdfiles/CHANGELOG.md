@@ -41,6 +41,33 @@ All notable changes to this project will be documented in this file.
   scratch branch rather than asserted. See `AGENTS.md` "The seeded-data screen".
 
 ### Changed
+- **The doctors list now matches figure 3, and each card says when the doctor is
+  next open.** `DoctorsScreen` draws the green app bar with a real result count in
+  its `actions` slot, the pill search box with a clear button, and a card per
+  doctor: avatar, name, `Specialty · N yrs`, the `PRC · <licence>` pill, the fee,
+  the clinic location, and `Next open: Tue 09:00`.
+
+  **`Next open` is derived, not requested.** It comes from the doctor's own weekly
+  `clinicHours` via `nextClinicSession` in `domain/model/ClinicTime.kt`, measured
+  in the clinic's zone, because the alternative is one availability request per
+  row — N+1 reads on a list for a value the list already holds. The `· 4 slots`
+  the figure also draws is deliberately absent: only `getAvailability` knows that
+  count, and a row does not need it. A doctor with no hours shows no line at all,
+  which is figure 3's third card.
+
+  Three token choices are load-bearing and easy to undo by accident. The card fill
+  is `background`, not `surface`, because in light mode `surface` is `#F5F5F5` —
+  the same fill the `PRC` pill uses, so a `surface` card would swallow its own
+  badge. The card border is `outlineVariant`, the figure's hairline role, not the
+  `#8A8A8A` `outline` a control's border needs. And the fee and the loading spinner
+  use `LocalMediQColors.accent`, not `MediQGreen`, because the brand green on
+  `#121212` is ~1.9:1 — a fee nobody can read is not a fee.
+
+  `NextClinicSessionTest` (6) pins the day/time derivation, including the
+  clinic-zone case, so `:app` moves 189 → 195. The bottom bar keeps
+  `Bookings` / `Messages` rather than the figure's `Visits` / `Alerts`, and
+  `Money.format()` still renders whole pesos on the list; both are recorded
+  decisions in `tasks/SPEC-ui-redesign.md`.
 - **Two auth screens now match figures 1 and 2, and the component set gained the
   three parameters they needed to adopt.** `SignInScreen` draws Fig. 1's
   full-bleed green header, its labelled fields, its `#FDECEF` / `#B00020` error

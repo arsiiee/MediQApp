@@ -47,13 +47,13 @@ inferred from the source.
 | App unit tests | `:app:testDebugUnitTest` | 182 pass |
 | Server tests | `:server:test` | 59 pass |
 | Architecture boundaries | `check-boundaries.ps1` | Clean, 54 files |
-| Colour contrast | `check-contrast.ps1` | Clean, 24 token pairs + 6 status chips |
+| Colour contrast | `check-contrast.ps1` | Clean, 31 token pairs + 6 status chips |
 | Runs on a device | `:app:installDebug` + launch | Works on the `mediq_api36` AVD and on a physical phone |
 | Server | `:server:run` | Starts, H2 in-memory |
 | CI | `.github/workflows/ci.yml` | `gates` (both `.mdfiles` check scripts), `:server:test`, `:app:lintDebug`, `:app:testDebugUnitTest`, `:app:assembleDebug` on every push and PR |
 
-**Size:** 113 Kotlin files (~7,700 lines in `:app` main, ~3,800 in `:server`
-including tests), 19 HTTP endpoints, 59 server tests, 189 app unit tests, 15 screens,
+**Size:** 113 Kotlin files (~7,900 lines in `:app` main, ~3,800 in `:server`
+including tests), 19 HTTP endpoints, 59 server tests, 195 app unit tests, 15 screens,
 10 ViewModels.
 
 The `:app` count includes `SeededDataViewModelTest` (8) and
@@ -84,7 +84,9 @@ Verified end to end against a running server on a real device:
   sign in immediately, because `register` returns a session and the app stores it.
 - **Browse doctors** with search and a real specialty filter (one chip per
   specialty plus an "All" chip), and read a doctor's profile, clinic hours, and
-  licence number.
+  licence number. Each result card shows the fee, the clinic location, and when
+  the doctor is next open, derived from their weekly clinic hours rather than
+  fetched per row.
 - **A seeded-data check, temporarily.** Long-press the "MediQ" wordmark on the
   splash screen to open a screen that reads `GET /doctors` live and shows exactly
   what the server returned — the doctors, their licence numbers, and their clinic

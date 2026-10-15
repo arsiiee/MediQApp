@@ -27,17 +27,24 @@ Verify the app with `:app:compileDebugKotlin` (~2s warm, ~3min cold). Full APK: 
 Note the 6 deprecation warnings it prints — see "Toolchain notes". A `:server:run`
 failure naming an Adoptium 17 JVM is the toolchain, not the daemon.
 
-`:app` unit tests — 185, runnable with `.\gradlew.bat :app:testDebugUnitTest`.
+`:app` unit tests — 195, runnable with `.\gradlew.bat :app:testDebugUnitTest`.
 `MediQBottomBarSemanticsTest` is the first real Compose instrumentation test; run
 `.\gradlew.bat :app:connectedDebugAndroidTest` with `mediq_api36` attached (2 tests).
 Count them with `--rerun-tasks`: the task otherwise reports UP-TO-DATE and the
 previous run's XML is still in `app/build/test-results/`, so a stale count reads
-as a skipped suite. `:app` main is ~7,700 lines; `:server` is ~3,800 including
+as a skipped suite. `:app` main is ~7,900 lines; `:server` is ~3,800 including
 its tests.
 
 - `data/api/` — `ApiErrorsTest.kt` (11 tests over error-body parsing),
   `UnknownWireValueTest.kt` (8 pinning how unrecognised wire values resolve), and
   `GsonLeniencyTest.kt` (3 pinning JSON parsing behaviour).
+- `domain/model/NextClinicSessionTest.kt` (6) — the `Next open` line on the
+  doctors list, derived from a doctor's weekly `clinicHours` rather than read per
+  row. Pins that a session later today beats one earlier in the week, that a
+  session already open today is *next week's* rather than a time already past,
+  that the soonest upcoming day wins over the first in the list, that a session
+  opening exactly now counts as today's, and that the day is read in the clinic's
+  zone (`2026-10-15T17:00Z` is Friday at the clinic but Thursday in UTC).
 - `ui/feature/auth/register/RegisterViewModelTest.kt` (22) — the registration
   wizard's validation branches, both failure paths per step, that each step
   actually reaches `AuthRepository`, and that a handled navigation event does not
@@ -446,6 +453,18 @@ the `ui-auth` module - which is also where `MediQBrandTextField` gained its
 `keyboardActions`, `MediQButton` its `loading`, and `MediQInfoCard` its
 tint-matched border, each because adopting the component without it would have
 dropped a `Done`-to-submit, a spinner, or a measured status pair.
+
+`DoctorsScreen` is the third (`ui-doctors`): it draws `MediQBrandAppBar` with the
+result count in its `actions` slot, plus `MediQAvatar` and `MediQDivider`. Three
+details there are deliberate and are the ones a later edit is most likely to
+undo. The card fill is `background`, not `surface` — in light mode `surface` is
+`#F5F5F5`, the same fill the `PRC` pill uses, so a `surface` card would swallow
+its own badge. The card border is `outlineVariant`, the hairline role the figure
+draws, not the `#8A8A8A` `outline` a control's border needs. And the fee and the
+loading spinner use `LocalMediQColors.accent`, not `MediQGreen`, because the
+brand green on `#121212` is ~1.9:1. The pill search box is deliberately its own
+composable rather than `MediQBrandTextField`, which draws a label *above* its box
+because it is a form field; the figure's search box has no label.
 
 Two rules the components carry, both checked by `check-contrast.ps1`:
 `MediQStatusChip` is the single place the six `AppointmentStatus` colours are
