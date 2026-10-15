@@ -104,6 +104,28 @@ All notable changes to this project will be documented in this file.
   kept its exact pair — the literals became tokens with identical values.
 
 ### Fixed
+- **The doctors specialty filter was a lie, and is now real.** `DoctorsScreen`
+  drew a chip labelled "Filter by specialty" whose click handler hardcoded
+  `Specialty.PEDIATRICS`, so the label offered a choice, the behaviour picked one
+  arbitrary answer, and the list silently showed only paediatricians. It is
+  replaced by one chip per `Specialty.entries` plus an "All" chip, so tapping
+  "Dermatology" sends `specialty=dermatology` and nothing else.
+
+  The chip list is the enum, not a `GET /specialties` read: `ReferenceData` seeds
+  the server's `specialties` table from the same enum at every boot, so the two
+  cannot disagree, and a route could only ever return what the app already holds.
+  The ViewModel is unchanged - `onSpecialtySelected` already forwarded whatever it
+  was handed, which is why the four tests pinning it still pass untouched.
+  `DoctorsViewModelTest` goes 24 to 28: the additions cover every enum value
+  forwarded verbatim, a specialty-only query carrying no other filter, toggle
+  off/on re-querying, and a specialty no doctor has landing on
+  `Success(emptyList())` rather than an error. The mutant that sends `PEDIATRICS`
+  for every chip fails exactly those four - confirmed, not assumed.
+
+  "Filter by clinic location" is deliberately **not** fixed here: it is the same
+  bug class one chip over, and `DoctorQuery.building` already works end to end.
+  It stays disabled, called out in `SPEC-specialty-filter.md` rather than quietly
+  left in.
 - **`GET /doctors?search=` ignored the specialty it advertises.** The Doctors
   screen is labelled *"Search doctor name or specialty"*, and the query matched
   `doctors.full_name` and nothing else. A patient who typed "dermatology" got

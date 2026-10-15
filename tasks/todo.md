@@ -7,17 +7,18 @@
 | v1 — registration + appointment details | **Complete**, commits `c9df562`..`24d9ef2` | Close the two "Known gaps" in `.mdfiles/AGENTS.md` |
 | v2 — token lifecycle | **Planned, not started** — 93 boxes below are open | 401 handling, session expiry, corrupt-session recovery |
 | v3 — seeded-data screen | **Complete** 2026-10-07 | One temporary screen that verifies the live backend |
-| v4 — doctor specialty filter | **Spec'd, next** | `DoctorsScreen.kt:89` filters to `PEDIATRICS` no matter which chip is tapped |
+| v4 — doctor specialty filter | **Complete** 2026-10-15 | One chip per `Specialty.entries` plus "All", driven by the real `DoctorQuery.specialty` |
 
-**Active plan:** `tasks/plan.md` → Temporary Seeded-Data Screen (backend
-verification), spec at `tasks/SPEC-seeded-data-screen.md`. **Complete 2026-10-07**
-— re-planned into commit → prove → document, and closed on observed evidence
-throughout. Its removal is proven, not asserted, and the screen is still on the
-branch.
+**Active plan:** the six-screen UI redesign, spec at `tasks/SPEC-ui-redesign.md`
+with one module spec per step (`tasks/SPEC-ui-*.md`). Modules land one commit
+each, both check scripts and the test gate green at every step. `ui-foundation`
+(`529e1d6`, `456b1e6`) and `ui-auth` (`049b717`) are done; `ui-doctors`,
+`ui-scheduling`, and `ui-appointment` remain. v4 above landed first because its
+chips are figure 3's chip row.
 
-**v4 is next.** Spec at `tasks/SPEC-specialty-filter.md`, approved and unblocked
-now that v3 is closed. It touched no file v3 touched. Its floor move is
-**174 + N** — measured after its tests land, not predicted.
+**v4 is complete** (2026-10-15). Spec at `tasks/SPEC-specialty-filter.md`. It
+touched no file v3 touched, and its floor move was measured rather than
+predicted: **189**, from `DoctorsViewModelTest`'s four new tests.
 
 **v2 was archived, not abandoned.** Verified unstarted rather than assumed:
 `SessionSignal`, `isAuthFailure`, and `Authenticator` return 0 hits across

@@ -53,7 +53,7 @@ inferred from the source.
 | CI | `.github/workflows/ci.yml` | `gates` (both `.mdfiles` check scripts), `:server:test`, `:app:lintDebug`, `:app:testDebugUnitTest`, `:app:assembleDebug` on every push and PR |
 
 **Size:** 113 Kotlin files (~7,700 lines in `:app` main, ~3,800 in `:server`
-including tests), 19 HTTP endpoints, 59 server tests, 185 app unit tests, 15 screens,
+including tests), 19 HTTP endpoints, 59 server tests, 189 app unit tests, 15 screens,
 10 ViewModels.
 
 The `:app` count includes `SeededDataViewModelTest` (8) and
@@ -82,7 +82,8 @@ Verified end to end against a running server on a real device:
 - **Registration end to end** — full name, phone number, and date of birth, then
   a one-time code, then username and password. An account created this way can
   sign in immediately, because `register` returns a session and the app stores it.
-- **Browse doctors** with search, and read a doctor's profile, clinic hours, and
+- **Browse doctors** with search and a real specialty filter (one chip per
+  specialty plus an "All" chip), and read a doctor's profile, clinic hours, and
   licence number.
 - **A seeded-data check, temporarily.** Long-press the "MediQ" wordmark on the
   splash screen to open a screen that reads `GET /doctors` live and shows exactly

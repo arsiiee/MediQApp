@@ -332,6 +332,76 @@ class DoctorsViewModelTest {
     }
 
     @Test
+    fun `every specialty is forwarded verbatim, in order`() = testScope.runTest {
+        val viewModel = loadedViewModel()
+
+        Specialty.entries.forEach { specialty ->
+            viewModel.onSpecialtySelected(specialty)
+            advanceUntilIdle()
+        }
+
+        // Six chips, six values, none of them substituted. This is the assertion
+        // that fails against the old `ui/` literal, which sent PEDIATRICS for
+        // every chip regardless of its label.
+        assertEquals(
+            Specialty.entries.toList(),
+            repository.requestedQueries.map { it.specialty },
+        )
+    }
+
+    @Test
+    fun `a specialty-only query carries no other filter`() = testScope.runTest {
+        val viewModel = loadedViewModel()
+
+        viewModel.onSpecialtySelected(Specialty.CARDIOLOGY)
+        advanceUntilIdle()
+
+        // White-box on purpose: the whole query, not just its specialty, so a
+        // stray default in either other field fails here too.
+        assertEquals(
+            DoctorQuery(specialty = Specialty.CARDIOLOGY),
+            repository.requestedQueries.single(),
+        )
+    }
+
+    @Test
+    fun `toggling a specialty off and on re-queries each time`() = testScope.runTest {
+        val viewModel = loadedViewModel()
+
+        viewModel.onSpecialtySelected(Specialty.PEDIATRICS)
+        advanceUntilIdle()
+        viewModel.onSpecialtySelected(null)
+        advanceUntilIdle()
+        viewModel.onSpecialtySelected(Specialty.CARDIOLOGY)
+        advanceUntilIdle()
+
+        // A toggle that only moved the chip row and never re-read would collapse
+        // these three into one query.
+        assertEquals(
+            listOf(Specialty.PEDIATRICS, null, Specialty.CARDIOLOGY),
+            repository.requestedQueries.map { it.specialty },
+        )
+    }
+
+    @Test
+    fun `a specialty with no doctors is an empty success, not an error`() = testScope.runTest {
+        // The seed covers three of the six specialties, so tapping a fourth is one
+        // tap away. An empty read is a Success carrying nothing, never an error:
+        // the empty state names the cause, a red error would blame the patient.
+        repository.doctors = emptyList()
+        val viewModel = loadedViewModel()
+
+        viewModel.onSpecialtySelected(Specialty.ORTHOPEDICS)
+        advanceUntilIdle()
+
+        assertTrue(
+            "an empty specialty is a Success, not an error",
+            viewModel.uiState.value.doctors is LoadState.Success,
+        )
+        assertEquals(emptyList<Doctor>(), doctorsOf(viewModel.uiState.value))
+    }
+
+    @Test
     fun `a query carries the search and the filter together`() = testScope.runTest {
         val viewModel = viewModel()
 

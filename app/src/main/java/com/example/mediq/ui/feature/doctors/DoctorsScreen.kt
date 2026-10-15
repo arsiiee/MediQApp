@@ -5,6 +5,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -22,6 +24,7 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.outlined.PersonSearch
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -43,6 +46,7 @@ import com.example.mediq.core.designsystem.component.EmptyState
 import com.example.mediq.core.designsystem.theme.LocalMediQColors
 import com.example.mediq.core.designsystem.theme.MediQGreen
 import com.example.mediq.core.designsystem.theme.MediQLightGreen
+import com.example.mediq.core.designsystem.theme.MediQOnBrand
 import com.example.mediq.domain.model.Doctor
 import com.example.mediq.domain.model.LoadState
 import com.example.mediq.domain.model.Money
@@ -80,24 +84,10 @@ fun DoctorsScreen(navController: NavController) {
             )
         )
         Spacer(modifier = Modifier.height(16.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            FilterChip(
-                selected = state.selectedSpecialty != null,
-                onClick = {
-                    // Tapping an active chip clears it, so there's a way back to
-                    // the unfiltered list.
-                    val next = if (state.selectedSpecialty != null) null else Specialty.PEDIATRICS
-                    viewModel.onSpecialtySelected(next)
-                },
-                label = { Text("Filter by specialty") }
-            )
-            FilterChip(
-                selected = false,
-                onClick = {},
-                enabled = false,
-                label = { Text("Filter by clinic location") }
-            )
-        }
+        SpecialtyFilterRow(
+            selected = state.selectedSpecialty,
+            onSelect = viewModel::onSpecialtySelected,
+        )
 
         when (val doctors = state.doctors) {
             is LoadState.Loading -> Box(
@@ -144,6 +134,58 @@ fun DoctorsScreen(navController: NavController) {
                     }
                 }
             }
+        }
+    }
+}
+
+/**
+ * One chip per [Specialty], plus an "All" chip that clears the filter.
+ *
+ * The chip list is the enum rather than a server read, and that is deliberate.
+ * `ReferenceData` seeds the server's `specialties` table from the same enum at
+ * every boot, so the two lists cannot disagree - a `GET /specialties` route could
+ * only ever return what the app already holds, at the cost of an endpoint, a DTO,
+ * a repository method, and a loading state for a list that cannot differ. The
+ * labels come from `displayName`, so a chip reads "Dermatology" and the wire value
+ * never reaches the UI.
+ *
+ * "All" is not decoration: the row is seven chips wide, so without it the only
+ * route back to the unfiltered list is to remember which chip is lit. Tapping the
+ * lit chip clears it as well, so both exits exist.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun SpecialtyFilterRow(
+    selected: Specialty?,
+    onSelect: (Specialty?) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    FlowRow(
+        modifier = modifier,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        FilterChip(
+            selected = selected == null,
+            onClick = { onSelect(null) },
+            label = { Text("All") },
+            colors = FilterChipDefaults.filterChipColors(
+                selectedContainerColor = MediQGreen,
+                selectedLabelColor = MediQOnBrand,
+            ),
+        )
+        Specialty.entries.forEach { specialty ->
+            FilterChip(
+                selected = selected == specialty,
+                // Tapping the lit chip clears it, so the filter toggles off
+                // without the "All" chip being the only way back.
+                onClick = { onSelect(if (selected == specialty) null else specialty) },
+                label = { Text(specialty.displayName) },
+                colors = FilterChipDefaults.filterChipColors(
+                    selectedContainerColor = MediQGreen,
+                    selectedLabelColor = MediQOnBrand,
+                ),
+            )
         }
     }
 }

@@ -62,10 +62,10 @@ its tests.
   just taken" rather than a retry instruction, the selection is cleared on success
   but **kept** on failure, and `canSubmit` needs a confirmed tick and a selection.
   The clear-on-success was verified by mutation.
-- `ui/feature/doctors/DoctorsViewModelTest.kt` (24) — the opening load, the
+- `ui/feature/doctors/DoctorsViewModelTest.kt` (28) — the opening load, the
   300 ms search debounce, and two delayed-response regressions: a slow opening
   read must not replace newer search results or flash unfiltered rows while a
-  typed search waits for its debounce. Removing `delay()` was verified by
+  typed search waits for its debounce. Four more cover the specialty filter: every `Specialty.entries` value forwarded verbatim, a specialty-only query carrying no other filter, toggling off and on re-querying each time, and a specialty no doctor has landing on `Success` rather than an error. Removing `delay()` was verified by
   mutation. This file uses `StandardTestDispatcher`, not `MainDispatcherRule` —
   see "Two traps in the ViewModel tests" below.
 - `ui/feature/doctors/DoctorDetailsViewModelTest.kt` (3) — the two delayed-response
