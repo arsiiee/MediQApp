@@ -80,3 +80,57 @@ val MediQSuccess = Color(0xFF2E7D32)
 
 /** 4.67:1 on white. Was #FBC02D, which measured 1.66:1 and was unreadable. */
 val MediQWarning = Color(0xFFB25E00)
+
+// ── On-brand content ────────────────────────────────────────────────────────
+
+/**
+ * Muted content on a brand surface: text that supports the title rather than
+ * leading it. One value serves both surfaces - 5.46:1 on [MediQGreen] and
+ * 8.25:1 on [MediQDarkGreen] - so it needs no dark sibling.
+ */
+val MediQOnBrandMuted = Color(0xFFD7EFE0)
+
+// ── Claimed / unavailable ───────────────────────────────────────────────────
+
+/**
+ * Fill for a slot that is no longer bookable, light mode. [MediQTextSecondary]
+ * on it is 4.84:1. Dark mode reuses [MediQSurfaceVariantDark] through
+ * `MediQExtendedColors.claimedSurface`.
+ *
+ * The fill against white is only 1.32:1, under the 3:1 non-text floor. WCAG
+ * 1.4.11 exempts inactive components and a claimed slot cannot be selected, so
+ * the *fill* stays as drawn; the label inside it is text and is not exempt,
+ * which is why its role is the darker [MediQTextSecondary].
+ */
+val MediQClaimedSurface = Color(0xFFE0E0E0)
+
+// ── Status containers ───────────────────────────────────────────────────────
+// Both halves of each pair are fixed, so a chip keeps one measured ratio in
+// either mode. That is deliberate, and it is also recorded debt: a dark status
+// palette is a design decision, not an oversight. Every pair below is a row in
+// check-contrast.ps1.
+
+/** Warning container. [MediQWarningOnContainer] on it is 5.96:1. */
+val MediQWarningContainer = Color(0xFFFFF8E1)
+
+/**
+ * Content on [MediQWarningContainer]. Deliberately not [MediQWarning]: that
+ * measures 4.41:1 here and fails AA. [MediQWarning] stays what it is - warning
+ * text on the page background, where it is 4.67:1.
+ */
+val MediQWarningOnContainer = Color(0xFF8F5000)
+
+/** Error container. [MediQError] on it is 6.43:1. Also Material `errorContainer`. */
+val MediQErrorContainer = Color(0xFFFDECEF)
+
+/** Info container. [MediQInfoContent] on it is 5.03:1. */
+val MediQInfoContainer = Color(0xFFE3F2FD)
+
+/** Content on [MediQInfoContainer]. */
+val MediQInfoContent = Color(0xFF1565C0)
+
+/** Neutral container: a status whose meaning the app has not resolved. */
+val MediQNeutralContainer = Color(0xFFEEEEEE)
+
+/** Content on [MediQNeutralContainer]. */
+val MediQNeutralContent = Color(0xFF616161)

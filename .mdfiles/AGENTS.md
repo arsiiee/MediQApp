@@ -27,7 +27,7 @@ Verify the app with `:app:compileDebugKotlin` (~2s warm, ~3min cold). Full APK: 
 Note the 6 deprecation warnings it prints — see "Toolchain notes". A `:server:run`
 failure naming an Adoptium 17 JVM is the toolchain, not the daemon.
 
-`:app` unit tests — 182, runnable with `.\gradlew.bat :app:testDebugUnitTest`.
+`:app` unit tests — 185, runnable with `.\gradlew.bat :app:testDebugUnitTest`.
 `MediQBottomBarSemanticsTest` is the first real Compose instrumentation test; run
 `.\gradlew.bat :app:connectedDebugAndroidTest` with `mediq_api36` attached (2 tests).
 Count them with `--rerun-tasks`: the task otherwise reports UP-TO-DATE and the
@@ -68,6 +68,12 @@ its tests.
   typed search waits for its debounce. Removing `delay()` was verified by
   mutation. This file uses `StandardTestDispatcher`, not `MainDispatcherRule` —
   see "Two traps in the ViewModel tests" below.
+- `ui/feature/doctors/DoctorDetailsViewModelTest.kt` (3) — the two delayed-response
+  regressions on the doctor-details screen: a late doctor response must not wipe
+  out the dates it arrived beside, and a late dates response must not wipe out the
+  doctor. Added 2026-10-07 in `2d2343d` with the fix for the stale-slots spinner;
+  it was missing from this inventory until 2026-10-15, which is why the count
+  above read 182 rather than 185.
 - `ui/feature/profile/ProfileViewModelTest.kt` (14) — the stored session reaches
   the state with its real name and not a hardcoded placeholder, an unconnected
   backend is a `Success(null)` rather than an error, and **sign-out navigates away
@@ -595,18 +601,25 @@ they are observations, not planned work, so they are not in `tasks/todo.md`.
   `DoctorDetailsScreen` filters at the call site. Repeating the filter inside the
   composable would let the UI show a slot the ViewModel would then refuse to
   submit — an offered-but-unsubmittable slot, which is worse than not offering it.
-- **Colour literals are still spread across `ui/`, and only `SplashScreen` is
-  exempt.** Every screen has been converted off `Color.White` backgrounds,
-  `Color.Black` text, and `Color.Gray`/`Color.LightGray` metadata, so dark mode
-  is legible — that conversion finished on 2026-10-06, after `ProfileScreen`
-  went first. `check-contrast.ps1` now enforces it rather than trusting anyone
-  to remember: it fails on any page background or app bar hardcoded to
-  `Color.White`, on any token pair below its WCAG threshold, and on more than 4
-  raw colour literals in `ui/`. The 4 it permits are `SplashScreen`'s
-  white-on-brand-green, which measures 6.63:1 in both modes. Prefer
-  `MaterialTheme.colorScheme.*` and `LocalMediQColors.current.*` over literals;
-  a single green cannot clear 4.5:1 on both `#FFFFFF` and `#121212`, which is
-  why the accent is a separate role from `primary`.
+- **Colour literals in `ui/` are down to `SplashScreen`'s 4, and the ratchet now
+  sees hex literals too.** Every screen has been converted off `Color.White`
+  backgrounds, `Color.Black` text, and `Color.Gray`/`Color.LightGray` metadata,
+  so dark mode is legible — that conversion finished on 2026-10-06, after
+  `ProfileScreen` went first. `check-contrast.ps1` enforces it rather than
+  trusting anyone to remember: it fails on any page background or app bar
+  hardcoded to `Color.White`, on any token pair below its WCAG threshold, and on
+  more than 4 raw colour literals in `ui/`. **The pattern matches every
+  `Color(0x…)` literal, not just one hardcoded amber as it did before
+  2026-10-15** — the thirteen sites it then found (twelve status chips in
+  `AppointmentsScreen.kt` and `NotificationsScreen.kt`'s `Color(0xFFF5F5F5)`) are
+  now named tokens in `Color.kt`, so the floor stayed 4 while the bar widened. It
+  still does **not** catch `Color(red =, green =, blue =)`, indirect
+  construction, `.copy(alpha = …)`, or a literal on a line that is entirely a
+  comment. The 4 it permits are `SplashScreen`'s white-on-brand-green, which
+  measures 6.63:1 in both modes. Prefer `MaterialTheme.colorScheme.*` and
+  `LocalMediQColors.current.*` over literals; a single green cannot clear 4.5:1
+  on both `#FFFFFF` and `#121212`, which is why the accent is a separate role
+  from `primary`.
 - **H2 in-memory by default.** Fine for development, wrong for real patients. `MEDIQ_JDBC_URL` must point at Postgres, and `ServerConfig.validate()` refuses H2 when `MEDIQ_ENV=production`.
 - **`schema.sql` is applied at boot, not migrated.** It is all `CREATE TABLE IF NOT EXISTS`, safe on an existing database but not a migration tool. Once real data exists, move to Flyway before changing a column.
 - **Release build has R8/minification disabled** (`optimization { enable = false }`).

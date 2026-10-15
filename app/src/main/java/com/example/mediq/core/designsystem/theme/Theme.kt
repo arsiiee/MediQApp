@@ -35,18 +35,22 @@ data class MediQExtendedColors(
     val secondaryText: Color,
     /** 1dp borders and dividers. */
     val outline: Color,
+    /** Fill for a slot that is no longer bookable. */
+    val claimedSurface: Color,
 )
 
 val LightExtendedColors = MediQExtendedColors(
     accent = MediQAccentLight,
     secondaryText = MediQTextSecondary,
     outline = MediQOutline,
+    claimedSurface = MediQClaimedSurface,
 )
 
 val DarkExtendedColors = MediQExtendedColors(
     accent = MediQAccentDark,
     secondaryText = MediQTextSecondaryDark,
     outline = MediQOutlineDark,
+    claimedSurface = MediQSurfaceVariantDark,
 )
 
 val LocalMediQColors = staticCompositionLocalOf { LightExtendedColors }
@@ -77,7 +81,12 @@ private val DarkColorScheme = darkColorScheme(
     outline = MediQOutlineDark,
     outlineVariant = Color(0xFF49454F),
     error = MediQErrorDark,
-    onError = Color(0xFF3A0708)
+    onError = Color(0xFF3A0708),
+    // Fixed in both modes on purpose, matching the status chips: a dark status
+    // palette is a design decision, and CONSTRAINTS.md carries it as known debt
+    // rather than a bug. MediQError on MediQErrorContainer is 6.43:1.
+    errorContainer = MediQErrorContainer,
+    onErrorContainer = MediQError
 )
 
 private val LightColorScheme = lightColorScheme(
@@ -102,7 +111,9 @@ private val LightColorScheme = lightColorScheme(
     outline = MediQOutline,
     outlineVariant = Color(0xFFD9D9D9),
     error = MediQError,
-    onError = MediQOnBrand
+    onError = MediQOnBrand,
+    errorContainer = MediQErrorContainer,
+    onErrorContainer = MediQError
 )
 
 @Composable

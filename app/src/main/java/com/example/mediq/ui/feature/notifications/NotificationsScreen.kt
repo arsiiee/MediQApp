@@ -30,7 +30,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -39,6 +38,7 @@ import androidx.navigation.NavController
 import com.example.mediq.core.designsystem.component.EmptyState
 import com.example.mediq.core.designsystem.theme.LocalMediQColors
 import com.example.mediq.core.designsystem.theme.MediQLightGreen
+import com.example.mediq.core.designsystem.theme.MediQSurface
 import com.example.mediq.domain.model.LoadState
 import com.example.mediq.domain.model.Notification
 import com.example.mediq.domain.model.toClinicDate
@@ -119,7 +119,7 @@ private fun NotificationRow(notification: Notification) {
             .fillMaxWidth()
             .padding(vertical = 4.dp),
         shape = RoundedCornerShape(12.dp),
-        color = if (isUnread) MediQLightGreen else Color(0xFFF5F5F5),
+        color = if (isUnread) MediQLightGreen else MediQSurface,
     ) {
         Row(
             modifier = Modifier.padding(12.dp),

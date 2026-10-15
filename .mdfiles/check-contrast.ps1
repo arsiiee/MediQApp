@@ -8,10 +8,11 @@
 # this repo's recurring failure; this script is the check.
 #
 # This script PARSES the real token values out of Color.kt and the real status
-# chip pairs out of AppointmentsScreen.kt. It deliberately does not keep its own
-# copy of the hex codes: a version that measured a hardcoded list passed clean
-# while MediQTextSecondary was reverted to a failing #757575, which is a check
-# that lies. Change a token, and this reports the new number.
+# chip pairs out of AppointmentsScreen.kt, resolving both through Get-Token. It
+# deliberately does not keep its own copy of the hex codes: a version that
+# measured a hardcoded list passed clean while MediQTextSecondary was reverted to
+# a failing #757575, which is a check that lies. Change a token, and this reports
+# the new number.
 #
 # Ratios use the WCAG 2.1 relative-luminance formula. Run after touching
 # anything in core/designsystem/theme/.
@@ -99,7 +100,11 @@ foreach ($n in @(
     'MediQTextPrimary', 'MediQTextSecondary', 'MediQTextSecondaryDark',
     'MediQBackground', 'MediQSurface', 'MediQSurfaceVariantDark', 'MediQContainerDark',
     'MediQOutline', 'MediQOutlineDark',
-    'MediQError', 'MediQErrorDark', 'MediQSuccess', 'MediQWarning'
+    'MediQError', 'MediQErrorDark', 'MediQSuccess', 'MediQWarning',
+    'MediQOnBrandMuted', 'MediQClaimedSurface',
+    'MediQWarningContainer', 'MediQWarningOnContainer', 'MediQErrorContainer',
+    'MediQInfoContainer', 'MediQInfoContent',
+    'MediQNeutralContainer', 'MediQNeutralContent'
 )) { $t[$n] = Get-Token $n $colorSrc }
 
 $dark  = @{}
@@ -134,7 +139,14 @@ $rows = @(
     @{ n = 'dark outline';               fg = $t.MediQOutlineDark;      bg = $dark.background;  min = 3.0 },
     @{ n = 'dark outline on surface';    fg = $t.MediQOutlineDark;      bg = $dark.surface;     min = 3.0 },
     @{ n = 'success on background';      fg = $t.MediQSuccess;          bg = $light.background; min = 4.5 },
-    @{ n = 'warning on background';      fg = $t.MediQWarning;          bg = $light.background; min = 4.5 }
+    @{ n = 'warning on background';      fg = $t.MediQWarning;          bg = $light.background; min = 4.5 },
+    @{ n = 'muted on brand surface';     fg = $t.MediQOnBrandMuted;     bg = $t.MediQGreen;     min = 4.5 },
+    @{ n = 'muted on deep brand';        fg = $t.MediQOnBrandMuted;     bg = $t.MediQDarkGreen; min = 4.5 },
+    @{ n = 'claimed slot label';         fg = $t.MediQTextSecondary;    bg = $t.MediQClaimedSurface; min = 4.5 },
+    @{ n = 'warning on container';       fg = $t.MediQWarningOnContainer; bg = $t.MediQWarningContainer; min = 4.5 },
+    @{ n = 'error on container';         fg = $t.MediQError;            bg = $t.MediQErrorContainer; min = 4.5 },
+    @{ n = 'info on container';          fg = $t.MediQInfoContent;      bg = $t.MediQInfoContainer; min = 4.5 },
+    @{ n = 'neutral on container';       fg = $t.MediQNeutralContent;   bg = $t.MediQNeutralContainer; min = 4.5 }
 )
 
 foreach ($r in $rows) {
@@ -146,18 +158,22 @@ foreach ($r in $rows) {
 }
 
 # ---------------------------------------------------------------------------
-# 2. Status chip pairs, read from AppointmentsScreen.kt.
+# 2. Status chip pairs, read from AppointmentsScreen.kt as token references.
+#    These were `Color(0x...)` literals until 2026-10-15. They are named tokens
+#    now, so each half resolves through Get-Token and a typo'd name fails as a
+#    missing token rather than silently measuring nothing.
 # ---------------------------------------------------------------------------
 
 $apptSrc = Get-Content "$src/ui/feature/appointments/AppointmentsScreen.kt" -Raw
-$chips = [regex]::Matches($apptSrc, 'AppointmentStatus\.(\w+)\s*->\s*Color\(0x([0-9A-Fa-f]{8})\)\s*to\s*Color\(0x([0-9A-Fa-f]{8})\)')
+$chips = [regex]::Matches($apptSrc, 'AppointmentStatus\.(\w+)\s*->\s*(\w+) to (\w+)')
 if ($chips.Count -eq 0) {
     $violations += 'chips      no status chip pairs found in AppointmentsScreen.kt'
 }
 foreach ($c in $chips) {
     # The source reads `container to label`, so the label is the foreground.
-    $bg = '#' + $c.Groups[2].Value.Substring(2, 6)
-    $fg = '#' + $c.Groups[3].Value.Substring(2, 6)
+    $bg = Get-Token $c.Groups[2].Value $colorSrc
+    $fg = Get-Token $c.Groups[3].Value $colorSrc
+    if ($null -eq $bg -or $null -eq $fg) { continue }
     $ratio = Get-Contrast $fg $bg
     if ($ratio -lt 4.5) {
         $violations += "contrast  status chip $($c.Groups[1].Value): $fg on $bg = $ratio, needs 4.5"
@@ -170,11 +186,19 @@ foreach ($c in $chips) {
 #    ties them to a token, so nothing measures them. The floor is 4, all in
 #    SplashScreen, where white sits on the brand green at 6.63:1 and the pairing
 #    is correct in both modes. New ones must earn their place.
+#
+#    The pattern matches every `Color(0x...)` literal, not just one hardcoded
+#    amber as it did before 2026-10-15. The floor did not move when the pattern
+#    widened because the thirteen literals it now sees - twelve status chips and
+#    one notification tint - became tokens in the same change. What it still does
+#    NOT catch, and must not be described as catching: `Color(red =, green =,
+#    blue =)`, indirect construction, `.copy(alpha = ...)`, and a literal on a
+#    line that is entirely a comment.
 # ---------------------------------------------------------------------------
 
 $ratchet = 4
 $raw = Get-ChildItem "$src/ui" -Recurse -Filter *.kt |
-    Select-String -Pattern 'Color\.(Gray|LightGray|DarkGray|White|Black)|Color\(0xFFD32F2F\)' |
+    Select-String -Pattern 'Color\.(Gray|LightGray|DarkGray|White|Black)|Color\(0x[0-9A-Fa-f]{8}\)' |
     Where-Object { $_.Line -notmatch '^\s*//' }
 
 if ($raw.Count -gt $ratchet) {

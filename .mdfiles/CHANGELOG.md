@@ -29,6 +29,31 @@ All notable changes to this project will be documented in this file.
   getter is dead once the screen is gone — and the deletion was proven on a
   scratch branch rather than asserted. See `AGENTS.md` "The seeded-data screen".
 
+### Changed
+- **The design system gained a `ui-foundation` token layer, and the raw-colour
+  ratchet now sees hex literals.** Nine values the six
+  `docs/final-project/assets/ui-0*.svg` figures call for — the placeholder and
+  hint greys, the claimed-slot fill, on-brand muted text, and the
+  info/warning/error/neutral status containers — are named tokens in `Color.kt`,
+  each carrying its measured WCAG ratio in the comment above it.
+
+  The gate is the part that matters. `check-contrast.ps1` matched five named
+  constants plus one hardcoded amber, so an arbitrary `Color(0xFF00FF00)` passed
+  it. It now matches **every** `Color(0x…)` literal, and the thirteen such sites
+  in `ui/` — the twelve status chips in `AppointmentsScreen.kt` and
+  `NotificationsScreen.kt`'s `Color(0xFFF5F5F5)` — became tokens in the same
+  change, so the floor stayed 4 while the bar widened. `CONSTRAINTS.md`'s "the
+  ratchet is narrower than it reads" row records what the widened pattern still
+  misses.
+- **`errorContainer` and `onErrorContainer` were the two `ColorScheme` slots the
+  theme left unset**, so anything reading them got the Material baseline rather
+  than the brand pair. They are now `MediQErrorContainer` / `MediQError`, the
+  same pair the cancelled and declined chips use.
+- **One status chip changed colour, deliberately.** CANCELLED and DECLINED drew
+  `#C62828` on `#FFEBEE` (4.92:1) from two separate literals; they now share
+  `MediQErrorContainer`/`MediQError`, which measures 6.43:1. Every other chip
+  kept its exact pair — the literals became tokens with identical values.
+
 ### Fixed
 - **`GET /doctors?search=` ignored the specialty it advertises.** The Doctors
   screen is labelled *"Search doctor name or specialty"*, and the query matched
