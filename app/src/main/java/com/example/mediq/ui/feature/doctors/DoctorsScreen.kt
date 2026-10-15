@@ -55,9 +55,9 @@ import com.example.mediq.core.designsystem.theme.MediQOnBrand
 import com.example.mediq.core.designsystem.theme.MediQOnBrandMuted
 import com.example.mediq.domain.model.Doctor
 import com.example.mediq.domain.model.LoadState
-import com.example.mediq.domain.model.Money
 import com.example.mediq.domain.model.Specialty
 import com.example.mediq.domain.model.nextClinicSession
+import com.example.mediq.ui.format.format
 import com.example.mediq.ui.navigation.Screen
 import java.time.DayOfWeek
 import java.time.Instant
@@ -378,6 +378,3 @@ private val TIME_OF_DAY: DateTimeFormatter =
 
 /** "Tue" - the figure's day label, fixed to English rather than the phone's locale. */
 private fun DayOfWeek.shortLabel(): String = getDisplayName(TextStyle.SHORT, Locale.ENGLISH)
-
-/** Formats centavos as whole pesos. Lives here because display is the UI's job. */
-private fun Money.format(): String = "\u20b1$pesos"

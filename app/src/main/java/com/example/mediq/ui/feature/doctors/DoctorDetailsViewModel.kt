@@ -9,6 +9,7 @@ import com.example.mediq.di.AppContainer
 import com.example.mediq.domain.model.ApiFailure
 import com.example.mediq.domain.model.AvailableDate
 import com.example.mediq.domain.model.BackendNotConnectedException
+import com.example.mediq.domain.model.CLINIC_ZONE
 import com.example.mediq.domain.model.Doctor
 import com.example.mediq.domain.model.LoadState
 import com.example.mediq.domain.model.TimeSlot
@@ -23,14 +24,40 @@ import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.YearMonth
 
+/**
+ * [today] is the date at the clinic, not on the phone, and [month] is the month
+ * the picker is showing.
+ *
+ * Both are in the state rather than read from the clock inside a getter, so the
+ * state stays a pure function of itself. A `currentMonth` getter that called
+ * `LocalDate.now()` would answer differently a second later, would make
+ * `canGoToPreviousMonth` untestable without moving the real clock, and is the
+ * same shape as the `BookingUiState.canSubmit` bug `AGENTS.md` calls out.
+ */
 data class DoctorDetailsUiState(
     val doctor: LoadState<Doctor> = LoadState.Loading,
+    val today: LocalDate = LocalDate.now(CLINIC_ZONE),
+    val month: YearMonth = YearMonth.from(today),
     val availableDates: LoadState<List<AvailableDate>> = LoadState.Loading,
     val selectedDate: LocalDate? = null,
     val slots: LoadState<List<TimeSlot>> = LoadState.Loading,
     val selectedSlot: TimeSlot? = null,
 ) {
     val canContinue: Boolean get() = selectedSlot != null
+
+    /** The clinic's own month, which is the earliest month worth looking at. */
+    val currentMonth: YearMonth get() = YearMonth.from(today)
+
+    /**
+     * A month already gone holds only dates that cannot be booked, so the stepper
+     * stops here.
+     *
+     * There is deliberately no matching ceiling. A month the doctor never works
+     * comes back from the server as an empty list, which is a truthful answer; an
+     * invented "no further than N months" rule would be a guess that silently
+     * hides real availability.
+     */
+    val canGoToPreviousMonth: Boolean get() = month.isAfter(currentMonth)
 }
 
 /**
@@ -39,6 +66,11 @@ data class DoctorDetailsUiState(
  * Selecting a date fetches that date's slots. The previous fetch is cancelled
  * first, so a slow request for an earlier date cannot overwrite the slots for
  * the date the user is actually looking at.
+ *
+ * The visible month is steppable. `getAvailableDates` was only ever asked about
+ * `YearMonth.now()`, so a doctor's next month could not be seen and, once the
+ * month rolled over, there was no way back — the gap `SPEC-ui-redesign` item 6
+ * records. Stepping re-reads availability for the month now on screen.
  */
 class DoctorDetailsViewModel(
     private val doctorRepository: DoctorRepository,
@@ -49,10 +81,11 @@ class DoctorDetailsViewModel(
     val uiState: StateFlow<DoctorDetailsUiState> = _uiState.asStateFlow()
 
     private var slotsJob: Job? = null
+    private var datesJob: Job? = null
 
     init {
         loadDoctor()
-        loadAvailableDates()
+        datesJob = viewModelScope.launch { loadAvailableDates(_uiState.value.month) }
     }
 
     fun onDateSelected(date: LocalDate) {
@@ -67,6 +100,32 @@ class DoctorDetailsViewModel(
 
     fun onSlotSelected(slot: TimeSlot) {
         _uiState.value = _uiState.value.copy(selectedSlot = slot)
+    }
+
+    /** One month back, or nothing at all when the picker is already on this one. */
+    fun onPreviousMonth() {
+        val state = _uiState.value
+        if (!state.canGoToPreviousMonth) return
+        showMonth(state.month.minusMonths(1))
+    }
+
+    fun onNextMonth() = showMonth(_uiState.value.month.plusMonths(1))
+
+    private fun showMonth(month: YearMonth) {
+        _uiState.update {
+            it.copy(
+                month = month,
+                // The date and the slot that were chosen belong to the month being
+                // left, so they are not in the list about to arrive. Keeping them
+                // would leave Continue enabled and booking the wrong day.
+                selectedDate = null,
+                selectedSlot = null,
+                slots = LoadState.Loading,
+                availableDates = LoadState.Loading,
+            )
+        }
+        datesJob?.cancel()
+        datesJob = viewModelScope.launch { loadAvailableDates(month) }
     }
 
     private fun loadDoctor() {
@@ -91,24 +150,27 @@ class DoctorDetailsViewModel(
         }
     }
 
-    private fun loadAvailableDates() {
-        viewModelScope.launch {
-            val result = try {
-                val dates = if (doctorId == null) {
-                    emptyList()
-                } else {
-                    doctorRepository.getAvailableDates(doctorId, YearMonth.now().atDay(1))
-                }
-                LoadState.Success(dates)
-            } catch (e: BackendNotConnectedException) {
-                LoadState.Success(emptyList())
-            } catch (e: ApiFailure) {
-                LoadState.Error(e.message)
-            } catch (e: Exception) {
-                LoadState.Error("Couldn't load available dates.")
+    private suspend fun loadAvailableDates(month: YearMonth) {
+        // Same shape as loadSlots: compute first, assign atomically. The previous
+        // form evaluated `_uiState.value` before the suspend, so a slow response
+        // could resurrect the month the user had already stepped away from.
+        val result = try {
+            val dates = if (doctorId == null) {
+                emptyList()
+            } else {
+                doctorRepository.getAvailableDates(doctorId, month.atDay(1))
             }
-            _uiState.update { it.copy(availableDates = result) }
+            LoadState.Success(dates)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: BackendNotConnectedException) {
+            LoadState.Success(emptyList())
+        } catch (e: ApiFailure) {
+            LoadState.Error(e.message)
+        } catch (e: Exception) {
+            LoadState.Error("Couldn't load available dates.")
         }
+        _uiState.update { it.copy(availableDates = result) }
     }
 
     private suspend fun loadSlots(date: LocalDate) {

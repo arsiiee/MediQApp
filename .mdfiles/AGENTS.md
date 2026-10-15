@@ -427,7 +427,7 @@ Rules that are easy to break:
 
 ## Conventions
 
-- **Money is `Money` (centavos, `Long`)** — never `Int` pesos, never a formatted string. Formatting to `₱` happens in the UI (`Money.format()` in `DoctorsScreen.kt` is the pattern).
+- **Money is `Money` (centavos, `Long`)** — never `Int` pesos, never a formatted string. Formatting to `₱` happens in the UI, in `ui/format/MoneyFormat.kt`: use `Money.format()` (`₱850`) for a list row and `Money.formatWithCentavos()` (`₱850.00`) for a fee card, a confirmation, or a detail row. One home, so two screens cannot format the same amount differently.
 - **Instants are `Instant`, displayed via `toClinicDate()` / `toClinicTime()`** from `domain/model/ClinicTime.kt`. Clinic zone is pinned to `Asia/Manila` via `CLINIC_ZONE` — do not use device-local zone.
 - **Enum wire values are explicit** (`AppointmentStatus(wireValue = "confirmed")`). Sending the enum name leaks the constant name into the API contract.
 - **No fake/invented data.** All hardcoded mock data was deliberately removed. `EmptyRepositories.kt` returns empty lists and throws `BackendNotConnectedException` for writes. Do not reintroduce placeholder doctors, appointments, or personal details — this is a real-patient app and fabricated records with plausible licence numbers get mistaken for real ones.
@@ -617,8 +617,9 @@ they are observations, not planned work, so they are not in `tasks/todo.md`.
 - **Reschedule searches the current month only.** `AppointmentDetailsViewModel`
   opens its picker on `YearMonth.now().atDay(1)` with no month stepper, so an
   appointment next month cannot be moved earlier, and once the month rolls over
-  there is no way back. `DoctorDetailsViewModel` has the identical limit, so a
-  month stepper is one change in two ViewModels.
+  there is no way back. **Half closed:** `DoctorDetailsViewModel` now carries the
+  stepper in its state (ui-scheduling); the reschedule picker still does not, so
+  this note stands for that one ViewModel.
 - **A cancel reloads the appointment; a reschedule request deliberately does
   not.** Cancelling deletes the `slot_claims` row to free the slot and only the
   server can change the status, so `AppointmentDetailsViewModel.cancel()` calls

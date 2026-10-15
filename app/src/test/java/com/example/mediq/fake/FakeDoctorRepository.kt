@@ -41,6 +41,15 @@ class FakeDoctorRepository : DoctorRepository {
     val requestedDates = mutableListOf<LocalDate>()
 
     /**
+     * The first day of every month an availability read asked about, in order.
+     *
+     * [requestedDoctorIds] cannot answer this: the month stepper holds the doctor
+     * still and changes only the month, so a test needs the month to tell a
+     * re-read apart from a repeat of the same request.
+     */
+    val requestedMonths = mutableListOf<LocalDate>()
+
+    /**
      * Every `getDoctors` query, in order.
      *
      * A separate list from [requestedDoctorIds] on purpose: that one records
@@ -83,6 +92,7 @@ class FakeDoctorRepository : DoctorRepository {
 
     override suspend fun getAvailableDates(doctorId: String, month: LocalDate): List<AvailableDate> {
         requestedDoctorIds += doctorId
+        requestedMonths += month
         return availableDates.also { availableDatesError?.let { e -> throw e } }
     }
 
