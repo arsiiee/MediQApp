@@ -1,8 +1,10 @@
 package com.example.mediq.core.designsystem.component
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -25,6 +27,11 @@ enum class MediQButtonVariant { Primary, Outline }
  * the theme's `primary` cannot lighten in dark mode - see `MediQExtendedColors`.
  * The outlined variant draws its label and border in the mode-dependent accent so
  * it stays legible on either page background.
+ *
+ * [loading] swaps the label for a spinner and disables the button. It lives here
+ * because it is part of the app's button vocabulary: a screen that renders
+ * `isLoading` must keep doing so, and a component that offered only a `String`
+ * would silently drop that state.
  */
 @Composable
 fun MediQButton(
@@ -33,38 +40,56 @@ fun MediQButton(
     modifier: Modifier = Modifier,
     variant: MediQButtonVariant = MediQButtonVariant.Primary,
     enabled: Boolean = true,
+    loading: Boolean = false,
 ) {
+    val interactive = enabled && !loading
     when (variant) {
         MediQButtonVariant.Primary -> Button(
             onClick = onClick,
             modifier = modifier,
-            enabled = enabled,
+            enabled = interactive,
             colors = ButtonDefaults.buttonColors(
                 containerColor = MediQGreen,
                 contentColor = MediQOnBrand,
             ),
         ) {
-            Text(
-                text = text,
-                style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.SemiBold,
-            )
+            if (loading) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(24.dp),
+                    color = MediQOnBrand,
+                    strokeWidth = 2.dp,
+                )
+            } else {
+                Text(
+                    text = text,
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.SemiBold,
+                )
+            }
         }
 
         MediQButtonVariant.Outline -> OutlinedButton(
             onClick = onClick,
             modifier = modifier,
-            enabled = enabled,
+            enabled = interactive,
             colors = ButtonDefaults.outlinedButtonColors(
                 contentColor = LocalMediQColors.current.accent,
             ),
             border = BorderStroke(1.dp, LocalMediQColors.current.accent),
         ) {
-            Text(
-                text = text,
-                style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.SemiBold,
-            )
+            if (loading) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(24.dp),
+                    color = LocalMediQColors.current.accent,
+                    strokeWidth = 2.dp,
+                )
+            } else {
+                Text(
+                    text = text,
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.SemiBold,
+                )
+            }
         }
     }
 }

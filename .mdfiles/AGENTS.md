@@ -32,7 +32,7 @@ failure naming an Adoptium 17 JVM is the toolchain, not the daemon.
 `.\gradlew.bat :app:connectedDebugAndroidTest` with `mediq_api36` attached (2 tests).
 Count them with `--rerun-tasks`: the task otherwise reports UP-TO-DATE and the
 previous run's XML is still in `app/build/test-results/`, so a stale count reads
-as a skipped suite. `:app` main is ~7,600 lines; `:server` is ~3,800 including
+as a skipped suite. `:app` main is ~7,700 lines; `:server` is ~3,800 including
 its tests.
 
 - `data/api/` — `ApiErrorsTest.kt` (11 tests over error-body parsing),
@@ -441,7 +441,11 @@ ratio), `Type.kt`, and `Theme.kt` (`MediQExtendedColors`, read through
 mockups are drawn against - `MediQBrandAppBar`, `MediQBrandTextField`,
 `MediQButton`, `MediQAvatar`, `MediQInfoCard`, `MediQStatusChip`, `MediQSlotChip`,
 `MediQKeyValueGrid`, `MediQDivider`. A screen restyle adopts these rather than
-re-deriving them.
+re-deriving them. `SignInScreen` and `RegisterOTPScreen` were the first two to, in
+the `ui-auth` module - which is also where `MediQBrandTextField` gained its
+`keyboardActions`, `MediQButton` its `loading`, and `MediQInfoCard` its
+tint-matched border, each because adopting the component without it would have
+dropped a `Done`-to-submit, a spinner, or a measured status pair.
 
 Two rules the components carry, both checked by `check-contrast.ps1`:
 `MediQStatusChip` is the single place the six `AppointmentStatus` colours are
@@ -651,7 +655,7 @@ they are observations, not planned work, so they are not in `tasks/todo.md`.
 - `TabRowDefaults.Indicator` is deprecated → use `PrimaryTabRow`. Note `SecondaryIndicator` does **not** exist in this BOM version even though the deprecation message suggests it.
 - `Theme.kt` uses the deprecated `statusBarColor`, and 5 call sites use the
   deprecated `KeyboardOptions(capitalization, autoCorrect, …)` constructor
-  (`RegisterCredentialsScreen.kt:91,115,143`, `SignInScreen.kt:107,134`) — **6
+  (`RegisterCredentialsScreen.kt:91,115,143`, `SignInScreen.kt:109,133`) — **6
   warnings, not 1**. Only `--warning-mode all` shows them individually; the
   default prints one line about deprecated Gradle features and names none of
   them. The `KeyboardOptions` one wants the new `autoCorrectEnabled` parameter.

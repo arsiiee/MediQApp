@@ -3,6 +3,7 @@ package com.example.mediq.core.designsystem.component
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -18,13 +19,15 @@ import com.example.mediq.core.designsystem.theme.LocalMediQColors
 /**
  * The one text field: a label above the box, an optional placeholder and icons.
  *
- * It takes [keyboardOptions] as a parameter rather than hiding them, which keeps
- * the secret path explicit - a caller that passes
+ * It takes [keyboardOptions] and [keyboardActions] as parameters rather than
+ * hiding them, which keeps the secret path explicit - a caller that passes
  * `PasswordVisualTransformation` must also pass `KeyboardType.Password` and
  * `autoCorrectEnabled = false`, and `check-boundaries.ps1` Rule 4 fails the build
  * when it does not. That rule exists because a masked field built on
  * `KeyboardOptions.Default` let Android rewrite a correct password as it was
- * typed.
+ * typed. [keyboardActions] is here for the same reason in reverse: a caller that
+ * submits a form from the keyboard's `Done` key must be able to say so, or
+ * adopting this field would quietly drop that behaviour.
  */
 @Composable
 fun MediQBrandTextField(
@@ -37,6 +40,7 @@ fun MediQBrandTextField(
     trailingIcon: @Composable (() -> Unit)? = null,
     visualTransformation: VisualTransformation = VisualTransformation.None,
     keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
+    keyboardActions: KeyboardActions = KeyboardActions.Default,
     singleLine: Boolean = true,
     enabled: Boolean = true,
 ) {
@@ -65,6 +69,7 @@ fun MediQBrandTextField(
             trailingIcon = trailingIcon,
             visualTransformation = visualTransformation,
             keyboardOptions = keyboardOptions,
+            keyboardActions = keyboardActions,
             singleLine = singleLine,
             enabled = enabled,
         )

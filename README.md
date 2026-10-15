@@ -52,8 +52,8 @@ inferred from the source.
 | Server | `:server:run` | Starts, H2 in-memory |
 | CI | `.github/workflows/ci.yml` | `gates` (both `.mdfiles` check scripts), `:server:test`, `:app:lintDebug`, `:app:testDebugUnitTest`, `:app:assembleDebug` on every push and PR |
 
-**Size:** 113 Kotlin files (~6,900 lines in `:app` main, ~3,800 in `:server`
-including tests), 19 HTTP endpoints, 59 server tests, 182 app unit tests, 15 screens,
+**Size:** 113 Kotlin files (~7,700 lines in `:app` main, ~3,800 in `:server`
+including tests), 19 HTTP endpoints, 59 server tests, 185 app unit tests, 15 screens,
 10 ViewModels.
 
 The `:app` count includes `SeededDataViewModelTest` (8) and
@@ -281,7 +281,7 @@ app/src/main/java/com/example/mediq/
   di/AppContainer        object; the single place wiring is edited
   ui/feature/<area>/     Screen + ViewModel pairs
   ui/navigation/         Routes.kt (sealed class Screen), MediQNavHost
-  core/designsystem/     theme, EmptyState, MediQBottomBar
+  core/designsystem/     theme, EmptyState, MediQBottomBar + 9 shared components
 
 server/src/main/kotlin/com/example/mediq/server/
   Db.kt                  Hikari pool, schema.sql bootstrap, tx() helper, ServerConfig

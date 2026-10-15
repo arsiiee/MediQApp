@@ -41,6 +41,34 @@ All notable changes to this project will be documented in this file.
   scratch branch rather than asserted. See `AGENTS.md` "The seeded-data screen".
 
 ### Changed
+- **Two auth screens now match figures 1 and 2, and the component set gained the
+  three parameters they needed to adopt.** `SignInScreen` draws Fig. 1's
+  full-bleed green header, its labelled fields, its `#FDECEF` / `#B00020` error
+  banner carrying the server's own sentence, and its pill button;
+  `RegisterOTPScreen` draws Fig. 2's app bar and six code boxes. `MediQBrandTextField`
+  gained `keyboardActions`, `MediQButton` gained `loading`, and `MediQInfoCard`
+  gained a tint-matched border and content colour. Each parameter was added
+  because adopting the component **without** it would have quietly lost
+  behaviour: the password field's `Done`-to-submit, both buttons' spinner, and the
+  measured error/warning/info pairs (which would otherwise fall back to
+  `onSurface` and go unmeasured).
+
+  **No new tokens, so the gate's numbers did not move.** Every colour in both
+  figures was already a token - several at the exact value, which is the parent
+  spec's evidence that the figures are this repo's design: the tagline's
+  `#D7EFE0` is `MediQOnBrandMuted`, the labels' `#5F5F5F` is `MediQTextSecondary`,
+  the code box's `#F5F5F5` / `#8A8A8A` are `MediQSurface` / `MediQOutline`.
+
+  **Three things Fig. 2 draws are deferred rather than faked**: the
+  `Resend code in 0:42` countdown, the `It expires in 4:32` timer, and the 4-step
+  stepper. Each needs new UI state, and this module was scoped as a restyle on the
+  parent spec's rule *"Never: change a screen's behaviour to match a figure."*
+  They stay recorded in `tasks/SPEC-ui-redesign.md`. Fig. 2's build-note card uses
+  the foundation's measured warning pair rather than the figure's `#B25E00` on
+  `#FFF8E6`, which measures **4.24:1** and fails AA for normal text - the same
+  defect class the status chips were corrected for - and renders the screen's
+  existing development hint instead of the figure's developer prose
+  (`AuthService.returnCodeToCaller`).
 - **The contrast gate now reads the chip pairs from their new home, and got two
   widenings.** `check-contrast.ps1` section 2 parsed `AppointmentsScreen.kt`; it
   now parses `MediQStatusChip.kt` and asserts the **expected six pairs** (one per
