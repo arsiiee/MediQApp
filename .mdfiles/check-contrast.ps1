@@ -8,7 +8,7 @@
 # this repo's recurring failure; this script is the check.
 #
 # This script PARSES the real token values out of Color.kt and the real status
-# chip pairs out of AppointmentsScreen.kt, resolving both through Get-Token. It
+# chip pairs out of MediQStatusChip.kt, resolving both through Get-Token. It
 # deliberately does not keep its own copy of the hex codes: a version that
 # measured a hardcoded list passed clean while MediQTextSecondary was reverted to
 # a failing #757575, which is a check that lies. Change a token, and this reports
@@ -158,16 +158,25 @@ foreach ($r in $rows) {
 }
 
 # ---------------------------------------------------------------------------
-# 2. Status chip pairs, read from AppointmentsScreen.kt as token references.
+# 2. Status chip pairs, read from MediQStatusChip.kt as token references.
 #    These were `Color(0x...)` literals until 2026-10-15. They are named tokens
 #    now, so each half resolves through Get-Token and a typo'd name fails as a
-#    missing token rather than silently measuring nothing.
+#    missing token rather than silently measuring nothing. The pairs moved out of
+#    AppointmentsScreen.kt into the shared component on 2026-10-15; the regex is
+#    repointed here rather than left to read a file that no longer holds them.
 # ---------------------------------------------------------------------------
 
-$apptSrc = Get-Content "$src/ui/feature/appointments/AppointmentsScreen.kt" -Raw
-$chips = [regex]::Matches($apptSrc, 'AppointmentStatus\.(\w+)\s*->\s*(\w+) to (\w+)')
-if ($chips.Count -eq 0) {
-    $violations += 'chips      no status chip pairs found in AppointmentsScreen.kt'
+$chipSrc = Get-Content "$src/core/designsystem/component/MediQStatusChip.kt" -Raw
+$chips = [regex]::Matches($chipSrc, 'AppointmentStatus\.(\w+)\s*->\s*(\w+) to (\w+)')
+# One pair per AppointmentStatus member. Asserting the exact count, not just
+# "greater than zero", is what makes a *missing* pair loud: a chip that had its
+# token swapped for another token still parses as a pair, and a chip rewritten to
+# a raw literal drops out of the match while the others keep the count above
+# zero. Both were silent before 2026-10-15. A new status member must add its pair
+# here, and this fails until it does.
+$expectedChips = 6
+if ($chips.Count -ne $expectedChips) {
+    $violations += "chips      found $($chips.Count) status chip pairs in MediQStatusChip.kt, expected $expectedChips (one per AppointmentStatus member)"
 }
 foreach ($c in $chips) {
     # The source reads `container to label`, so the label is the foreground.
@@ -181,7 +190,7 @@ foreach ($c in $chips) {
 }
 
 # ---------------------------------------------------------------------------
-# 3. Ratchet on raw colour literals in ui/.
+# 3. Ratchet on raw colour literals in ui/ and core/designsystem/component/.
 #    A raw literal is how the original 25 `Color.Gray` sites got there: nothing
 #    ties them to a token, so nothing measures them. The floor is 4, all in
 #    SplashScreen, where white sits on the brand green at 6.63:1 and the pairing
@@ -194,15 +203,23 @@ foreach ($c in $chips) {
 #    NOT catch, and must not be described as catching: `Color(red =, green =,
 #    blue =)`, indirect construction, `.copy(alpha = ...)`, and a literal on a
 #    line that is entirely a comment.
+#
+#    The shared components under core/designsystem/component/ are scanned from
+#    2026-10-15 as well: they are where the design system's colours now live, and
+#    a card that hardcodes its container is the same defect wherever the file
+#    sits. They add zero to the count today (they use tokens), so the floor holds.
 # ---------------------------------------------------------------------------
 
 $ratchet = 4
-$raw = Get-ChildItem "$src/ui" -Recurse -Filter *.kt |
-    Select-String -Pattern 'Color\.(Gray|LightGray|DarkGray|White|Black)|Color\(0x[0-9A-Fa-f]{8}\)' |
-    Where-Object { $_.Line -notmatch '^\s*//' }
+$raw = @()
+foreach ($scanRoot in @("$src/ui", "$src/core/designsystem/component")) {
+    $raw += Get-ChildItem $scanRoot -Recurse -Filter *.kt |
+        Select-String -Pattern 'Color\.(Gray|LightGray|DarkGray|White|Black)|Color\(0x[0-9A-Fa-f]{8}\)' |
+        Where-Object { $_.Line -notmatch '^\s*//' }
+}
 
 if ($raw.Count -gt $ratchet) {
-    $violations += "raw-colours  $($raw.Count) raw colour literals in ui/, ratchet is ${ratchet}:"
+    $violations += "raw-colours  $($raw.Count) raw colour literals in ui/ and the shared components, ratchet is ${ratchet}:"
     foreach ($h in $raw) {
         $rel = $h.Path -replace [regex]::Escape((Get-Location).Path + '\'), ''
         $violations += "raw-colours    $rel`:$($h.LineNumber)  $($h.Line.Trim())"

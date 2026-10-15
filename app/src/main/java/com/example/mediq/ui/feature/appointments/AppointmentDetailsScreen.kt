@@ -44,6 +44,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.example.mediq.core.designsystem.component.EmptyState
+import com.example.mediq.core.designsystem.component.MediQStatusChip
 import com.example.mediq.core.designsystem.theme.LocalMediQColors
 import com.example.mediq.domain.model.Appointment
 import com.example.mediq.domain.model.LoadState
@@ -165,7 +166,7 @@ private fun AppointmentDetailsContent(
             fontWeight = FontWeight.SemiBold,
         )
         Spacer(modifier = Modifier.height(12.dp))
-        StatusChip(appointment.status)
+        MediQStatusChip(appointment.status)
         Spacer(modifier = Modifier.height(24.dp))
 
         // ── Details ───────────────────────────────────────────────────────

@@ -32,7 +32,7 @@ failure naming an Adoptium 17 JVM is the toolchain, not the daemon.
 `.\gradlew.bat :app:connectedDebugAndroidTest` with `mediq_api36` attached (2 tests).
 Count them with `--rerun-tasks`: the task otherwise reports UP-TO-DATE and the
 previous run's XML is still in `app/build/test-results/`, so a stale count reads
-as a skipped suite. `:app` main is ~6,900 lines; `:server` is ~3,800 including
+as a skipped suite. `:app` main is ~7,600 lines; `:server` is ~3,800 including
 its tests.
 
 - `data/api/` — `ApiErrorsTest.kt` (11 tests over error-body parsing),
@@ -369,7 +369,7 @@ app/src/main/java/com/example/mediq/
   di/AppContainer     object; init(context) wires TokenStore + all Retrofit repos
   ui/feature/<area>/  Screen + ViewModel pairs
   ui/navigation/      Routes.kt (sealed class Screen) + MediQNavHost
-  core/designsystem/  theme + EmptyState, MediQBottomBar
+  core/designsystem/  theme/ + component/ (EmptyState, MediQBottomBar + 9 shared components)
 ```
 
 Server side — `server/src/main/kotlin/com/example/mediq/server/`:
@@ -431,6 +431,23 @@ Rules that are easy to break:
 - **Never surface a framework exception's `message`.** Catch `ApiFailure` and show `e.message` — the server writes those for a patient to read. Retrofit, Gson, and OkHttp messages leak internals or are useless to a user.
 - **Usernames are normalized on both sides.** `AuthService.normalizeUsername` trims and lowercases at `register` *and* at `signIn`, so the stored form and the lookup form cannot disagree. Matching raw meant correct credentials failed on a stray space, and `Case` / `case` could register as two accounts that were indistinguishable at sign-in. Mobile numbers were already normalized; usernames were the one identifier that was not.
 - Screens take a `NavController` (not `NavHostController`) and navigate imperatively. `MediQNavHost` uses explicit imports, not a wildcard.
+
+## The design system
+
+`core/designsystem/theme/` holds `Color.kt` (every token, each with its measured
+ratio), `Type.kt`, and `Theme.kt` (`MediQExtendedColors`, read through
+`LocalMediQColors`). `core/designsystem/component/` holds the shared UI:
+`EmptyState`, `MediQBottomBar`, and the components the `docs/final-project`
+mockups are drawn against - `MediQBrandAppBar`, `MediQBrandTextField`,
+`MediQButton`, `MediQAvatar`, `MediQInfoCard`, `MediQStatusChip`, `MediQSlotChip`,
+`MediQKeyValueGrid`, `MediQDivider`. A screen restyle adopts these rather than
+re-deriving them.
+
+Two rules the components carry, both checked by `check-contrast.ps1`:
+`MediQStatusChip` is the single place the six `AppointmentStatus` colours are
+mapped (the gate parses that file and asserts all six pairs), and no component
+may hold a raw colour literal - the ratchet scans `core/designsystem/component/`
+as well as `ui/`.
 
 ## Networking
 
@@ -601,14 +618,16 @@ they are observations, not planned work, so they are not in `tasks/todo.md`.
   `DoctorDetailsScreen` filters at the call site. Repeating the filter inside the
   composable would let the UI show a slot the ViewModel would then refuse to
   submit — an offered-but-unsubmittable slot, which is worse than not offering it.
-- **Colour literals in `ui/` are down to `SplashScreen`'s 4, and the ratchet now
+- **Colour literals in `ui/` and the shared components are down to `SplashScreen`'s 4, and the ratchet now
   sees hex literals too.** Every screen has been converted off `Color.White`
   backgrounds, `Color.Black` text, and `Color.Gray`/`Color.LightGray` metadata,
   so dark mode is legible — that conversion finished on 2026-10-06, after
   `ProfileScreen` went first. `check-contrast.ps1` enforces it rather than
   trusting anyone to remember: it fails on any page background or app bar
   hardcoded to `Color.White`, on any token pair below its WCAG threshold, and on
-  more than 4 raw colour literals in `ui/`. **The pattern matches every
+  more than 4 raw colour literals across `ui/` and
+  `core/designsystem/component/`, and it asserts the six status-chip pairs (one
+  per `AppointmentStatus`) rather than only that some exist. **The pattern matches every
   `Color(0x…)` literal, not just one hardcoded amber as it did before
   2026-10-15** — the thirteen sites it then found (twelve status chips in
   `AppointmentsScreen.kt` and `NotificationsScreen.kt`'s `Color(0xFFF5F5F5)`) are

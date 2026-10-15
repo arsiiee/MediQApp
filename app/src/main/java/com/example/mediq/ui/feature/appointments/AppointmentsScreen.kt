@@ -29,25 +29,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.example.mediq.core.designsystem.component.EmptyState
+import com.example.mediq.core.designsystem.component.MediQStatusChip
 import com.example.mediq.core.designsystem.theme.LocalMediQColors
-import com.example.mediq.core.designsystem.theme.MediQError
-import com.example.mediq.core.designsystem.theme.MediQErrorContainer
 import com.example.mediq.core.designsystem.theme.MediQGreen
-import com.example.mediq.core.designsystem.theme.MediQInfoContainer
-import com.example.mediq.core.designsystem.theme.MediQInfoContent
 import com.example.mediq.core.designsystem.theme.MediQLightGreen
-import com.example.mediq.core.designsystem.theme.MediQNeutralContainer
-import com.example.mediq.core.designsystem.theme.MediQNeutralContent
-import com.example.mediq.core.designsystem.theme.MediQSuccess
-import com.example.mediq.core.designsystem.theme.MediQWarningContainer
-import com.example.mediq.core.designsystem.theme.MediQWarningOnContainer
 import com.example.mediq.domain.model.Appointment
-import com.example.mediq.domain.model.AppointmentStatus
 import com.example.mediq.domain.model.LoadState
 import com.example.mediq.domain.model.toClinicDate
 import com.example.mediq.domain.model.toClinicTime
@@ -206,41 +196,7 @@ private fun AppointmentCard(appointment: Appointment, onClick: () -> Unit) {
             }
 
             // Status badge
-            StatusChip(appointment.status)
+            MediQStatusChip(appointment.status)
         }
-    }
-}
-
-/**
- * Shared with `AppointmentDetailsScreen`, which renders the same badge.
- *
- * Internal rather than private so the two screens cannot drift into showing the
- * same status in two different colours — and so the mapping is measured once by
- * `check-contrast.ps1`, which reads the token pairs below out of this file.
- */
-@Composable
-internal fun StatusChip(status: AppointmentStatus) {
-    // Both halves of every pair are fixed, so these chips keep the same measured
-    // contrast in either mode. That is deliberate, and `CONSTRAINTS.md` carries
-    // it as known debt. The amber was #F9A825 on #FFF8E1, which is 1.85:1 -
-    // unreadable at 10sp.
-    val (bg, fg) = when (status) {
-        AppointmentStatus.CONFIRMED           -> MediQLightGreen to MediQSuccess
-        AppointmentStatus.PENDING_CONFIRMATION -> MediQWarningContainer to MediQWarningOnContainer
-        AppointmentStatus.COMPLETED           -> MediQInfoContainer to MediQInfoContent
-        AppointmentStatus.CANCELLED           -> MediQErrorContainer to MediQError
-        AppointmentStatus.DECLINED            -> MediQErrorContainer to MediQError
-        // Grey, because the meaning is not known. Reusing a status colour here
-        // would imply a conclusion the app has not reached.
-        AppointmentStatus.UNKNOWN             -> MediQNeutralContainer to MediQNeutralContent
-    }
-    Surface(shape = RoundedCornerShape(20.dp), color = bg) {
-        Text(
-            text     = status.displayName,
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-            style    = MaterialTheme.typography.labelSmall,
-            color    = fg,
-            fontSize = 10.sp,
-        )
     }
 }

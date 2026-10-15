@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- **Nine shared design-system components, and the status chip moved into one of
+  them.** `core/designsystem/component/` now holds `MediQBrandAppBar`,
+  `MediQBrandTextField`, `MediQButton`, `MediQAvatar`, `MediQInfoCard`,
+  `MediQStatusChip`, `MediQSlotChip`, `MediQKeyValueGrid`, and `MediQDivider` —
+  the vocabulary the six `docs/final-project` mockups are drawn against, so the
+  screen restyles that follow adopt them rather than re-deriving each one.
+
+  No screen uses them yet, with one exception: `MediQStatusChip` is the old
+  `AppointmentsScreen.StatusChip` moved into the component set, so the
+  appointments list and the appointment-details screen still share a single
+  mapping. That move kept all six colour pairs exactly as they were.
 - **A temporary seeded-data screen that verifies the backend from the device.**
   Long-press the "MediQ" wordmark on the splash screen to open it. It reads
   `GET /doctors` live through `DoctorRepository` and renders exactly what came
@@ -30,6 +41,16 @@ All notable changes to this project will be documented in this file.
   scratch branch rather than asserted. See `AGENTS.md` "The seeded-data screen".
 
 ### Changed
+- **The contrast gate now reads the chip pairs from their new home, and got two
+  widenings.** `check-contrast.ps1` section 2 parsed `AppointmentsScreen.kt`; it
+  now parses `MediQStatusChip.kt` and asserts the **expected six pairs** (one per
+  `AppointmentStatus` member) instead of only "at least one" — so a pair that is
+  dropped, or swapped for another token, is loud rather than silently measuring
+  five. The raw-colour ratchet also scans `core/designsystem/component/` now, so a
+  component that hardcodes its container is measured wherever it lives; the floor
+  stayed 4. Both were proved by mutation, not asserted: a raw literal in the chip
+  dropped the count to 5, a token swap failed on contrast (1.11:1), and
+  `Color.White` in `MediQInfoCard.kt` pushed the ratchet to 5.
 - **The design system gained a `ui-foundation` token layer, and the raw-colour
   ratchet now sees hex literals.** Nine values the six
   `docs/final-project/assets/ui-0*.svg` figures call for — the placeholder and
