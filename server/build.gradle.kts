@@ -34,6 +34,7 @@ dependencies {
     implementation(libs.server.logback)
 
     implementation(libs.server.h2)
+    implementation(libs.server.postgresql)
     implementation(libs.server.hikari)
     implementation(libs.server.java.jwt)
 

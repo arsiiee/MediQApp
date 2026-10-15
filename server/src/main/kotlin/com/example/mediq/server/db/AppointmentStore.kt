@@ -147,10 +147,15 @@ class AppointmentStore(
                 st.setObject(3, now)
                 st.executeUpdate()
             }
-        } catch (e: SQLIntegrityConstraintViolationException) {
+        } catch (e: java.sql.SQLException) {
             // Someone else booked this slot between the read above and this
             // insert. Rolling back undoes the appointment row too.
-            throw ApiError.conflict("That time was just taken. Please pick another.")
+            // H2 throws SQLIntegrityConstraintViolationException; Postgres throws
+            // PSQLException with SQLState 23505 (unique_violation).
+            if (e is SQLIntegrityConstraintViolationException || e.sqlState == "23505") {
+                throw ApiError.conflict("That time was just taken. Please pick another.")
+            }
+            throw e
         }
 
         val doctorFirstName = readDoctorBrief(c, slot.doctorId)

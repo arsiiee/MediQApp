@@ -21,6 +21,8 @@ data class ServerConfig(
     val slotDurationMinutes: Int,
     val otpTtlMinutes: Long,
     val seedDemoData: Boolean,
+    val dbUser: String? = null,
+    val dbPassword: String? = null,
     /**
      * Time zone every pooled connection runs its session in.
      *
@@ -45,6 +47,8 @@ data class ServerConfig(
             slotDurationMinutes = env["MEDIQ_SLOT_MINUTES"]?.toInt() ?: 30,
             otpTtlMinutes = env["MEDIQ_OTP_TTL_MINUTES"]?.toLong() ?: 5,
             seedDemoData = env["MEDIQ_SEED_DEMO"]?.lowercase() == "true",
+            dbUser = env["MEDIQ_DB_USER"],
+            dbPassword = env["MEDIQ_DB_PASSWORD"],
         )
 
         /**
@@ -76,9 +80,13 @@ data class ServerConfig(
  */
 class Database(private val config: ServerConfig) {
 
+    val isPostgres: Boolean = config.jdbcUrl.startsWith("jdbc:postgresql:")
+
     private val dataSource: HikariDataSource = HikariDataSource(
         HikariConfig().apply {
             jdbcUrl = config.jdbcUrl
+            config.dbUser?.let { username = it }
+            config.dbPassword?.let { password = it }
             maximumPoolSize = 10
             isAutoCommit = true
             // Runs on every new connection, so the session zone does not depend
@@ -87,6 +95,8 @@ class Database(private val config: ServerConfig) {
             // H2 console, local development only.
             if (config.jdbcUrl.startsWith("jdbc:h2")) {
                 addDataSourceProperty("DB_CLOSE_ON_EXIT", "FALSE")
+            } else if (isPostgres) {
+                driverClassName = "org.postgresql.Driver"
             }
         }
     )

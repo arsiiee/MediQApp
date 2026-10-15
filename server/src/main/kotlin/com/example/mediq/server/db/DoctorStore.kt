@@ -37,7 +37,7 @@ class DoctorStore(
 
     fun list(query: DoctorQuery, limit: Int, offset: Int): Pair<List<Doctor>, Boolean> =
         db.read { c ->
-            ensureSpecialties(c)
+            ensureSpecialties(c, db.isPostgres)
             val where = StringBuilder(" WHERE 1=1")
             val params = mutableListOf<Any?>()
             if (query.searchText != null) {
@@ -107,7 +107,7 @@ class DoctorStore(
         }
 
     fun get(doctorId: String): Doctor = db.read { c ->
-        ensureSpecialties(c)
+        ensureSpecialties(c, db.isPostgres)
         val row = c.prepareStatement("$SELECT_DOCTOR WHERE d.id = ?").use { st ->
             st.setString(1, doctorId)
             st.executeQuery().use { rs ->
@@ -171,16 +171,21 @@ class DoctorStore(
             // CLINIC_ZONE, a compile-time constant, not request input. The
             // per-row filter values stay bound.
             val zone = CLINIC_ZONE.id.replace("'", "''")
+            val formatExpr = if (db.isPostgres) {
+                "TO_CHAR(s.starts_at AT TIME ZONE '$zone', 'YYYY-MM-DD')"
+            } else {
+                "FORMATDATETIME(s.starts_at, 'yyyy-MM-dd', 'en', '$zone')"
+            }
             c.prepareStatement(
                 """
                 SELECT slot_date, COUNT(*) AS open_count
                 FROM (
-                    SELECT FORMATDATETIME(s.starts_at, 'yyyy-MM-dd', 'en', '$zone') AS slot_date
+                    SELECT $formatExpr AS slot_date
                     FROM slots s
                     WHERE s.doctor_id = ? AND s.status = 'available'
                       AND s.starts_at >= ? AND s.starts_at < ?
                       AND NOT EXISTS (SELECT 1 FROM slot_claims sc WHERE sc.slot_id = s.id)
-                )
+                ) t
                 GROUP BY slot_date
                 ORDER BY slot_date
                 """.trimIndent()
@@ -191,9 +196,7 @@ class DoctorStore(
                 st.executeQuery().use { rs ->
                     generateSequence {
                         if (rs.next()) {
-                            // FORMATDATETIME returns the formatted string, not
-                            // a SQL DATE, so it is parsed rather than read as
-                            // a date object.
+                            // Returns the formatted string, not a SQL DATE, so it is parsed.
                             val localDate = LocalDate.parse(rs.getString("slot_date"))
                             AvailableDate(localDate, rs.getInt("open_count"))
                         } else null
@@ -262,9 +265,13 @@ class DoctorStore(
         val step = slotDurationMinutes
         val now = Instant.now()
 
-        c.prepareStatement(
+        val insertSql = if (db.isPostgres) {
+            "INSERT INTO slots (id, doctor_id, starts_at, ends_at, status) VALUES (?, ?, ?, ?, 'available') ON CONFLICT (id) DO NOTHING"
+        } else {
             "MERGE INTO slots (id, doctor_id, starts_at, ends_at, status) KEY (id) VALUES (?, ?, ?, ?, 'available')"
-        ).use { st ->
+        }
+
+        c.prepareStatement(insertSql).use { st ->
             for (window in hours) {
                 var start = window.opensAt
                 while (!start.plusMinutes(step.toLong()).isAfter(window.closesAt)) {
@@ -334,10 +341,13 @@ class DoctorStore(
             params.forEachIndexed { i, p -> st.setObject(i + 1, p) }
         }
 
-        private fun ensureSpecialties(c: Connection) {
-            c.prepareStatement(
+        private fun ensureSpecialties(c: Connection, isPostgres: Boolean = false) {
+            val sql = if (isPostgres) {
+                "INSERT INTO specialties (id, display_name) VALUES (?, ?) ON CONFLICT (id) DO UPDATE SET display_name = EXCLUDED.display_name"
+            } else {
                 "MERGE INTO specialties (id, display_name) KEY (id) VALUES (?, ?)"
-            ).use { st ->
+            }
+            c.prepareStatement(sql).use { st ->
                 Specialty.entries.forEach { s ->
                     st.setString(1, s.wireValue)
                     st.setString(2, s.displayName)

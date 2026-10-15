@@ -46,15 +46,15 @@ inferred from the source.
 |---|---|---|
 | App compiles | `:app:compileDebugKotlin` | Passes, 6 deprecation warnings |
 | App unit tests | `:app:testDebugUnitTest` | 182 pass |
-| Server tests | `:server:test` | 59 pass |
+| Server tests | `:server:test` | 60 pass |
 | Architecture boundaries | `check-boundaries.ps1` | Clean, 54 files |
 | Colour contrast | `check-contrast.ps1` | Clean, 31 token pairs + 6 status chips |
 | Runs on a device | `:app:installDebug` + launch | Works on the `mediq_api36` AVD and on a physical phone |
-| Server | `:server:run` | Starts, H2 in-memory |
+| Server | `:server:run` | Starts, H2 in-memory or Supabase PostgreSQL |
 | CI | `.github/workflows/ci.yml` | `gates` (both `.mdfiles` check scripts), `:server:test`, `:app:lintDebug`, `:app:testDebugUnitTest`, `:app:assembleDebug` on every push and PR |
 
-**Size:** 113 Kotlin files (~7,900 lines in `:app` main, ~3,800 in `:server`
-including tests), 19 HTTP endpoints, 59 server tests, 195 app unit tests, 15 screens,
+**Size:** 114 Kotlin files (~7,900 lines in `:app` main, ~3,850 in `:server`
+including tests), 19 HTTP endpoints, 60 server tests, 195 app unit tests, 15 screens,
 10 ViewModels.
 
 The `:app` count includes `SeededDataViewModelTest` (8) and
@@ -560,7 +560,9 @@ All server config is environment variables, read by `ServerConfig.fromEnv()`.
 | Variable | Default |
 |---|---|
 | `MEDIQ_PORT` | `8080` |
-| `MEDIQ_JDBC_URL` | `jdbc:h2:mem:mediq;DB_CLOSE_DELAY=-1` |
+| `MEDIQ_JDBC_URL` | `jdbc:h2:mem:mediq;DB_CLOSE_DELAY=-1` (or Supabase `jdbc:postgresql://...`) |
+| `MEDIQ_DB_USER` | unset (used when connecting to PostgreSQL / Supabase) |
+| `MEDIQ_DB_PASSWORD` | unset (used when connecting to PostgreSQL / Supabase) |
 | `MEDIQ_JWT_SECRET` | `dev-only-insecure-secret-change-me` |
 | `MEDIQ_JWT_ISSUER` | `mediq` |
 | `MEDIQ_TOKEN_TTL_MINUTES` | `60` |
@@ -571,7 +573,13 @@ All server config is environment variables, read by `ServerConfig.fromEnv()`.
 
 `MEDIQ_ENV=production` makes `validate()` refuse to boot on the dev JWT secret
 or an H2 URL. That is the backstop against shipping the signing key that is
-currently printed in a source file.
+currently printed in a source file. Pointing `MEDIQ_JDBC_URL` to Supabase PostgreSQL:
+
+```powershell
+$env:MEDIQ_JDBC_URL="jdbc:postgresql://db.[YOUR-PROJECT-REF].supabase.co:5432/postgres?sslmode=require"
+$env:MEDIQ_DB_USER="postgres"
+$env:MEDIQ_DB_PASSWORD="[YOUR-PASSWORD]"
+```
 
 ---
 
@@ -594,13 +602,13 @@ live demo on 8099 keeps a clean database:
 .\server\scripts\smoke.ps1 -Base http://127.0.0.1:8100   # 24 checks; mutates demo data
 ```
 
-- **`:server:test`** — in-process, no port. 59 tests across 7 classes:
+- **`:server:test`** — in-process, no port. 60 tests across 8 classes:
   `AuthServiceTest` (24, covering sign-in, OTP request/verify, five-attempt
   lockout, username normalisation, and registration), `AppointmentLifecycleTest`
   (13), `DoctorSearchTest` (9, what `GET /doctors?search=` matches — name,
   specialty display name, and specialty wire value, and deliberately *not* the
   building), `AvailableDatesTest` (4), `BookingConcurrencyTest` (4),
-  `OtpLockoutTest` (3), `ProfileUpdateTest` (2). `BookingConcurrencyTest` is the
+  `OtpLockoutTest` (3), `ProfileUpdateTest` (2), `DatabaseDialectTest` (1). `BookingConcurrencyTest` is the
   one that cannot be checked by hand.
 - **`:app:testDebugUnitTest`** - 182 tests, hand-written fakes, no mocking
   framework: `ApiErrorsTest` (11, error-body parsing), `UnknownWireValueTest` (8,
