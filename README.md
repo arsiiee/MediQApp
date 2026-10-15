@@ -31,6 +31,7 @@ but deliberately not one wire format.
 - [The API](#the-api)
 - [Configuration](#configuration)
 - [Testing and the quality bar](#testing-and-the-quality-bar)
+- [Developer Guide: Adding a Feature](#developer-guide-adding-a-feature)
 - [Repo layout](#repo-layout)
 - [Further reading](#further-reading)
 
@@ -644,6 +645,104 @@ In PowerShell, reading an error body needs `$_.ErrorDetails.Message`.
 error-handling assertion compare against `''`. `ErrorDetails.Message` arrives as
 a decoded array, so take `[0]` before `ConvertFrom-Json`. `smoke.ps1` does this
 correctly.
+
+---
+
+## Developer Guide: Adding a Feature
+
+This guide walks through implementing a new feature in MediQ from domain contract to UI and automated tests, while preserving the architectural boundaries and passing all CI gates.
+
+### 1. Architectural Rules to Keep Green
+
+Before adding code, keep these enforced constraints in mind (see `.mdfiles/CONSTRAINTS.md` and `.mdfiles/AGENTS.md`):
+
+1. **Strict 3-layer architecture:**
+   - `ui` $\rightarrow$ depends only on `domain` (`ui` must **never** import `data/*`).
+   - `domain` $\rightarrow$ pure Kotlin only. **No Android, Compose, or Ktor imports**. `:server` compiles `domain/` directly as `sharedDomain`.
+   - `data` $\rightarrow$ implements `domain/repository` interfaces.
+2. **Always wrap API calls:** In Retrofit repositories (`data/repository/Retrofit*Repository.kt`), wrap every call to `api.` in `call { ... }` from `data/api/ApiErrors.kt`. Unwrapped calls leak Retrofit `HttpException` and break the `api-call-not-wrapped` ratchet.
+3. **No DI frameworks:** Dependencies are wired manually in `AppContainer.kt`.
+4. **Exceptions in `domain/model/`:** Any exceptions caught by ViewModels (e.g., `ApiFailure`, `BackendNotConnectedException`) live in `domain/model/`, never under `data/`.
+5. **Masked text fields:** Any masked input (`KeyboardType.Password` or `KeyboardType.NumberPassword`) must specify `autoCorrectEnabled = false` and `KeyboardCapitalization.None`.
+6. **No raw colors:** Use tokens from `core/designsystem/theme/Color.kt` or `MaterialTheme.colorScheme` / `LocalMediQColors.current`. Avoid raw `Color(0x...)` or `Color.White`/`Black` literals in UI code.
+
+### 2. Step-by-Step Implementation Flow
+
+#### Step A: Define Domain Models & Repository Interface (`app/.../domain/`)
+Since `domain/` is compiled by both `:app` and `:server`, write pure Kotlin classes:
+- **Model:** Create `domain/model/<Feature>.kt`. Use `java.time.Instant` for timestamps and `Money` for currency.
+- **Repository Interface:** Create `domain/repository/<Feature>Repository.kt`:
+  ```kotlin
+  package com.example.mediq.domain.repository
+
+  import com.example.mediq.domain.model.MyFeature
+
+  interface MyFeatureRepository {
+      suspend fun getItems(): List<MyFeature>
+      suspend fun getItem(id: String): MyFeature
+  }
+  ```
+
+#### Step B: Implement Server Endpoints (`server/.../`)
+If the feature requires backend support:
+1. **Schema:** Add table definitions in `server/src/main/resources/schema.sql` (use `CREATE TABLE IF NOT EXISTS`).
+2. **Store:** Add `db/<Feature>Store.kt` using `db.tx { conn -> ... }`.
+3. **DTOs:** Add wire DTOs in `http/Dtos.kt` (mapping domain to wire representations).
+4. **Routes:** Wire routes into `http/Routes.kt` (e.g., using `call.requirePatientId()` for authenticated endpoints).
+5. **Tests:** Add integration tests in `server/src/test/kotlin/` verifying happy path and error codes (401, 404, 409).
+
+#### Step C: Implement Client Data Layer (`app/.../data/`)
+1. **DTOs & Mappers:**
+   - Declare wire models in `data/api/ApiDtos.kt`.
+   - Add mapping extension functions in `data/api/ApiMappers.kt` converting DTOs to domain models.
+2. **Retrofit Interface:** Add endpoint methods in `data/api/MediQApiService.kt`.
+3. **Repository Implementation:**
+   - Create `data/repository/Retrofit<Feature>Repository.kt` implementing `domain/repository/<Feature>Repository`.
+   - Wrap remote calls in `call { api.myEndpoint() }`.
+   - List reads should catch `ApiFailure` where `e.isNetworkFailure` is true and return an empty list or fallback, while single-item reads and mutations propagate `ApiFailure`.
+4. **Wire in `AppContainer`:**
+   - Add the repository to `di/AppContainer.kt` and instantiate it in `init(context)`.
+
+#### Step D: Implement UI & ViewModel (`app/.../ui/feature/<feature>/`)
+1. **UiState:** Define a UI state holding `LoadState<T>` (`Loading`, `Success`, `Error`).
+2. **ViewModel:**
+   - Inject repository via constructor: `class MyFeatureViewModel(private val repository: MyFeatureRepository) : ViewModel()`.
+   - Use `viewModelScope.launch`. Catch `ApiFailure` and display `e.message` (the user-facing server message), not bare framework exceptions.
+3. **Screen:**
+   - Build UI using shared design-system components (`MediQBrandAppBar`, `MediQInfoCard`, `MediQButton`, `EmptyState`).
+   - Exhaustively branch on `LoadState` (`when (state)`).
+   - Format amounts with `money.format()` (`₱850`) or `money.formatWithCentavos()` (`₱850.00`) from `ui/format/MoneyFormat.kt`.
+   - Format dates with `.toClinicDate()` / `.toClinicTime()` from `domain/model/ClinicTime.kt` (`Asia/Manila` clinic zone).
+4. **Navigation:**
+   - Add destination to `ui/navigation/Routes.kt` (`sealed class Screen`).
+   - Register route in `ui/navigation/MediQNavHost.kt`.
+
+### 3. Writing Unit Tests
+
+Every ViewModel must have unit test coverage using hand-written test fakes:
+1. **Create Fake Repository:** Add `app/src/test/java/com/example/mediq/fake/Fake<Feature>Repository.kt`.
+2. **ViewModel Test Rules:**
+   - Use `MainDispatcherRule` (`UnconfinedTestDispatcher`) for eager execution.
+   - **`init` block trap:** If the ViewModel loads data in `init { }`, declare it with **`by lazy { MyFeatureViewModel(fakeRepo) }`** in the test class. Instantiating in `@Before setUp()` settles the initial load before test fixtures are configured.
+   - **Debounce trap:** If testing a search query with a debounce delay, use `StandardTestDispatcher` and advance the scheduler clock explicitly rather than using `MainDispatcherRule`.
+   - Cover initial load, success, and error paths.
+
+### 4. Running Verification Gates
+
+Run the local gates before opening a pull request:
+
+```powershell
+# 1. Architecture boundaries (< 5s)
+.\.mdfiles\check-boundaries.ps1
+
+# 2. WCAG contrast and raw color ratchet (< 5s)
+.\.mdfiles\check-contrast.ps1
+
+# 3. Compile and test suites (~90s)
+.\gradlew.bat :app:compileDebugKotlin :app:testDebugUnitTest :server:test --console=plain
+```
+
+If adding new tests, update the test floors in `.mdfiles/CONSTRAINTS.md` so the ratchet reflects the new count.
 
 ---
 
