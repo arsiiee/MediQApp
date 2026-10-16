@@ -27,7 +27,7 @@ Verify the app with `:app:compileDebugKotlin` (~2s warm, ~3min cold). Full APK: 
 Note the 6 deprecation warnings it prints — see "Toolchain notes". A `:server:run`
 failure naming an Adoptium 17 JVM is the toolchain, not the daemon.
 
-`:app` unit tests — 195, runnable with `.\gradlew.bat :app:testDebugUnitTest`.
+`:app` unit tests - 210, runnable with `.\gradlew.bat :app:testDebugUnitTest`.
 `MediQBottomBarSemanticsTest` is the first real Compose instrumentation test; run
 `.\gradlew.bat :app:connectedDebugAndroidTest` with `mediq_api36` attached (2 tests).
 Count them with `--rerun-tasks`: the task otherwise reports UP-TO-DATE and the
@@ -75,12 +75,19 @@ its tests.
   typed search waits for its debounce. Four more cover the specialty filter: every `Specialty.entries` value forwarded verbatim, a specialty-only query carrying no other filter, toggling off and on re-querying each time, and a specialty no doctor has landing on `Success` rather than an error. Removing `delay()` was verified by
   mutation. This file uses `StandardTestDispatcher`, not `MainDispatcherRule` —
   see "Two traps in the ViewModel tests" below.
-- `ui/feature/doctors/DoctorDetailsViewModelTest.kt` (3) — the two delayed-response
-  regressions on the doctor-details screen: a late doctor response must not wipe
-  out the dates it arrived beside, and a late dates response must not wipe out the
-  doctor. Added 2026-10-07 in `2d2343d` with the fix for the stale-slots spinner;
-  it was missing from this inventory until 2026-10-15, which is why the count
-  above read 182 rather than 185.
+- `ui/feature/doctors/DoctorDetailsViewModelTest.kt` (7) — three cover the
+  delayed-response regressions on the doctor-details screen: a late doctor
+  response must not wipe out the dates it arrived beside, and a late dates
+  response must not wipe out the doctor. Added 2026-10-07 in `2d2343d` with the
+  fix for the stale-slots spinner; it was missing from this inventory until
+  2026-10-15, which is why the count above read 182 rather than 185. Four more
+  were added on 2026-10-17 by `ui-scheduling` for
+  `DoctorDetailsUiState.visibleSlots`, the view the slot grid draws through: an
+  available slot and a `RESERVED` (claimed) one are both drawn, a clinic-`BLOCKED`
+  one is not, an `UNKNOWN`-status one is not, and the raw `slots` field is left
+  untouched. Reverting `visibleSlots` to `isBookable` was verified by mutation —
+  it fails the claimed-slot test exactly, which is the behaviour figure 4's
+  "Grey = already claimed by another patient" legend needs.
 - `ui/feature/profile/ProfileViewModelTest.kt` (14) — the stored session reaches
   the state with its real name and not a hardcoded placeholder, an unconnected
   backend is a `Success(null)` rather than an error, and **sign-out navigates away
@@ -472,6 +479,26 @@ mapped (the gate parses that file and asserts all six pairs), and no component
 may hold a raw colour literal - the ratchet scans `core/designsystem/component/`
 as well as `ui/`.
 
+`DoctorDetailsScreen` and `BookingFlowScreen` are the fourth and fifth restyles
+(`ui-scheduling`, figures 4 and 5). Four choices there are deliberate and are the
+ones a later edit is most likely to undo. **The slot grid draws claimed slots,
+not only bookable ones** - `DoctorDetailsUiState.visibleSlots` is a *view* over
+`slots` that keeps `AVAILABLE` and `RESERVED` and drops `BLOCKED` and `UNKNOWN`;
+figure 4's legend says "Grey = already claimed by another patient", which is true
+of a reserved slot and would be a lie about a clinic-blocked one, so the split is
+on the legend's truth rather than on bookability. The filter lives in the state
+so a test pins it, not at the call site where nothing did. **The fee card and the
+protection note draw `MediQAccentLight` on `MediQLightGreen`** - the exact pair
+`check-contrast.ps1` measures as "brand label on light tint" (5.89:1) - rather
+than `MediQGreen` on that tint, which is the same pixel value but not the pair the
+gate names; keeping the drawn pair and the measured pair identical is the rule
+`MediQInfoCard`'s KDoc states. **Clinic hours print their times once only when
+every open day shares them** (`rangesByDay.values.distinct().singleOrNull()`);
+the seed gives each open day two ranges, so a single range cannot be assumed, and
+a non-uniform week falls back to one line per day rather than claiming a time
+belongs to a day it does not. And **`Doctor.bio` stays**, though the figure omits
+it, because the `About` block is the only place that field is readable.
+
 ## Networking
 
 The app uses Retrofit 2.11.0 + OkHttp 4.12.0 + Gson 2.11.0. The single `MediQApiService` interface in `data/api/` covers all endpoints. An `AuthInterceptor` (in `RetrofitClient.kt`) injects `Authorization: Bearer <token>` automatically — no `@Header` per-method needed.
@@ -634,14 +661,25 @@ they are observations, not planned work, so they are not in `tasks/todo.md`.
   also gates *opening* the reschedule picker, not just rendering its button:
   otherwise a cancelled appointment would spend two requests on availability the
   patient cannot use.
-- **`SlotPicker` is shared, and the bookable filter is deliberately not in it.**
+- **`SlotPicker` is shared, and the drawn-slot filter is deliberately not in it.**
   `ui/feature/booking/SlotPicker.kt` is stateless and takes both halves as
   `LoadState`, extracted from `DoctorDetailsScreen`, which had the date strip and
-  slot grid inline. `AppointmentDetailsViewModel` filters to `isBookable` inside
-  its own state so a test can pin it (`only bookable slots are offered`);
-  `DoctorDetailsScreen` filters at the call site. Repeating the filter inside the
-  composable would let the UI show a slot the ViewModel would then refuse to
-  submit — an offered-but-unsubmittable slot, which is worse than not offering it.
+  slot grid inline. Neither caller filters in the composable: `AppointmentDetailsViewModel`
+  filters to `isBookable` inside its own state so a test can pin it (`only
+  bookable slots are offered`), and `DoctorDetailsScreen` draws
+  `DoctorDetailsUiState.visibleSlots`, which keeps claimed slots as well. That is
+  the point — *which* slots reach the grid is a per-screen decision the state
+  owns and a test can pin, not a rule the shared component imposes. Repeating a
+  filter inside the composable would let the UI show a slot the ViewModel would
+  then refuse to submit — an offered-but-unsubmittable slot, which is worse than
+  not offering it.
+- **The month stepper is one optional `MonthStepper` on `SlotPicker`.** Figure 4
+  draws `‹ November 2026 ›` on its *Choose a date* row; the reschedule picker
+  passes `null` and draws no chevrons, so its rendering does not move. There is
+  no `canGoForward`: `DoctorDetailsViewModel` has no month ceiling on purpose
+  (an empty month is a truthful answer), so only the back chevron can be dead.
+  `‹` is disabled on the clinic's own month; stepping either way clears the
+  chosen date and slot, which is `8c986b0`'s state behaviour, now rendered.
 - **Colour literals in `ui/` and the shared components are down to `SplashScreen`'s 4, and the ratchet now
   sees hex literals too.** Every screen has been converted off `Color.White`
   backgrounds, `Color.Black` text, and `Color.Gray`/`Color.LightGray` metadata,

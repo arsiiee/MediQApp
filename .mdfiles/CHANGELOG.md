@@ -41,6 +41,38 @@ All notable changes to this project will be documented in this file.
   scratch branch rather than asserted. See `AGENTS.md` "The seeded-data screen".
 
 ### Changed
+- **Doctor details and booking confirmation now match figures 4 and 5, and the
+  slot grid draws claimed slots.** `DoctorDetailsScreen` draws the green
+  `MediQBrandAppBar`, the avatar-and-licence header, the light-green fee card
+  (`₱850.00`, `formatWithCentavos()`), the clinic-hours chips, and — new — the
+  month stepper `‹ November 2026 ›` that `8c986b0` put in the ViewModel but left
+  unrendered. `BookingFlowScreen` draws the same app bar, the summary card with
+  `DATE` / `TIME` / `LOCATION`, the `Consultation fee` / `Amount paid at the
+  clinic` pair, the reason field with its privacy hint, and `Book appointment`;
+  it now scrolls, because the figure's content is taller than a phone.
+
+  **The one behaviour change is deliberate.** The grid used to be filtered to
+  bookable slots, so a slot another patient had claimed never reached the
+  screen. Figure 4 draws one greyed under the legend "Grey = already claimed by
+  another patient", and `ui-foundation` had already shipped `MediQSlotChip`'s
+  `Claimed` state and its measured contrast row *for that figure*. The filter is
+  now `DoctorDetailsUiState.visibleSlots` — a view over `slots` that keeps
+  `AVAILABLE` and `RESERVED` and drops `BLOCKED` and `UNKNOWN`, because the
+  legend's sentence is true of a claimed slot and would be a lie about clinic
+  leave. What the booking can *do* is unchanged: a claimed chip is not
+  clickable, and `canContinue` still needs a selected slot.
+
+  `SlotPicker` gained the figure's 52dp day/number date cells, an optional
+  `MonthStepper` (the reschedule picker passes `null`, so its rendering does not
+  move), and the claimed-slot legend; `BookingSelection.Selection` gained
+  `endsAt`, `doctorInitials`, and the floor in `locationDisplay`, which figure 5
+  draws and the selection could not previously express. `DoctorsScreen`'s
+  `Next open` derivation is untouched.
+
+  Four `DoctorDetailsViewModelTest` cases pin `visibleSlots` (claimed drawn,
+  blocked not, unknown not, raw `slots` untouched) and were mutation-checked, so
+  `:app` moves 195 → 210 — of which 195 → 206 is a **correction**, not new work:
+  the tree had held 206 since `8c986b0` and the floor never moved with it.
 - **The doctors list now matches figure 3, and each card says when the doctor is
   next open.** `DoctorsScreen` draws the green app bar with a real result count in
   its `actions` slot, the pill search box with a clear button, and a card per

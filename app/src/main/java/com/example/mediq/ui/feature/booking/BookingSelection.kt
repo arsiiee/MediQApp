@@ -18,7 +18,21 @@ object BookingSelection {
         val slotId: String,
         val doctorDisplayName: String,
         val specialtyDisplayName: String,
+        /**
+         * The doctor's initials, taken from [com.example.mediq.domain.model.Doctor.initials]
+         * where the full model is still in hand. Figure 5 draws them in the
+         * avatar header, and re-deriving them from [doctorDisplayName] here
+         * would be parsing a formatted name back into data the model already
+         * answered.
+         */
+        val doctorInitials: String,
         val startsAt: java.time.Instant,
+        /**
+         * The slot's end, so the confirmation can show a range (`09:00 – 09:30`)
+         * rather than only the start. Figure 5 draws the range.
+         */
+        val endsAt: java.time.Instant,
+        /** `building · floor · room`, joined only once, here. */
         val locationDisplay: String,
         val feeCentavos: Long,
     )

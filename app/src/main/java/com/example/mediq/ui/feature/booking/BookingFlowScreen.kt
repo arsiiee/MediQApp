@@ -1,64 +1,58 @@
 package com.example.mediq.ui.feature.booking
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.outlined.AccessTime
-import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.CheckCircle
-import androidx.compose.material.icons.outlined.LocationOn
-import androidx.compose.material.icons.outlined.MedicalServices
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CheckboxDefaults
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.example.mediq.core.designsystem.component.EmptyState
+import com.example.mediq.core.designsystem.component.MediQAvatar
+import com.example.mediq.core.designsystem.component.MediQBrandAppBar
+import com.example.mediq.core.designsystem.component.MediQButton
+import com.example.mediq.core.designsystem.component.MediQDivider
+import com.example.mediq.core.designsystem.component.MediQKeyValueGrid
 import com.example.mediq.core.designsystem.theme.LocalMediQColors
-import com.example.mediq.core.designsystem.theme.MediQGreen
+import com.example.mediq.core.designsystem.theme.MediQAccentLight
 import com.example.mediq.core.designsystem.theme.MediQLightGreen
-import com.example.mediq.core.designsystem.theme.MediQOnBrand
-import com.example.mediq.core.designsystem.theme.MediQTextSecondary
+import com.example.mediq.domain.model.Money
 import com.example.mediq.domain.model.toClinicDate
 import com.example.mediq.domain.model.toClinicTime
+import com.example.mediq.ui.format.formatWithCentavos
 import com.example.mediq.ui.navigation.Screen
 import java.time.format.DateTimeFormatter
 
-@OptIn(ExperimentalMaterial3Api::class)
+private val bookingDayFormat: DateTimeFormatter = DateTimeFormatter.ofPattern("EEEE, d MMMM yyyy")
+private val bookingTimeFormat: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm")
+
 @Composable
 fun BookingFlowScreen(navController: NavController, doctorId: String?) {
     val viewModel: BookingViewModel = viewModel(factory = BookingViewModel.Factory)
@@ -77,16 +71,9 @@ fun BookingFlowScreen(navController: NavController, doctorId: String?) {
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Book Appointment", fontWeight = FontWeight.Bold) },
-                navigationIcon = {
-                    IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background
-                )
+            MediQBrandAppBar(
+                title = "Confirm booking",
+                onBack = { navController.popBackStack() },
             )
         }
     ) { innerPadding ->
@@ -95,66 +82,30 @@ fun BookingFlowScreen(navController: NavController, doctorId: String?) {
                 .fillMaxSize()
                 .background(MaterialTheme.colorScheme.background)
                 .padding(innerPadding)
-                .padding(24.dp)
+                // The figure's content is taller than a phone, so it scrolls
+                // rather than being clipped.
+                .verticalScroll(rememberScrollState())
+                .padding(16.dp)
         ) {
-            Text(
-                text = "BOOKING DETAILS",
-                style = MaterialTheme.typography.labelSmall,
-                color = LocalMediQColors.current.secondaryText,
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-
             if (selection == null) {
-                // Should not normally happen — DoctorDetailsScreen always sets
-                // a selection before navigating here.
+                // Should not normally happen - DoctorDetailsScreen always sets a
+                // selection before navigating here.
                 Text(
                     text = "No slot selected. Please go back and choose a date and time.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.error,
                 )
             } else {
-                // ── Booking summary card ──────────────────────────────────
-                Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = MediQLightGreen,
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        BookingDetailRow(
-                            icon  = Icons.Outlined.MedicalServices,
-                            label = selection.doctorDisplayName,
-                            sub   = selection.specialtyDisplayName,
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        BookingDetailRow(
-                            icon  = Icons.Outlined.CalendarMonth,
-                            label = selection.startsAt.toClinicDate()
-                                .format(DateTimeFormatter.ofPattern("EEEE, MMMM d, yyyy")),
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        BookingDetailRow(
-                            icon  = Icons.Outlined.AccessTime,
-                            label = selection.startsAt.toClinicTime()
-                                .format(DateTimeFormatter.ofPattern("h:mm a")),
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        BookingDetailRow(
-                            icon  = Icons.Outlined.LocationOn,
-                            label = selection.locationDisplay,
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text  = "Fee: ₱${selection.feeCentavos / 100}",
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MediQGreen,
-                        )
-                    }
-                }
+                BookingSummary(selection = selection)
             }
 
             Spacer(modifier = Modifier.height(24.dp))
-            Text(text = "Reason for visit (optional)", fontWeight = FontWeight.SemiBold)
+            Text(
+                text = "Reason for visit (optional)",
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold,
+            )
+            Spacer(modifier = Modifier.height(8.dp))
             OutlinedTextField(
                 value = uiState.reasonForVisit,
                 onValueChange = { viewModel.onReasonChanged(it) },
@@ -166,6 +117,12 @@ fun BookingFlowScreen(navController: NavController, doctorId: String?) {
                     focusedBorderColor   = LocalMediQColors.current.accent,
                     unfocusedBorderColor = LocalMediQColors.current.outline
                 )
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "Only you and clinic staff can read this.",
+                style = MaterialTheme.typography.labelSmall,
+                color = LocalMediQColors.current.secondaryText,
             )
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -180,8 +137,8 @@ fun BookingFlowScreen(navController: NavController, doctorId: String?) {
                     colors   = CheckboxDefaults.colors(checkedColor = LocalMediQColors.current.accent),
                 )
                 Text(
-                    text  = "I confirm that the details above are correct and I wish to book this appointment.",
-                    style = MaterialTheme.typography.bodySmall,
+                    text  = "I confirm this booking.",
+                    style = MaterialTheme.typography.bodyMedium,
                     modifier = Modifier.weight(1f),
                 )
             }
@@ -195,56 +152,126 @@ fun BookingFlowScreen(navController: NavController, doctorId: String?) {
                 )
             }
 
-            Spacer(modifier = Modifier.weight(1f))
-            Button(
-                onClick  = { viewModel.submit() },
-                enabled  = uiState.canSubmit,
+            Spacer(modifier = Modifier.height(16.dp))
+            MediQButton(
+                text = "Book appointment",
+                onClick = { viewModel.submit() },
+                enabled = uiState.canSubmit,
+                loading = uiState.isSubmitting,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(56.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = MediQGreen)
+                    .height(52.dp),
+            )
+
+            // Why the tap is safe: the claim and the appointment row are one
+            // transaction, so nothing here can half-succeed.
+            Spacer(modifier = Modifier.height(16.dp))
+            Surface(
+                shape = RoundedCornerShape(10.dp),
+                // The measured pair `MediQAccentLight on MediQLightGreen`
+                // (5.89:1) is exactly this card's text on its container.
+                color = MediQLightGreen,
+                modifier = Modifier.fillMaxWidth(),
             ) {
-                if (uiState.isSubmitting) {
-                    CircularProgressIndicator(
-                        modifier    = Modifier.size(24.dp),
-                        color       = MediQOnBrand,
-                        strokeWidth = 2.dp,
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        text = "Your slot is protected at the moment you tap.",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MediQAccentLight,
                     )
-                } else {
-                    Text("Confirm Booking", fontSize = 18.sp)
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "The write that reserves it and the appointment row run in one " +
+                            "transaction, so a confirmed booking and the notification can never " +
+                            "disagree.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MediQAccentLight,
+                    )
                 }
             }
         }
     }
 }
 
+/** Figure 5's summary: the doctor, the date/time/location facts, then the fee pair. */
 @Composable
-private fun BookingDetailRow(
-    icon: ImageVector,
-    label: String,
-    sub: String? = null,
-) {
-    Row(verticalAlignment = Alignment.Top) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = MediQGreen,
-            modifier = Modifier.size(18.dp),
-        )
-        Column(modifier = Modifier.padding(start = 8.dp)) {
-            Text(text = label, style = MaterialTheme.typography.bodyMedium)
-            if (sub != null) {
-                Text(
-                    text = sub,
-                    style = MaterialTheme.typography.bodySmall,
-                    // The light secondary token, not the mode-aware one: this
-                    // row always sits on the hardcoded MediQLightGreen card,
-                    // which stays light in dark mode. Was Color.Gray, which
-                    // measured 3.51:1 on that card.
-                    color = MediQTextSecondary,
-                )
+private fun BookingSummary(selection: BookingSelection.Selection) {
+    val colors = LocalMediQColors.current
+
+    Surface(
+        shape = RoundedCornerShape(12.dp),
+        color = MaterialTheme.colorScheme.surface,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                MediQAvatar(initials = selection.doctorInitials, size = 40.dp)
+                Spacer(modifier = Modifier.width(12.dp))
+                Column {
+                    Text(
+                        text = selection.doctorDisplayName,
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    Text(
+                        text = selection.specialtyDisplayName,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = colors.secondaryText,
+                    )
+                }
             }
+            Spacer(modifier = Modifier.height(8.dp))
+            MediQDivider()
+            MediQKeyValueGrid(
+                rows = listOf(
+                    "DATE" to selection.startsAt.toClinicDate().format(bookingDayFormat),
+                    // A range, not just the start: the confirmation is the last
+                    // chance to notice a slot that ends when it was not expected to.
+                    "TIME" to "${selection.startsAt.toClinicTime().format(bookingTimeFormat)} – " +
+                        selection.endsAt.toClinicTime().format(bookingTimeFormat),
+                    "LOCATION" to selection.locationDisplay,
+                ),
+            )
         }
+    }
+
+    Spacer(modifier = Modifier.height(12.dp))
+
+    Surface(
+        shape = RoundedCornerShape(10.dp),
+        color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+            AmountRow(
+                label  = "Consultation fee",
+                amount = Money(selection.feeCentavos).formatWithCentavos(),
+            )
+            Spacer(modifier = Modifier.height(6.dp))
+            // Care is booked here and paid at the clinic, so nothing changes
+            // hands in the app. Zero through the same formatter as the fee, so
+            // the two rows cannot drift apart.
+            AmountRow(label = "Amount paid at the clinic", amount = Money(0L).formatWithCentavos())
+        }
+    }
+}
+
+@Composable
+private fun AmountRow(label: String, amount: String) {
+    Row(modifier = Modifier.fillMaxWidth()) {
+        Text(
+            text = label,
+            modifier = Modifier.weight(1f),
+            style = MaterialTheme.typography.bodyMedium,
+            color = LocalMediQColors.current.secondaryText,
+        )
+        Text(
+            text = amount,
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.SemiBold,
+        )
     }
 }
 

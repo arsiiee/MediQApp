@@ -12,6 +12,7 @@ import com.example.mediq.domain.model.BackendNotConnectedException
 import com.example.mediq.domain.model.CLINIC_ZONE
 import com.example.mediq.domain.model.Doctor
 import com.example.mediq.domain.model.LoadState
+import com.example.mediq.domain.model.SlotStatus
 import com.example.mediq.domain.model.TimeSlot
 import com.example.mediq.domain.repository.DoctorRepository
 import kotlinx.coroutines.Job
@@ -44,6 +45,35 @@ data class DoctorDetailsUiState(
     val selectedSlot: TimeSlot? = null,
 ) {
     val canContinue: Boolean get() = selectedSlot != null
+
+    /**
+     * What the picker is allowed to draw: everything bookable, plus the slots
+     * another patient has already claimed.
+     *
+     * Figure 4 draws the claimed ones grey under the legend *"Grey = already
+     * claimed by another patient"*, and `MediQSlotChip` has a `Claimed` state
+     * built for exactly that - but the screen filtered to `isBookable`, so the
+     * legend had nothing to describe. A claimed chip is still not clickable, so
+     * what the booking *can do* is unchanged.
+     *
+     * The split is on the legend's truth, not on bookability: a `BLOCKED` slot
+     * is the clinic's own leave rather than another patient's appointment, and
+     * an `UNKNOWN` one is a status this build cannot read - drawing either under
+     * that sentence would say something the app does not know.
+     *
+     * A view over [slots], never a rewrite of it: [slots] stays exactly what the
+     * server returned.
+     */
+    val visibleSlots: LoadState<List<TimeSlot>>
+        get() = when (slots) {
+            is LoadState.Success -> LoadState.Success(
+                slots.data.filter {
+                    it.status == SlotStatus.AVAILABLE || it.status == SlotStatus.RESERVED
+                },
+            )
+
+            else -> slots
+        }
 
     /** The clinic's own month, which is the earliest month worth looking at. */
     val currentMonth: YearMonth get() = YearMonth.from(today)

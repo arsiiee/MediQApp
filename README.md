@@ -34,7 +34,7 @@ Every number below is measured directly by automated checks, not claimed:
 | Gate / Metric | Command | Status / Value | Notes |
 |---|---|---|---|
 | **App Compilation** | `.\gradlew.bat :app:compileDebugKotlin` |  **Pass** | 6 deprecation warnings (pre-existing) |
-| **App Unit Tests** | `.\gradlew.bat :app:testDebugUnitTest` |  **182+ pass** (195-206 rerun) | All 10 ViewModels covered |
+| **App Unit Tests** | `.\gradlew.bat :app:testDebugUnitTest` |  **210 pass** | All 10 ViewModels covered |
 | **Server Tests** | `.\gradlew.bat :server:test` |  **60 pass** | Concurrency, auth, bookings, Supabase dialect |
 | **Architecture Boundaries** | `.\.mdfiles\check-boundaries.ps1` |  **Clean (0 violations)** | 56 files checked |
 | **Color Contrast (WCAG AA)** | `.\.mdfiles\check-contrast.ps1` |  **Clean** | 31 token pairs + 6 status chips; ratchet = 4 |
@@ -93,7 +93,7 @@ adb shell am start -n com.example.mediq/.MainActivity
 | **Sign-in & Sessions** |  Done | PBKDF2 hash, JWT + server-side revocation on sign-out |
 | **Registration Flow** |  Done | 4-step wizard: Details $\rightarrow$ OTP $\rightarrow$ Password $\rightarrow$ Session |
 | **Doctor Directory** |  Done | Search by name & specialty, debounced filter, "Next open" derived |
-| **Real Availability** |  Done | Generated from clinic hours, month stepper, date/slot picker |
+| **Real Availability** |  Done | Generated from clinic hours, month stepper, date/slot picker; claimed slots drawn greyed |
 | **Atomic Booking** |  Done | `slot_claims` unique constraint prevents double-booking (HTTP 409) |
 | **Appointment Management**|  Done | Upcoming & history lists, detail views, cancel & reschedule |
 | **Notifications** |  Done | System alerts, mark-as-read |
@@ -219,7 +219,7 @@ Run the local quality gates before committing code:
 - [ ] `check-boundaries.ps1` reports 0 errors.
 - [ ] `check-contrast.ps1` reports 0 errors; raw-color ratchet $\le 4$.
 - [ ] `:server:test` passes ($\ge 60$ tests).
-- [ ] `:app:testDebugUnitTest` passes ($\ge 195$ tests).
+- [ ] `:app:testDebugUnitTest` passes ($\ge 210$ tests).
 - [ ] Zero suppressions (`@Suppress`, `@SuppressLint`) or `TODO()` stubs.
 
 ---

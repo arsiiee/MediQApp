@@ -12,9 +12,10 @@
 **Active plan:** the six-screen UI redesign, spec at `tasks/SPEC-ui-redesign.md`
 with one module spec per step (`tasks/SPEC-ui-*.md`). Modules land one commit
 each, both check scripts and the test gate green at every step. `ui-foundation`
-(`529e1d6`, `456b1e6`) and `ui-auth` (`049b717`) are done; `ui-doctors`,
-`ui-scheduling`, and `ui-appointment` remain. v4 above landed first because its
-chips are figure 3's chip row.
+(`529e1d6`, `456b1e6`), `ui-auth` (`049b717`), `ui-doctors` (`1ecff3a`), and
+`ui-scheduling` (figures 4 and 5, plus the month stepper `8c986b0` had left
+unrendered) are done; `ui-appointment` (figure 6) remains. v4 above landed first
+because its chips are figure 3's chip row.
 
 **v4 is complete** (2026-10-15). Spec at `tasks/SPEC-specialty-filter.md`. It
 touched no file v3 touched, and its floor move was measured rather than
