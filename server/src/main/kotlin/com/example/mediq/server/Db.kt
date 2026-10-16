@@ -35,21 +35,43 @@ data class ServerConfig(
     val sessionTimeZone: String = CLINIC_ZONE.id,
 ) {
     companion object {
-        fun fromEnv(env: Map<String, String> = System.getenv()): ServerConfig = ServerConfig(
-            port = env["MEDIQ_PORT"]?.toInt() ?: 8080,
-            // In-memory by default so `run` works with nothing installed. Point
-            // this at Postgres before there are real patients: H2 has no
-            // concurrent-write behaviour like a real server.
-            jdbcUrl = env["MEDIQ_JDBC_URL"] ?: "jdbc:h2:mem:mediq;DB_CLOSE_DELAY=-1",
-            jwtSecret = env["MEDIQ_JWT_SECRET"] ?: "dev-only-insecure-secret-change-me",
-            jwtIssuer = env["MEDIQ_JWT_ISSUER"] ?: "mediq",
-            tokenTtlMinutes = env["MEDIQ_TOKEN_TTL_MINUTES"]?.toLong() ?: 60,
-            slotDurationMinutes = env["MEDIQ_SLOT_MINUTES"]?.toInt() ?: 30,
-            otpTtlMinutes = env["MEDIQ_OTP_TTL_MINUTES"]?.toLong() ?: 5,
-            seedDemoData = env["MEDIQ_SEED_DEMO"]?.lowercase() == "true",
-            dbUser = env["MEDIQ_DB_USER"],
-            dbPassword = env["MEDIQ_DB_PASSWORD"],
-        )
+        private fun loadDotEnv(): Map<String, String> {
+            val envFile = java.io.File(".env").takeIf { it.exists() }
+                ?: java.io.File("../.env").takeIf { it.exists() }
+                ?: return emptyMap()
+            return runCatching {
+                envFile.readLines()
+                    .map { it.trim() }
+                    .filter { it.isNotEmpty() && !it.startsWith("#") && it.contains("=") }
+                    .associate { line ->
+                        val idx = line.indexOf('=')
+                        val key = line.substring(0, idx).trim()
+                        val value = line.substring(idx + 1).trim().removeSurrounding("\"").removeSurrounding("'")
+                        key to value
+                    }
+            }.getOrDefault(emptyMap())
+        }
+
+        fun fromEnv(env: Map<String, String> = System.getenv()): ServerConfig {
+            val dotEnv = loadDotEnv()
+            fun get(key: String): String? = env[key] ?: dotEnv[key]
+
+            return ServerConfig(
+                port = get("MEDIQ_PORT")?.toInt() ?: 8080,
+                // In-memory by default so `run` works with nothing installed. Point
+                // this at Postgres before there are real patients: H2 has no
+                // concurrent-write behaviour like a real server.
+                jdbcUrl = get("MEDIQ_JDBC_URL") ?: "jdbc:h2:mem:mediq;DB_CLOSE_DELAY=-1",
+                jwtSecret = get("MEDIQ_JWT_SECRET") ?: "dev-only-insecure-secret-change-me",
+                jwtIssuer = get("MEDIQ_JWT_ISSUER") ?: "mediq",
+                tokenTtlMinutes = get("MEDIQ_TOKEN_TTL_MINUTES")?.toLong() ?: 60,
+                slotDurationMinutes = get("MEDIQ_SLOT_MINUTES")?.toInt() ?: 30,
+                otpTtlMinutes = get("MEDIQ_OTP_TTL_MINUTES")?.toLong() ?: 5,
+                seedDemoData = get("MEDIQ_SEED_DEMO")?.lowercase() == "true",
+                dbUser = get("MEDIQ_DB_USER"),
+                dbPassword = get("MEDIQ_DB_PASSWORD"),
+            )
+        }
 
         /**
          * Refuses to start with the development secret. A leaked signing key
