@@ -26,7 +26,10 @@ import com.example.mediq.domain.model.UserProfile
 import com.example.mediq.domain.model.UserRole
 import com.example.mediq.domain.model.VerifyOtpRequest
 import com.example.mediq.server.ApiError
+import com.example.mediq.server.db.NewDoctorPractice
+import com.example.mediq.server.db.NewStaffAccount
 import com.example.mediq.server.db.UserRow
+import com.example.mediq.server.db.UserStatus
 import kotlinx.serialization.Serializable
 import java.time.LocalDate
 
@@ -244,6 +247,49 @@ data class RequestOtpRequestDto(val mobileNumber: String)
 data class UpdateAccountStatusRequestDto(val status: String)
 
 /**
+ * Body for creating a staff account.
+ *
+ * `practice` is nested rather than nine more flat fields, because those nine are
+ * one thing: a doctor's `doctors` row. Nesting is what lets the server say
+ * "practice details are for a doctor account" about a request that sent a fee
+ * with no licence, instead of quietly writing half a practice record. The web's
+ * create form sends it as one object for the same reason.
+ *
+ * `status` is optional and defaults to active. It is not a formality: the admin
+ * form lets a new hire start disabled, and this is the same column the
+ * Enable/Disable buttons write.
+ */
+@Serializable
+data class CreateAccountRequestDto(
+    val username: String,
+    val password: String,
+    val fullName: String,
+    val email: String? = null,
+    val mobileNumber: String,
+    val dateOfBirth: String,
+    val role: String,
+    val status: String? = null,
+    /** A secretary's doctor. Absent for every other role. */
+    val assignedDoctorId: String? = null,
+    /** A doctor's practice record. Absent for every other role. */
+    val practice: DoctorPracticeDto? = null,
+)
+
+/** The `doctors` row a created doctor account sits behind. */
+@Serializable
+data class DoctorPracticeDto(
+    val specializationId: String,
+    val licenseNumber: String,
+    val yearsExperience: Int,
+    val feeCentavos: Long,
+    val bio: String,
+    val building: String,
+    val floor: String,
+    val room: String,
+    val languages: List<String>,
+)
+
+/**
  * Response to an OTP request.
  *
  * A named type rather than a `Map<String, Any?>`: kotlinx cannot serialise a map
@@ -437,6 +483,45 @@ fun parseDate(raw: String, field: String): LocalDate =
     runCatching { LocalDate.parse(raw) }.getOrElse {
         throw ApiError.badRequest("$field must be a date as YYYY-MM-DD.")
     }
+
+/**
+ * Maps the create form onto what [StaffAccountService] validates and writes.
+ *
+ * Wire values are parsed here — role, specialty, language, date — because this
+ * is where an unrecognised one becomes a 400 naming the values that are valid.
+ * The cross-field rules (which fields a doctor has to have, whether a username
+ * is already taken) belong to the service, and are answered there in the
+ * administrator's own words.
+ */
+fun CreateAccountRequestDto.toDomain() = NewStaffAccount(
+    username = username,
+    password = password,
+    fullName = fullName.trim(),
+    email = email?.trim()?.takeIf { it.isNotEmpty() },
+    mobileNumber = mobileNumber,
+    dateOfBirth = parseDate(dateOfBirth, "dateOfBirth"),
+    role = role.toUserRole(),
+    status = status?.let { wire ->
+        UserStatus.fromWire(wire)
+            ?: throw ApiError.badRequest(
+                "status must be '${UserStatus.ACTIVE.wireValue}' or '${UserStatus.INACTIVE.wireValue}'."
+            )
+    } ?: UserStatus.ACTIVE,
+    assignedDoctorId = assignedDoctorId?.trim()?.takeIf { it.isNotEmpty() },
+    practice = practice?.toDomain(),
+)
+
+fun DoctorPracticeDto.toDomain() = NewDoctorPractice(
+    specialty = specializationId.trim().toSpecialty(),
+    licenseNumber = licenseNumber.trim(),
+    yearsExperience = yearsExperience,
+    feeCentavos = feeCentavos,
+    bio = bio.trim(),
+    building = building.trim(),
+    floor = floor.trim(),
+    room = room.trim(),
+    languages = languages.map { it.trim().toConsultationLanguage() },
+)
 
 fun RegisterRequestDto.toDomain() = RegisterRequest(
     registrationId = registrationId,

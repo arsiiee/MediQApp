@@ -2,6 +2,7 @@ package com.example.mediq.server.db
 
 import com.example.mediq.domain.model.AvailableDate
 import com.example.mediq.domain.model.ClinicHours
+import com.example.mediq.domain.model.ConsultationLanguage
 import com.example.mediq.domain.model.Doctor
 import com.example.mediq.domain.model.DoctorQuery
 import com.example.mediq.domain.model.Money
@@ -130,6 +131,79 @@ class DoctorStore(
         }
         row.toDoctor(hours)
     }
+
+    /**
+     * Creates a `doctors` row and returns its id.
+     *
+     * Takes the caller's connection rather than opening one, because a doctor
+     * account is this row and a `users` row that links to it, and the two have
+     * to be written together — see [UserStore.createIn].
+     *
+     * **No clinic hours are written.** A new doctor has no schedule until
+     * somebody gives them one, and inventing a week of sessions would make the
+     * clinic's bookable calendar a guess. Until the doctor-workspace module adds
+     * the schedule editor, a doctor created here appears in the directory and
+     * can sign in, but has no slots for a patient to book. That is the honest
+     * state, not a bug to paper over with a default week.
+     */
+    internal fun insert(
+        c: Connection,
+        fullName: String,
+        specialty: Specialty,
+        yearsExperience: Int,
+        feeCentavos: Long,
+        licenseNumber: String,
+        bio: String,
+        building: String,
+        floor: String,
+        room: String,
+        languages: List<ConsultationLanguage>,
+    ): String {
+        // `specialty_id` is a foreign key, so the specialty row has to exist
+        // before this insert. A booted server seeded it; a test database has
+        // not, and this is the same guarded write the read paths already do.
+        ensureSpecialties(c, db.isPostgres)
+        val id = UUID.randomUUID().toString()
+        c.prepareStatement(
+            """
+            INSERT INTO doctors (id, full_name, specialty_id, years_experience, fee_centavos,
+                                 license_number, bio, building, floor, room, languages, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """.trimIndent()
+        ).use { st ->
+            st.setString(1, id)
+            st.setString(2, fullName)
+            st.setString(3, specialty.wireValue)
+            st.setInt(4, yearsExperience)
+            st.setLong(5, feeCentavos)
+            st.setString(6, licenseNumber)
+            st.setString(7, bio)
+            st.setString(8, building)
+            st.setString(9, floor)
+            st.setString(10, room)
+            // Comma-separated wire values, which is the form the column already
+            // holds — see the `languages` note on the table.
+            st.setString(11, languages.joinToString(",") { it.wireValue })
+            st.setObject(12, OffsetDateTime.now(ZoneOffset.UTC))
+            st.executeUpdate()
+        }
+        return id
+    }
+
+    /**
+     * Whether a `doctors` row with this id exists, inside the caller's
+     * transaction.
+     *
+     * `users.doctor_id` deliberately has no foreign key, so nothing in the
+     * database refuses a link to a doctor that is not there. This is what does,
+     * and it is checked in the same transaction that writes the link rather than
+     * in a read before it.
+     */
+    internal fun existsIn(c: Connection, doctorId: String): Boolean =
+        c.prepareStatement("SELECT 1 FROM doctors WHERE id = ?").use { st ->
+            st.setString(1, doctorId)
+            st.executeQuery().use { it.next() }
+        }
 
     /**
      * How many doctors sit under each specialty, keyed by wire value.

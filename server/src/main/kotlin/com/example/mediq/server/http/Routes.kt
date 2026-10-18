@@ -13,6 +13,7 @@ import com.example.mediq.server.db.AppointmentStore
 import com.example.mediq.server.db.AuthService
 import com.example.mediq.server.db.DoctorStore
 import com.example.mediq.server.db.NotificationStore
+import com.example.mediq.server.db.StaffAccountService
 import com.example.mediq.server.db.UserRow
 import com.example.mediq.server.db.UserStatus
 import com.example.mediq.server.db.UserStore
@@ -66,6 +67,7 @@ fun Route.mediQRoutes(
     appointments: AppointmentStore,
     notifications: NotificationStore,
     auth: AuthService,
+    staffAccounts: StaffAccountService,
     tokens: Tokens,
 ) {
     // --- Auth ---------------------------------------------------------------
@@ -329,6 +331,28 @@ fun Route.mediQRoutes(
                         }
                     )
                 )
+            }
+
+            /**
+             * Creates a staff account, and for a doctor the practice record the
+             * account sits behind.
+             *
+             * A `POST` that answers 201 with the account it wrote, in the same
+             * `AdminAccountDto` the directory read uses — so the web can drop the
+             * created row straight into the list it already has rather than
+             * re-reading the whole directory.
+             *
+             * The password is set by the caller, which is the administrator
+             * filling in the form. That is the whole reason the account exists:
+             * a doctor or secretary has no way to register themselves, because
+             * registration is the patient path and it proves a mobile number
+             * with an OTP.
+             */
+            post("/accounts") {
+                call.requirePrincipal()
+                    .requireRole(UserRole.ADMIN, message = ADMIN_ONLY)
+                val account = call.receive<CreateAccountRequestDto>().toDomain()
+                call.respond(HttpStatusCode.Created, staffAccounts.create(account).toAdminDto())
             }
 
             /**

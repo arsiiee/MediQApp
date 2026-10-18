@@ -291,6 +291,122 @@ Check "a re-enabled account can sign in again" {
     Status POST "$Base/auth/sign-in" $null @{ username = 'demo_secretary'; password = $StaffPassword }
 } 200
 
+# --- Creating staff accounts ----------------------------------------------
+#
+# The module's only write that adds rows, and the only place the server writes a
+# `doctors` row at all. A doctor account is two rows written in one transaction,
+# and no store-level test can show the pair arriving over HTTP, the account
+# signing in with the password the administrator chose, or the practice record
+# landing where the doctor profile reads it. So all three are asserted here.
+#
+# Usernames carry a timestamp because a second run against the same server would
+# otherwise collide with the accounts the first one made and read a 400 as a bug.
+
+Write-Host "`nCreate staff account"
+
+$suffix = (Get-Date).ToString("HHmmss")
+$createUrl = "$Base/admin/accounts"
+$newPassword = "smoke-password-1"
+$doctorAccount = @{
+    username     = "smoke_doctor_$suffix"
+    password     = $newPassword
+    fullName     = "Smoke Doctor"
+    email        = "smoke_doctor_$suffix@clinic.test"
+    mobileNumber = "6391700$suffix"
+    dateOfBirth  = "1985-04-12"
+    role         = "doctor"
+    practice     = @{
+        specializationId = "cardiology"
+        licenseNumber    = "PRC-SMOKE-1"
+        yearsExperience  = 9
+        feeCentavos      = 75000
+        bio              = "Created by the smoke run."
+        building         = "Main"
+        floor            = "2F"
+        room             = "204"
+        languages        = @("en", "fil")
+    }
+}
+
+Check "creating a staff account needs a token" {
+    Status POST $createUrl $null @{ username = 'anon'; password = $newPassword; fullName = 'A'; mobileNumber = '639170000000'; dateOfBirth = '1990-01-01'; role = 'admin' }
+} 401
+Check "a doctor's token is refused on the create route" {
+    Status POST $createUrl $wrongRoleAuth @{ username = 'wrong-role'; password = $newPassword; fullName = 'W'; mobileNumber = '639170000001'; dateOfBirth = '1990-01-01'; role = 'admin' }
+} 403
+Check "a patient account cannot be created here" {
+    Status POST $createUrl $adminAuth @{ username = "smoke_patient_$suffix"; password = $newPassword; fullName = 'P'; mobileNumber = "6391701$suffix"; dateOfBirth = '1990-01-01'; role = 'patient' }
+} 400
+Check "a doctor account with no practice details is refused" {
+    Status POST $createUrl $adminAuth @{ username = "smoke_bare_$suffix"; password = $newPassword; fullName = 'B'; mobileNumber = "6391702$suffix"; dateOfBirth = '1990-01-01'; role = 'doctor' }
+} 400
+Check "a duplicate username is a 400, not a constraint error" {
+    Status POST $createUrl $adminAuth @{ username = 'demo_admin'; password = $newPassword; fullName = 'D'; mobileNumber = "6391703$suffix"; dateOfBirth = '1990-01-01'; role = 'admin' }
+} 400
+Check "a secretary assigned to a doctor that is not there is refused" {
+    Status POST $createUrl $adminAuth @{ username = "smoke_orphan_$suffix"; password = $newPassword; fullName = 'O'; mobileNumber = "6391705$suffix"; dateOfBirth = '1990-01-01'; role = 'secretary'; assignedDoctorId = '00000000-0000-0000-0000-000000000000' }
+} 400
+
+$createdDoctor = Body POST $createUrl $adminAuth $doctorAccount
+if ($createdDoctor.role -eq 'doctor' -and $createdDoctor.status -eq 'active' -and $createdDoctor.doctorId) {
+    $script:Pass++
+    Write-Host "  PASS  an administrator can create a doctor account, practice record and all"
+} else {
+    $script:Fail++
+    Write-Host "  FAIL  the created doctor came back as: $($createdDoctor | ConvertTo-Json -Compress -Depth 5)"
+}
+
+# The link is only a link if what it points at is the practice record that was
+# sent, readable through the same route a patient's doctor profile uses.
+$newPractice = Body GET "$Base/doctors/$($createdDoctor.doctorId)" $null
+if ($newPractice.specialty -eq 'cardiology' -and
+    $newPractice.licenseNumber -eq 'PRC-SMOKE-1' -and
+    $newPractice.consultationFee.amountInCentavos -eq 75000 -and
+    $newPractice.location.room -eq '204' -and
+    @($newPractice.languages).Count -eq 2) {
+    $script:Pass++
+    Write-Host "  PASS  the created doctor's practice record reads back from the doctor profile"
+} else {
+    $script:Fail++
+    Write-Host "  FAIL  the practice record came back as: $($newPractice | ConvertTo-Json -Compress -Depth 5)"
+}
+
+Check "the created account can sign in with the password the administrator set" {
+    Status POST "$Base/auth/sign-in" $null @{ username = $doctorAccount.username; password = $newPassword }
+} 200
+
+$secretaryAccount = @{
+    username         = "smoke_secretary_$suffix"
+    password         = $newPassword
+    fullName         = "Smoke Secretary"
+    email            = "smoke_secretary_$suffix@clinic.test"
+    mobileNumber     = "6391704$suffix"
+    dateOfBirth      = "1993-07-02"
+    role             = "secretary"
+    assignedDoctorId = $createdDoctor.doctorId
+}
+$createdSecretary = Body POST $createUrl $adminAuth $secretaryAccount
+if ($createdSecretary.role -eq 'secretary' -and $createdSecretary.doctorId -eq $createdDoctor.doctorId) {
+    $script:Pass++
+    Write-Host "  PASS  an administrator can create a secretary assigned to a doctor"
+} else {
+    $script:Fail++
+    Write-Host "  FAIL  the created secretary came back as: $($createdSecretary | ConvertTo-Json -Compress -Depth 5)"
+}
+
+# A 201 that never reaches the directory would leave the account unmanageable —
+# it could be signed in as but never seen, so never disabled.
+$afterCreate = Body GET "$Base/admin/accounts" $adminAuth
+$listedDoctor = $afterCreate.doctors | Where-Object { $_.username -eq $doctorAccount.username }
+$listedSecretary = $afterCreate.secretaries | Where-Object { $_.username -eq $secretaryAccount.username }
+if ($listedDoctor -and $listedDoctor.doctorId -eq $createdDoctor.doctorId -and $listedSecretary) {
+    $script:Pass++
+    Write-Host "  PASS  the created accounts appear in the directory they will be managed from"
+} else {
+    $script:Fail++
+    Write-Host "  FAIL  created accounts missing from the directory (doctor=$($listedDoctor.username), secretary=$($listedSecretary.username))"
+}
+
 Write-Host "`nCORS"
 
 function Preflight($origin) {

@@ -101,13 +101,49 @@ class UserStore(private val db: com.example.mediq.server.Database) {
          * away from the thing under test.
          */
         status: UserStatus = UserStatus.ACTIVE,
+        /**
+         * The `doctors` row this account sits behind, when there is one.
+         *
+         * Default null because registration, the demo seed, and every patient
+         * account produce none; [StaffAccountService] is the only caller that
+         * passes one, for a doctor it has just created and for a secretary
+         * assigned to an existing doctor.
+         */
+        doctorId: String? = null,
     ): UserRow = db.tx { c ->
+        createIn(c, username, password, fullName, email, mobileNumber, dateOfBirth, sex, role, address, status, doctorId)
+    }
+
+    /**
+     * [create] without opening its own transaction, for a caller that has to
+     * write more than one table.
+     *
+     * A doctor account is two rows — this one and the `doctors` row `doctor_id`
+     * points at — and they have to appear together. `Database.tx` takes a fresh
+     * connection every call, so calling [create] and a doctor-store method from
+     * the same service would be two transactions that can half-apply, leaving an
+     * account that can sign in with no practice record behind it.
+     */
+    internal fun createIn(
+        c: Connection,
+        username: String,
+        password: String,
+        fullName: String,
+        email: String?,
+        mobileNumber: String,
+        dateOfBirth: LocalDate,
+        sex: Sex?,
+        role: UserRole,
+        address: String?,
+        status: UserStatus,
+        doctorId: String?,
+    ): UserRow {
         val id = UUID.randomUUID().toString()
         c.prepareStatement(
             """
             INSERT INTO users (id, username, password_hash, full_name, email, mobile_number,
-                               date_of_birth, sex, address, role, status, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                               date_of_birth, sex, address, role, status, doctor_id, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """.trimIndent()
         ).use { st ->
             st.setString(1, id)
@@ -121,10 +157,11 @@ class UserStore(private val db: com.example.mediq.server.Database) {
             st.setString(9, address)
             st.setString(10, role.wireValue)
             st.setString(11, status.wireValue)
-            st.setObject(12, OffsetDateTime.now(ZoneOffset.UTC))
+            st.setString(12, doctorId)
+            st.setObject(13, OffsetDateTime.now(ZoneOffset.UTC))
             st.executeUpdate()
         }
-        findById(c, id)!!
+        return findById(c, id)!!
     }
 
     fun findByUsername(username: String): UserRow? =

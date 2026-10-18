@@ -292,37 +292,6 @@ class AuthService(
         return AccessToken(token, expiresAt) to user
     }
 
-    private fun normalizeMobile(raw: String): String {
-        val trimmed = raw.trim()
-        if (!trimmed.matches(Regex("^\\+?[0-9]{10,15}$"))) {
-            throw ApiError.badRequest("Enter a valid mobile number in international format.")
-        }
-        return if (trimmed.startsWith("+")) trimmed else "+$trimmed"
-    }
-
-    /**
-     * Normalizes a username for storage and lookup alike.
-     *
-     * Applied on both sides so the two can never disagree: [register] stores
-     * this form and [signIn] looks up this form.
-     *
-     * Trimming matters more than case. A phone keyboard that autocorrects or
-     * autocompletes a username can leave a trailing space or an uppercase first
-     * letter, and matching raw meant correct credentials produced the same
-     * opaque "Those details don't match an account." as a genuinely wrong
-     * password — with no way for a patient to tell the two apart.
-     *
-     * An empty result is rejected rather than looked up: an empty username must
-     * not fall through to matching nothing while appearing to be tried.
-     */
-    private fun normalizeUsername(raw: String): String {
-        val trimmed = raw.trim().lowercase()
-        if (trimmed.isEmpty()) {
-            throw ApiError.badRequest("Enter your username.")
-        }
-        return trimmed
-    }
-
     /** Stub for the SMS gateway. Must send the code before real use. */
     private fun deliverCodeForDevelopment(mobileNumber: String, code: String) {
         if (returnCodeToCaller) {
@@ -334,7 +303,6 @@ class AuthService(
 
     private companion object {
         const val MAX_OTP_ATTEMPTS = 5
-        const val MIN_PASSWORD_LENGTH = 8
 
         /** How long a verified registration id stays usable. */
         const val REGISTRATION_WINDOW_SECONDS = 15 * 60L
@@ -351,3 +319,59 @@ class AuthService(
 }
 
 data class AccessToken(val value: String, val expiresAt: Instant)
+
+// --- Shared credential rules -------------------------------------------------
+//
+// These lived inside [AuthService] as private members until staff creation
+// arrived. It is the second way an account comes into existence, and the two
+// paths have to agree about what a username or a mobile number even is: a
+// second definition of "the stored form" would mean a username that registers
+// and then cannot sign in.
+
+/**
+ * Shortest password the server accepts.
+ *
+ * Shared by registration and by an administrator creating a staff account, so
+ * the two cannot drift into accepting different lengths.
+ */
+internal const val MIN_PASSWORD_LENGTH = 8
+
+/**
+ * Normalizes a username for storage and lookup alike.
+ *
+ * Applied on both write paths so they can never disagree with what [AuthService.signIn]
+ * later looks up.
+ *
+ * Trimming matters more than case. A phone keyboard that autocorrects or
+ * autocompletes a username can leave a trailing space or an uppercase first
+ * letter, and matching raw meant correct credentials produced the same opaque
+ * "Those details don't match an account." as a genuinely wrong password — with
+ * no way for the two to be told apart.
+ *
+ * An empty result is rejected rather than looked up: an empty username must not
+ * fall through to matching nothing while appearing to be tried.
+ */
+internal fun normalizeUsername(raw: String): String {
+    val trimmed = raw.trim().lowercase()
+    if (trimmed.isEmpty()) {
+        throw ApiError.badRequest("Enter your username.")
+    }
+    return trimmed
+}
+
+/**
+ * Normalizes a mobile number to the E.164 form the column stores.
+ *
+ * Anything that is not a plausible number is refused rather than stored as
+ * typed. The value is the identifier an OTP is bound to and the unique key that
+ * stops two accounts sharing a phone, so "+63 917 555 0142" and "+639175550142"
+ * have to land on the same column value or the second account slips through as
+ * a different person.
+ */
+internal fun normalizeMobile(raw: String): String {
+    val trimmed = raw.trim()
+    if (!trimmed.matches(Regex("^\\+?[0-9]{10,15}$"))) {
+        throw ApiError.badRequest("Enter a valid mobile number in international format.")
+    }
+    return if (trimmed.startsWith("+")) trimmed else "+$trimmed"
+}

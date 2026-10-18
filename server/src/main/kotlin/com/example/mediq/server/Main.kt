@@ -5,6 +5,7 @@ import com.example.mediq.server.db.AppointmentStore
 import com.example.mediq.server.db.AuthService
 import com.example.mediq.server.db.DoctorStore
 import com.example.mediq.server.db.NotificationStore
+import com.example.mediq.server.db.StaffAccountService
 import com.example.mediq.server.db.UserStore
 import com.example.mediq.server.http.configureAuth
 import com.example.mediq.server.http.configureStatusPages
@@ -37,6 +38,7 @@ fun main() {
     val notifications = NotificationStore(db)
     val tokens = Tokens(config.jwtSecret, config.jwtIssuer)
     val auth = AuthService(db, users, tokens, config.tokenTtlMinutes, config.otpTtlMinutes)
+    val staffAccounts = StaffAccountService(db, users, doctors)
 
     // Specialties are the shared enum, not content: without these rows a doctor
     // cannot reference a specialty at all, so they are seeded unconditionally.
@@ -49,7 +51,7 @@ fun main() {
     Runtime.getRuntime().addShutdownHook(Thread { db.close() })
 
     embeddedServer(Netty, port = config.port, host = "0.0.0.0") {
-        mediQModule(config, db, users, doctors, appointments, notifications, auth, tokens)
+        mediQModule(config, db, users, doctors, appointments, notifications, auth, staffAccounts, tokens)
     }.start(wait = true)
 }
 
@@ -65,6 +67,7 @@ fun Application.mediQModule(
     appointments: AppointmentStore,
     notifications: NotificationStore,
     auth: AuthService,
+    staffAccounts: StaffAccountService,
     tokens: Tokens,
 ) {
     // Installed before the rest: a browser's preflight is an unauthenticated
@@ -122,6 +125,7 @@ fun Application.mediQModule(
             appointments = appointments,
             notifications = notifications,
             auth = auth,
+            staffAccounts = staffAccounts,
             tokens = tokens,
         )
     }
