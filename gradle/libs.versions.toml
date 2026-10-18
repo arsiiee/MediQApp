@@ -59,6 +59,7 @@ server-ktor-auth-jwt = { group = "io.ktor", name = "ktor-server-auth-jwt-jvm", v
 server-ktor-content-negotiation = { group = "io.ktor", name = "ktor-server-content-negotiation-jvm", version.ref = "ktor" }
 server-ktor-serialization = { group = "io.ktor", name = "ktor-serialization-kotlinx-json-jvm", version.ref = "ktor" }
 server-ktor-status-pages = { group = "io.ktor", name = "ktor-server-status-pages-jvm", version.ref = "ktor" }
+server-ktor-cors = { group = "io.ktor", name = "ktor-server-cors-jvm", version.ref = "ktor" }
 server-ktor-call-logging = { group = "io.ktor", name = "ktor-server-call-logging-jvm", version.ref = "ktor" }
 server-coroutines-core = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-core", version.ref = "coroutines" }
 server-logback = { group = "ch.qos.logback", name = "logback-classic", version.ref = "logback" }

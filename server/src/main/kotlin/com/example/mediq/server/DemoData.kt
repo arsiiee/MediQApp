@@ -23,16 +23,27 @@ import java.util.UUID
 object DemoData {
 
     fun seed(db: Database) {
-        if (db.read { c ->
-                c.prepareStatement("SELECT COUNT(*) FROM doctors").use { st ->
-                    st.executeQuery().use { rs -> if (rs.next()) rs.getInt(1) else 0 }
-                }
-            } > 0
-        ) {
-            println("[MediQ] Demo data already present, skipping.")
-            return
+        val doctorsAlreadyPresent = db.read { c ->
+            c.prepareStatement("SELECT COUNT(*) FROM doctors").use { st ->
+                st.executeQuery().use { rs -> if (rs.next()) rs.getInt(1) else 0 }
+            }
+        } > 0
+
+        if (doctorsAlreadyPresent) {
+            println("[MediQ] Demo doctors already present, skipping.")
+        } else {
+            seedDoctors(db)
         }
 
+        val password = "demo12345"
+        seedPatient(db, password)
+        // Seeded independently of the doctors above, so a database that predates
+        // staff accounts gains them on the next boot instead of needing a
+        // re-seed. Each INSERT is skipped if its username is already taken.
+        seedStaff(db, password)
+    }
+
+    private fun seedDoctors(db: Database) {
         println("[MediQ] Seeding DEMO data — doctors below are invented, not real clinicians.")
 
         db.tx { c ->
@@ -127,9 +138,13 @@ object DemoData {
             }
         }
 
-        // A demo patient, so sign-in can be tried end to end. Password is
-        // printed once and is deliberately weak.
-        val password = "demo12345"
+    }
+
+    /**
+     * A demo patient, so sign-in can be tried end to end. The password is
+     * printed once and is deliberately weak.
+     */
+    private fun seedPatient(db: Database, password: String) {
         db.tx { c ->
             if (alreadyExists(c, "demo_patient")) return@tx
             c.prepareStatement(
@@ -155,11 +170,74 @@ object DemoData {
         println("[MediQ] Demo patient: demo_patient / $password")
     }
 
+    /**
+     * One staff account per role, so each area of the web can be walked without
+     * hand-writing an INSERT.
+     *
+     * `demo_doctor` and `demo_secretary` are linked to the first demo doctor, so
+     * their screens have a doctor to sit behind. The link is a subquery and is
+     * allowed to come back empty: a database whose doctors are real clinicians
+     * still gets the accounts, just unlinked, rather than a failed boot.
+     */
+    private fun seedStaff(db: Database, password: String) {
+        val accounts = listOf(
+            StaffSeed(username = "demo_admin", role = "admin", fullName = "Demo Admin"),
+            StaffSeed(username = "demo_doctor", role = "doctor", fullName = "Demo Doctor"),
+            StaffSeed(username = "demo_secretary", role = "secretary", fullName = "Demo Secretary"),
+        )
+
+        db.tx { c ->
+            accounts.forEachIndexed { index, account ->
+                if (alreadyExists(c, account.username)) return@forEachIndexed
+                c.prepareStatement(
+                    """
+                    INSERT INTO users (id, username, password_hash, full_name, email, mobile_number,
+                                       date_of_birth, sex, address, role, doctor_id, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, NULL, NULL, ?, ?, ?)
+                    """.trimIndent()
+                ).use { st ->
+                    st.setString(1, UUID.randomUUID().toString())
+                    st.setString(2, account.username)
+                    st.setString(3, com.example.mediq.server.auth.Passwords.hash(password))
+                    st.setString(4, account.fullName)
+                    st.setString(5, "${account.username.replace('_', '.')}@example.invalid")
+                    // Distinct per account: mobile_number is unique, so handing
+                    // all three the demo patient's number would trip the
+                    // constraint and take the whole seed down.
+                    st.setString(6, "+63900000000${index + 1}")
+                    st.setObject(7, java.time.LocalDate.of(1985, 1, 1))
+                    st.setString(8, account.role)
+                    st.setString(9, if (account.role == "admin") null else demoDoctorId(c))
+                    st.setObject(10, OffsetDateTime.now(ZoneOffset.UTC))
+                    st.executeUpdate()
+                }
+            }
+        }
+
+        println(
+            "[MediQ] Demo staff: " +
+                accounts.joinToString(", ") { "${it.username} (${it.role})" } + " / $password"
+        )
+    }
+
+    /** The demo doctor a staff account sits behind, or null if there is none. */
+    private fun demoDoctorId(c: java.sql.Connection): String? =
+        c.prepareStatement("SELECT id FROM doctors WHERE full_name = ?").use { st ->
+            st.setString(1, "Demo Rivera")
+            st.executeQuery().use { rs -> if (rs.next()) rs.getString("id") else null }
+        }
+
     private fun alreadyExists(c: java.sql.Connection, username: String): Boolean =
         c.prepareStatement("SELECT 1 FROM users WHERE username = ?").use { st ->
             st.setString(1, username)
             st.executeQuery().use { rs -> rs.next() }
         }
+
+    private data class StaffSeed(
+        val username: String,
+        val role: String,
+        val fullName: String,
+    )
 
     private data class DoctorSeed(
         val name: String,

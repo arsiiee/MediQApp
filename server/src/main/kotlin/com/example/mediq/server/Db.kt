@@ -33,8 +33,19 @@ data class ServerConfig(
      * invariant by forcing a zone the production default never uses.
      */
     val sessionTimeZone: String = CLINIC_ZONE.id,
+    /**
+     * Origins a browser may call this API from.
+     *
+     * Not `anyHost`. The staff web app is served from a different origin than
+     * this API, and allowing every origin would let any page a signed-in staff
+     * member happens to visit read their session with their own token.
+     */
+    val webOrigins: List<String> = DEFAULT_WEB_ORIGINS,
 ) {
     companion object {
+        /** The Angular dev server, which is where the web runs from locally. */
+        val DEFAULT_WEB_ORIGINS = listOf("http://localhost:4200", "http://127.0.0.1:4200")
+
         private fun loadDotEnv(): Map<String, String> {
             val envFile = java.io.File(".env").takeIf { it.exists() }
                 ?: java.io.File("../.env").takeIf { it.exists() }
@@ -70,6 +81,13 @@ data class ServerConfig(
                 seedDemoData = get("MEDIQ_SEED_DEMO")?.lowercase() == "true",
                 dbUser = get("MEDIQ_DB_USER"),
                 dbPassword = get("MEDIQ_DB_PASSWORD"),
+                // Comma-separated, overridable without a rebuild: the deployed
+                // web host is not known at build time.
+                webOrigins = get("MEDIQ_WEB_ORIGINS")
+                    ?.split(",")
+                    ?.map { it.trim() }
+                    ?.filter { it.isNotEmpty() }
+                    ?: DEFAULT_WEB_ORIGINS,
             )
         }
 

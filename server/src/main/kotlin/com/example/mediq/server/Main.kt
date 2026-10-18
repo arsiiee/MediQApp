@@ -10,6 +10,8 @@ import com.example.mediq.server.http.configureAuth
 import com.example.mediq.server.http.configureStatusPages
 import com.example.mediq.server.http.healthRoute
 import com.example.mediq.server.http.mediQRoutes
+import io.ktor.http.HttpHeaders
+import io.ktor.http.HttpMethod
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.Application
 import io.ktor.server.application.install
@@ -18,6 +20,7 @@ import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
 import io.ktor.server.plugins.calllogging.CallLogging
 import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
+import io.ktor.server.plugins.cors.routing.CORS
 import io.ktor.server.plugins.statuspages.StatusPages
 import io.ktor.server.routing.routing
 import kotlinx.serialization.json.Json
@@ -64,6 +67,28 @@ fun Application.mediQModule(
     auth: AuthService,
     tokens: Tokens,
 ) {
+    // Installed before the rest: a browser's preflight is an unauthenticated
+    // OPTIONS request, so if this ran after Authentication the preflight itself
+    // would be rejected and the real request would never be sent.
+    install(CORS) {
+        // Matched as the exact `scheme://host:port` the browser sends, so a
+        // different port on the same host is not implicitly allowed. The
+        // predicate form is used rather than `allowHost` because the latter
+        // ignores the port entirely.
+        config.webOrigins.forEach { origin ->
+            allowOrigins { it == origin }
+        }
+        // The bearer token travels in a header, which is not a "simple" header,
+        // so the browser asks permission for it on every cross-origin call.
+        allowHeader(HttpHeaders.Authorization)
+        allowHeader(HttpHeaders.ContentType)
+        allowMethod(HttpMethod.Get)
+        allowMethod(HttpMethod.Post)
+        allowMethod(HttpMethod.Put)
+        allowMethod(HttpMethod.Patch)
+        allowMethod(HttpMethod.Delete)
+    }
+
     install(ContentNegotiation) {
         json(
             Json {

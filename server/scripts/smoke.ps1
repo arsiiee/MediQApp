@@ -10,7 +10,13 @@
 param(
     [string]$Base = "http://127.0.0.1:$env:MEDIQ_PORT",
     [string]$Username = "demo_patient",
-    [string]$Password = "demo12345"
+    [string]$Password = "demo12345",
+    # The staff demo accounts share the patient's password. Separate parameters
+    # because they are separate accounts and a deployment could change one.
+    [string]$StaffPassword = "demo12345",
+    # The origin the Angular dev server runs on. Has to match the server's
+    # MEDIQ_WEB_ORIGINS or the browser blocks every call from the web app.
+    [string]$WebOrigin = "http://localhost:4200"
 )
 
 $script:Pass = 0
@@ -116,6 +122,95 @@ if ($wrongPassword.error -eq $unknownUser.error -and $wrongPassword.message -eq 
 
 Check "authenticated route without a token is 401" { Status GET "$Base/profile" } 401
 Check "profile with a token" { Status GET "$Base/profile" $auth } 200
+
+# --- Staff and the browser ------------------------------------------------
+#
+# The staff half of sign-in: the roles the web signs in as, and the CORS answer
+# that decides whether a browser is allowed to make the call at all. Neither is
+# reachable from a store-level test — one is a JWT claim the route layer reads
+# and the other is a preflight the browser makes before anything else.
+
+Write-Host "`nStaff sign-in"
+
+$staffAccounts = @(
+    @{ username = "demo_admin"; role = "admin" },
+    @{ username = "demo_doctor"; role = "doctor" },
+    @{ username = "demo_secretary"; role = "secretary" }
+)
+
+$staffTokens = @{}
+foreach ($account in $staffAccounts) {
+    $staff = Body POST "$Base/auth/sign-in" $null @{
+        username = $account.username
+        password = $StaffPassword
+    }
+    if ($staff.profile.role -eq $account.role -and $staff.accessToken) {
+        $script:Pass++
+        Write-Host "  PASS  sign in as $($account.username) and get role '$($account.role)'"
+        $staffTokens[$account.role] = $staff.accessToken
+    } else {
+        $script:Fail++
+        Write-Host "  FAIL  $($account.username) returned role '$($staff.profile.role)', wanted '$($account.role)'"
+    }
+}
+
+# The one staff behaviour the web already depends on: a non-patient caller reads
+# every appointment rather than only their own, which is what a doctor's queue
+# and a secretary's calendar are. Without it those screens are silently empty.
+if ($staffTokens['doctor']) {
+    $doctorAuth = @{ Authorization = "Bearer $($staffTokens['doctor'])" }
+    Check "a doctor can read the appointment list" { Status GET "$Base/appointments" $doctorAuth } 200
+}
+
+Write-Host "`nCORS"
+
+function Preflight($origin) {
+    $options = @{
+        Uri           = "$Base/auth/sign-in"
+        Method        = 'OPTIONS'
+        UseBasicParsing = $true
+        ErrorAction   = 'Stop'
+        Headers       = @{
+            'Origin'                        = $origin
+            'Access-Control-Request-Method' = 'POST'
+            'Access-Control-Request-Headers' = 'authorization,content-type'
+        }
+    }
+    try {
+        $response = Invoke-WebRequest @options
+        [pscustomobject]@{
+            status      = $response.StatusCode
+            allowOrigin = $response.Headers['Access-Control-Allow-Origin']
+        }
+    } catch {
+        [pscustomobject]@{
+            status      = $_.Exception.Response.StatusCode.value__
+            allowOrigin = $null
+        }
+    }
+}
+
+$allowed = Preflight $WebOrigin
+if ($allowed.status -eq 200 -and $allowed.allowOrigin -eq $WebOrigin) {
+    $script:Pass++
+    Write-Host "  PASS  the preflight from $WebOrigin is allowed, with the origin echoed back"
+} else {
+    $script:Fail++
+    Write-Host "  FAIL  preflight from $WebOrigin returned $($allowed.status), allow-origin '$($allowed.allowOrigin)'"
+}
+
+# The negative half is the one that matters. An allow-list that answers every
+# origin is not an allow-list, and the failure is invisible in the positive test.
+# A different *port* on an allowed host is used deliberately: Ktor's `allowHost`
+# ignores the port, so this case is what tells the two mechanisms apart.
+$denied = Preflight "http://localhost:4201"
+if ($denied.status -ne 200 -and -not $denied.allowOrigin) {
+    $script:Pass++
+    Write-Host "  PASS  a neighbouring port on an allowed host is refused ($($denied.status))"
+} else {
+    $script:Fail++
+    Write-Host "  FAIL  localhost:4201 was allowed: status $($denied.status), allow-origin '$($denied.allowOrigin)'"
+}
 
 # --- Booking --------------------------------------------------------------
 

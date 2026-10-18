@@ -29,6 +29,10 @@ dependencies {
     implementation(libs.server.ktor.content.negotiation)
     implementation(libs.server.ktor.serialization)
     implementation(libs.server.ktor.status.pages)
+    // The staff web app is served from its own origin, so every browser call to
+    // this API is a cross-origin request. Without the CORS plugin the browser
+    // blocks all of them before they arrive.
+    implementation(libs.server.ktor.cors)
     implementation(libs.server.ktor.call.logging)
     implementation(libs.server.coroutines.core)
     implementation(libs.server.logback)
