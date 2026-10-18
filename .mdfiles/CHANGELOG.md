@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- **Token Lifecycle (Plan v2): Session expiry, corrupt-session recovery, and central 401 handling.**
+  `ApiFailure` gains `isAuthFailure` (status == 401) alongside `isNetworkFailure`.
+  `SessionSignal` in `domain/model/` provides an architecture-safe seam owned by `AppContainer`
+  and observed by `MediQNavHost` to prompt patients with a modal dialog upon session expiration
+  without adding per-screen 401 branches. `SessionAuthenticator` implements `okhttp3.Authenticator`
+  to clear dead credentials, trigger the expired signal, and strictly refuse auto-retry on
+  non-idempotent write requests (`POST`, `PUT`, `DELETE`, `PATCH`), mitigating double-booking hazards.
+  `TokenStore.getSession()` validates JSON blobs and timestamp expiration on read via `SessionMapper`,
+  preventing `DateTimeParseException` wedges on the profile screen and self-healing corrupt states.
+  Unit test suite expanded across `:app` to **238** tests.
+
 - **A staff account can be created over HTTP, and a doctor's account and its
   practice record are one transaction — the write half of module 2.**
   `POST /admin/accounts` is admin-only through the same `Caller.requireRole` as

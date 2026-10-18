@@ -1,7 +1,15 @@
 package com.example.mediq.ui.navigation
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Text
+import androidx.compose.ui.text.font.FontWeight
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavHostController
@@ -51,6 +59,46 @@ private fun NavBackStackEntry.registerViewModel(navController: NavHostController
 
 @Composable
 fun MediQNavHost(navController: NavHostController) {
+    var showExpiredDialog by rememberSaveable { mutableStateOf(false) }
+
+    LaunchedEffect(AppContainer.sessionSignal) {
+        AppContainer.sessionSignal.isExpired.collect { expired ->
+            if (expired) {
+                showExpiredDialog = true
+            }
+        }
+    }
+
+    if (showExpiredDialog) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { /* Dismissable only by signing in */ },
+            title = {
+                androidx.compose.material3.Text(
+                    text = "Session expired",
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                )
+            },
+            text = {
+                androidx.compose.material3.Text(
+                    text = "Your session has expired. Please sign in again to continue.",
+                )
+            },
+            confirmButton = {
+                com.example.mediq.core.designsystem.component.MediQButton(
+                    text = "Sign in",
+                    onClick = {
+                        showExpiredDialog = false
+                        AppContainer.sessionSignal.clear()
+                        navController.navigate(Screen.SignIn.route) {
+                            // Keeps the booking back stack entry rather than clearing the whole stack
+                            popUpTo(Screen.SignIn.route) { inclusive = true }
+                        }
+                    },
+                )
+            },
+        )
+    }
+
     NavHost(
         navController = navController,
         startDestination = Screen.Splash.route

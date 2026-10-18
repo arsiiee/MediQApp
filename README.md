@@ -90,7 +90,7 @@ adb shell am start -n com.example.mediq/.MainActivity
 
 | Feature | Status | Details |
 |---|:---:|---|
-| **Sign-in & Sessions** |  Done | PBKDF2 hash, JWT + server-side revocation on sign-out |
+| **Sign-in & Sessions** |  Done | PBKDF2 hash, JWT + server-side revocation on sign-out, session signal & 401 expiry recovery |
 | **Registration Flow** |  Done | 4-step wizard: Details $\rightarrow$ OTP $\rightarrow$ Password $\rightarrow$ Session |
 | **Doctor Directory** |  Done | Search by name & specialty, debounced filter, "Next open" derived |
 | **Real Availability** |  Done | Generated from clinic hours, month stepper, date/slot picker; claimed slots drawn greyed |

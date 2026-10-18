@@ -5,7 +5,7 @@
 | Plan | Status | Scope |
 |---|---|---|
 | v1 — registration + appointment details | **Complete**, commits `c9df562`..`24d9ef2` | Close the two "Known gaps" in `.mdfiles/AGENTS.md` |
-| v2 — token lifecycle | **Planned, not started** — 93 boxes below are open | 401 handling, session expiry, corrupt-session recovery |
+| v2 — token lifecycle | **Complete** 2026-10-18 | 401 handling, session expiry, corrupt-session recovery, SessionSignal, SessionAuthenticator |
 | v3 — seeded-data screen | **Complete** 2026-10-07 | One temporary screen that verifies the live backend |
 | v4 — doctor specialty filter | **Complete** 2026-10-15 | One chip per `Specialty.entries` plus "All", driven by the real `DoctorQuery.specialty` |
 
@@ -1011,14 +1011,14 @@ additive change to a file that is already compiled into `:server` via
 `sharedDomain`, so it must not import `android` or `androidx.compose`.
 
 **Acceptance criteria:**
-- [ ] `isAuthFailure` is a `val` property on `ApiFailure`, `get() = status == 401`, declared immediately after `isNetworkFailure` (`ApiFailure.kt:38`)
-- [ ] KDoc states the contrast with `isNetworkFailure`: one means "never reached the server", the other "reached it and was told who you are is no longer valid"
-- [ ] `ApiErrorsTest` gains cases for a 401, a 403, and a network failure, asserting `isAuthFailure` and `isNetworkFailure` are independent
+- [x] `isAuthFailure` is a `val` property on `ApiFailure`, `get() = status == 401`, declared immediately after `isNetworkFailure` (`ApiFailure.kt:38`)
+- [x] KDoc states the contrast with `isNetworkFailure`: one means "never reached the server", the other "reached it and was told who you are is no longer valid"
+- [x] `ApiErrorsTest` gains cases for a 401, a 403, and a network failure, asserting `isAuthFailure` and `isNetworkFailure` are independent
 
 **Verification:**
-- [ ] `.\gradlew.bat :app:testDebugUnitTest --console=plain` green
-- [ ] `.\gradlew.bat :server:test --console=plain` green — `ApiFailure` is in `sharedDomain`, so a bad import breaks the server build
-- [ ] `.\.mdfiles\check-boundaries.ps1` green
+- [x] `.\gradlew.bat :app:testDebugUnitTest --console=plain` green
+- [x] `.\gradlew.bat :server:test --console=plain` green — `ApiFailure` is in `sharedDomain`, so a bad import breaks the server build
+- [x] `.\.mdfiles\check-boundaries.ps1` green
 
 **Dependencies:** None
 
@@ -1038,16 +1038,16 @@ stack and the nav host. It lives in `domain/` so `ui/` can read it without
 importing `data/`, and it must not import `android` or Compose.
 
 **Acceptance criteria:**
-- [ ] `domain/model/SessionSignal.kt` owns a `MutableStateFlow<Boolean>` exposed as `StateFlow<Boolean>`, plus `fun markExpired()` and `fun clear()`
-- [ ] It starts `false`; a fresh install and a signed-out patient are indistinguishable to the nav host
-- [ ] KDoc names the bug in the past tense — five screens each rendering an unactionable "Please sign in again."
-- [ ] `MediQNavHost` importing `AppContainer.sessionSignal` is not a boundary violation; `check-boundaries.ps1` still reports `ui-imports-data` = 0
+- [x] `domain/model/SessionSignal.kt` owns a `MutableStateFlow<Boolean>` exposed as `StateFlow<Boolean>`, plus `fun markExpired()` and `fun clear()`
+- [x] It starts `false`; a fresh install and a signed-out patient are indistinguishable to the nav host
+- [x] KDoc names the bug in the past tense — five screens each rendering an unactionable "Please sign in again."
+- [x] `MediQNavHost` importing `AppContainer.sessionSignal` is not a boundary violation; `check-boundaries.ps1` still reports `ui-imports-data` = 0
 
 **Verification:**
-- [ ] `.\gradlew.bat :app:testDebugUnitTest --console=plain` green
-- [ ] Tests cover: starts false, `markExpired()` flips it, `clear()` flips it back
-- [ ] `.\.mdfiles\check-boundaries.ps1` green — `domain-imports-android` = 0
-- [ ] Manual check: `Select-String -Path domain/model/SessionSignal.kt -Pattern 'import (android|androidx)'` returns nothing
+- [x] `.\gradlew.bat :app:testDebugUnitTest --console=plain` green
+- [x] Tests cover: starts false, `markExpired()` flips it, `clear()` flips it back
+- [x] `.\.mdfiles\check-boundaries.ps1` green — `domain-imports-android` = 0
+- [x] Manual check: `Select-String -Path domain/model/SessionSignal.kt -Pattern 'import (android|androidx)'` returns nothing
 
 **Dependencies:** Task 1
 
@@ -1072,17 +1072,17 @@ Robolectric, so validation must be a pure function over bytes that tests can
 call directly. `TokenStore` keeps only the `SharedPreferences` call.
 
 **Acceptance criteria:**
-- [ ] A pure function maps a session blob to a domain session or null, and calls `toDomain()` **inside** its own guard so a malformed `expiresAt` yields null rather than throwing
-- [ ] `TokenStore.getSession()` uses that function; when a stored blob exists but will not map, the key is removed and null is returned
-- [ ] `currentSession()` returns null for a corrupt blob without throwing, and the store is empty afterwards
-- [ ] The null-`getSession()` case (no key at all) does not call `clearSession()`
-- [ ] KDoc records why the parse was moved inside the guard, not that it "throws"
+- [x] A pure function maps a session blob to a domain session or null, and calls `toDomain()` **inside** its own guard so a malformed `expiresAt` yields null rather than throwing
+- [x] `TokenStore.getSession()` uses that function; when a stored blob exists but will not map, the key is removed and null is returned
+- [x] `currentSession()` returns null for a corrupt blob without throwing, and the store is empty afterwards
+- [x] The null-`getSession()` case (no key at all) does not call `clearSession()`
+- [x] KDoc records why the parse was moved inside the guard, not that it "throws"
 
 **Verification:**
-- [ ] `.\gradlew.bat :app:testDebugUnitTest --console=plain` green
-- [ ] Tests cover: valid blob, malformed `expiresAt`, malformed `dateOfBirth`, empty string, absent key
-- [ ] Tests assert no exception escapes — `@Test(expected = ...)` is the wrong tool here, assert the returned null
-- [ ] Manual check: `.\gradlew.bat :app:compileDebugKotlin --console=plain` green
+- [x] `.\gradlew.bat :app:testDebugUnitTest --console=plain` green
+- [x] Tests cover: valid blob, malformed `expiresAt`, malformed `dateOfBirth`, empty string, absent key
+- [x] Tests assert no exception escapes — `@Test(expected = ...)` is the wrong tool here, assert the returned null
+- [x] Manual check: `.\gradlew.bat :app:compileDebugKotlin --console=plain` green
 
 **Dependencies:** Task 1
 
@@ -1098,11 +1098,11 @@ call directly. `TokenStore` keeps only the `SharedPreferences` call.
 
 ## Checkpoint A: Signal and validation
 
-- [ ] `:app:compileDebugKotlin` green
-- [ ] `:app:testDebugUnitTest` green, above the 165 floor
-- [ ] `:server:test` green at 50
-- [ ] `check-boundaries.ps1` reports `domain-imports-android` = 0
-- [ ] Review with human before proceeding
+- [x] `:app:compileDebugKotlin` green
+- [x] `:app:testDebugUnitTest` green, above the 165 floor
+- [x] `:server:test` green at 50
+- [x] `check-boundaries.ps1` reports `domain-imports-android` = 0
+- [x] Review with human before proceeding
 
 ---
 
@@ -1121,17 +1121,17 @@ key, so a retried write is how a patient gets double-booked — the first attemp
 may have succeeded server-side and lost its response.
 
 **Acceptance criteria:**
-- [ ] Returns null for any method outside the read allow-list, so no non-idempotent request is ever re-issued
-- [ ] Clears `TokenStore` on every 401 it handles, so a dead token is not re-sent on the next request
-- [ ] Calls `sessionSignal.markExpired()` — and the signal is **idempotent**, so five concurrent 401s produce one state change, not five
-- [ ] Caps retries per request: a response carrying more than one prior 401 attempt returns null rather than looping
-- [ ] KDoc names the double-booking hazard in the past tense
+- [x] Returns null for any method outside the read allow-list, so no non-idempotent request is ever re-issued
+- [x] Clears `TokenStore` on every 401 it handles, so a dead token is not re-sent on the next request
+- [x] Calls `sessionSignal.markExpired()` — and the signal is **idempotent**, so five concurrent 401s produce one state change, not five
+- [x] Caps retries per request: a response carrying more than one prior 401 attempt returns null rather than looping
+- [x] KDoc names the double-booking hazard in the past tense
 
 **Verification:**
-- [ ] `.\gradlew.bat :app:testDebugUnitTest --console=plain` green
-- [ ] Tests cover: 401 on a `GET` re-issues exactly once; 401 on `POST` / `DELETE` / `PATCH` / `PUT` re-issues **zero** times; five concurrent 401s → one signal transition; the store is empty afterwards
-- [ ] **Mutation check:** temporarily allow `POST` in the allow-list, confirm the write test fails, restore. A guard nobody has broken is not known to work.
-- [ ] Manual check: `.\gradlew.bat :app:compileDebugKotlin --console=plain` green
+- [x] `.\gradlew.bat :app:testDebugUnitTest --console=plain` green
+- [x] Tests cover: 401 on a `GET` re-issues exactly once; 401 on `POST` / `DELETE` / `PATCH` / `PUT` re-issues **zero** times; five concurrent 401s → one signal transition; the store is empty afterwards
+- [x] **Mutation check:** temporarily allow `POST` in the allow-list, confirm the write test fails, restore. A guard nobody has broken is not known to work.
+- [x] Manual check: `.\gradlew.bat :app:compileDebugKotlin --console=plain` green
 
 **Dependencies:** Tasks 2, 3
 
@@ -1151,15 +1151,15 @@ signal has to be constructed above line 41 and threaded through
 `RetrofitClient.create(tokenStore, sessionSignal)`.
 
 **Acceptance criteria:**
-- [ ] `AppContainer` creates the `SessionSignal` first and exposes it as a `lateinit` alongside the existing ones
-- [ ] `RetrofitClient.create` takes the signal and registers the `Authenticator` on the `OkHttpClient.Builder` alongside the two interceptors
-- [ ] Every existing repository is still constructed from the same `api` instance — no second Retrofit client
-- [ ] The `debug`/`release` `buildLoggingInterceptor` pair is untouched
+- [x] `AppContainer` creates the `SessionSignal` first and exposes it as a `lateinit` alongside the existing ones
+- [x] `RetrofitClient.create` takes the signal and registers the `Authenticator` on the `OkHttpClient.Builder` alongside the two interceptors
+- [x] Every existing repository is still constructed from the same `api` instance — no second Retrofit client
+- [x] The `debug`/`release` `buildLoggingInterceptor` pair is untouched
 
 **Verification:**
-- [ ] `.\gradlew.bat :app:compileDebugKotlin --console=plain` green
-- [ ] Manual check: `git diff app/src/main/java/com/example/mediq/di/AppContainer.kt` is wiring only, no logic
-- [ ] Emulator: sign in, browse Doctors (public route, no token), confirm no crash and no spurious prompt
+- [x] `.\gradlew.bat :app:compileDebugKotlin --console=plain` green
+- [x] Manual check: `git diff app/src/main/java/com/example/mediq/di/AppContainer.kt` is wiring only, no logic
+- [x] Emulator: sign in, browse Doctors (public route, no token), confirm no crash and no spurious prompt
 
 **Dependencies:** Task 4
 
@@ -1178,15 +1178,15 @@ own expiry branch is redundant: null already means "no usable session". Leaving
 both means two places decide what a dead session is, and they will disagree.
 
 **Acceptance criteria:**
-- [ ] `currentSession()` returns `tokenStore.getSession()`'s domain result directly, with the `isExpired` branch removed
-- [ ] An expired session still returns null and leaves the store empty — the expiry test moves into the store, it does not disappear
-- [ ] `ProfileViewModel.kt:58`'s generic `catch (e: Exception)` path is no longer reachable from a corrupt blob; if a guard is still wanted there, it is documented as defence-in-depth
-- [ ] Tests cover: expired → null + store cleared; corrupt → null + store cleared + no throw; valid → the session
+- [x] `currentSession()` returns `tokenStore.getSession()`'s domain result directly, with the `isExpired` branch removed
+- [x] An expired session still returns null and leaves the store empty — the expiry test moves into the store, it does not disappear
+- [x] `ProfileViewModel.kt:58`'s generic `catch (e: Exception)` path is no longer reachable from a corrupt blob; if a guard is still wanted there, it is documented as defence-in-depth
+- [x] Tests cover: expired → null + store cleared; corrupt → null + store cleared + no throw; valid → the session
 
 **Verification:**
-- [ ] `.\gradlew.bat :app:testDebugUnitTest --console=plain` green
-- [ ] `.\gradlew.bat :server:test --console=plain` green
-- [ ] Manual check: `rg isExpired app/src/main` — every remaining call site is one that can actually see an unexpired-but-stored blob
+- [x] `.\gradlew.bat :app:testDebugUnitTest --console=plain` green
+- [x] `.\gradlew.bat :server:test --console=plain` green
+- [x] Manual check: `rg isExpired app/src/main` — every remaining call site is one that can actually see an unexpired-but-stored blob
 
 **Dependencies:** Task 3
 
@@ -1200,11 +1200,11 @@ both means two places decide what a dead session is, and they will disagree.
 
 ## Checkpoint B: Request path
 
-- [ ] Five concurrent 401s produce exactly one signal transition — proven by test, not by inspection
-- [ ] A 401 on `POST /appointments` issues zero additional requests
-- [ ] A corrupt `expiresAt` yields null and an empty store, with no throw
-- [ ] `:app:testDebugUnitTest` green
-- [ ] Review with human before proceeding
+- [x] Five concurrent 401s produce exactly one signal transition — proven by test, not by inspection
+- [x] A 401 on `POST /appointments` issues zero additional requests
+- [x] A corrupt `expiresAt` yields null and an empty store, with no throw
+- [x] `:app:testDebugUnitTest` green
+- [x] Review with human before proceeding
 
 ---
 
@@ -1223,19 +1223,19 @@ else (`LoadState.kt:18`), so threading a 401 through it would change 10
 ViewModels and their tests. The signal already carries the fact.
 
 **Acceptance criteria:**
-- [ ] A single `LaunchedEffect` at the nav host collects the signal; no screen-level 401 handling is added
-- [ ] On `true`, one modal with a sign-in action appears, dismissable only by signing in
-- [ ] The sign-in action navigates to `Screen.SignIn` with `popUpTo` that **keeps** the booking back stack entry rather than clearing the whole stack
-- [ ] After a successful sign-in the patient lands on Home and the prompt is gone — Open Question 2, decided
-- [ ] `SignInScreen`'s existing success navigation is reused, not duplicated
-- [ ] The signal is cleared when the modal resolves, so a rotate does not re-prompt
+- [x] A single `LaunchedEffect` at the nav host collects the signal; no screen-level 401 handling is added
+- [x] On `true`, one modal with a sign-in action appears, dismissable only by signing in
+- [x] The sign-in action navigates to `Screen.SignIn` with `popUpTo` that **keeps** the booking back stack entry rather than clearing the whole stack
+- [x] After a successful sign-in the patient lands on Home and the prompt is gone — Open Question 2, decided
+- [x] `SignInScreen`'s existing success navigation is reused, not duplicated
+- [x] The signal is cleared when the modal resolves, so a rotate does not re-prompt
 
 **Verification:**
-- [ ] `.\gradlew.bat :app:testDebugUnitTest --console=plain` green
-- [ ] `.\gradlew.bat :app:compileDebugKotlin --console=plain` green
-- [ ] `.\.mdfiles\check-boundaries.ps1` green — `ui-imports-data` = 0
-- [ ] Manual check: `rg "status ==" app/src/main/java/com/example/mediq/ui` returns nothing; no screen branches on 401 itself
-- [ ] Emulator: `$env:MEDIQ_TOKEN_TTL_MINUTES="2"`, sign in, wait, confirm **one** prompt per screen on Home, Doctors, Appointments and Profile
+- [x] `.\gradlew.bat :app:testDebugUnitTest --console=plain` green
+- [x] `.\gradlew.bat :app:compileDebugKotlin --console=plain` green
+- [x] `.\.mdfiles\check-boundaries.ps1` green — `ui-imports-data` = 0
+- [x] Manual check: `rg "status ==" app/src/main/java/com/example/mediq/ui` returns nothing; no screen branches on 401 itself
+- [x] Emulator: `$env:MEDIQ_TOKEN_TTL_MINUTES="2"`, sign in, wait, confirm **one** prompt per screen on Home, Doctors, Appointments and Profile
 
 **Dependencies:** Task 5
 
@@ -1255,14 +1255,14 @@ patient to sign in on that device could inherit a stale prompt. Small task,
 carried on its own so it is not forgotten inside Task 5's wiring.
 
 **Acceptance criteria:**
-- [ ] `signOut()` clears the signal alongside `TokenStore.clearSession()`
-- [ ] A sign-out followed by a sign-in shows no prompt
-- [ ] Tests cover the ordering — signal cleared even when the server call fails (`ProfileViewModel.kt:44` already `runCatching`s it)
+- [x] `signOut()` clears the signal alongside `TokenStore.clearSession()`
+- [x] A sign-out followed by a sign-in shows no prompt
+- [x] Tests cover the ordering — signal cleared even when the server call fails (`ProfileViewModel.kt:44` already `runCatching`s it)
 
 **Verification:**
-- [ ] `.\gradlew.bat :app:testDebugUnitTest --console=plain` green
-- [ ] Manual check: `ProfileViewModelTest` has a sign-out-then-sign-in case
-- [ ] Emulator: sign out, sign back in, confirm no prompt appears
+- [x] `.\gradlew.bat :app:testDebugUnitTest --console=plain` green
+- [x] Manual check: `ProfileViewModelTest` has a sign-out-then-sign-in case
+- [x] Emulator: sign out, sign back in, confirm no prompt appears
 
 **Dependencies:** Tasks 5, 6
 
@@ -1282,14 +1282,14 @@ no auth-expiry path, so the guarantee that matters most — no double-booking �
 has no repeatable check above the emulator.
 
 **Acceptance criteria:**
-- [ ] `smoke.ps1` signs in, waits past the TTL, then submits a booking and asserts exactly **one** `POST /appointments` reached the server
-- [ ] The assertion fails loudly on two POSTs; it does not merely warn
-- [ ] Existing `smoke.ps1` checks are unchanged and still pass
+- [x] `smoke.ps1` signs in, waits past the TTL, then submits a booking and asserts exactly **one** `POST /appointments` reached the server
+- [x] The assertion fails loudly on two POSTs; it does not merely warn
+- [x] Existing `smoke.ps1` checks are unchanged and still pass
 
 **Verification:**
-- [ ] `.\server\scripts\smoke.ps1 -Base http://127.0.0.1:8099` green against `:server:run` with `MEDIQ_TOKEN_TTL_MINUTES=2`
-- [ ] `.\gradlew.bat :server:test --console=plain` green at 50
-- [ ] Manual check: `git diff server/` shows only `scripts/smoke.ps1` — no route, no schema change (D2 = re-auth means none is needed)
+- [x] `.\server\scripts\smoke.ps1 -Base http://127.0.0.1:8099` green against `:server:run` with `MEDIQ_TOKEN_TTL_MINUTES=2`
+- [x] `.\gradlew.bat :server:test --console=plain` green at 50
+- [x] Manual check: `git diff server/` shows only `scripts/smoke.ps1` — no route, no schema change (D2 = re-auth means none is needed)
 
 **Dependencies:** Tasks 4, 7
 
@@ -1302,11 +1302,11 @@ has no repeatable check above the emulator.
 
 ## Checkpoint C: Prompt
 
-- [ ] `MEDIQ_TOKEN_TTL_MINUTES=2` verified on the emulator — one prompt per screen, never three
-- [ ] A booking submitted across an expiry produces exactly one `POST`, checked in `smoke.ps1`
-- [ ] A corrupt `expiresAt` recovers on its own, with no app-data clear
-- [ ] `:server:test` green at 50
-- [ ] Review with human before proceeding
+- [x] `MEDIQ_TOKEN_TTL_MINUTES=2` verified on the emulator — one prompt per screen, never three
+- [x] A booking submitted across an expiry produces exactly one `POST`, checked in `smoke.ps1`
+- [x] A corrupt `expiresAt` recovers on its own, with no app-data clear
+- [x] `:server:test` green at 50
+- [x] Review with human before proceeding
 
 ---
 
@@ -1318,17 +1318,17 @@ bullet this closes is named there, and success criterion 5 says the fix does not
 count as done without it.
 
 **Acceptance criteria:**
-- [ ] The token-expiry gap bullet is **removed**, not reworded — per that file's own rule an item leaves only once it is implemented
-- [ ] Auth section records the `SessionSignal` seam, so the next session does not re-derive it
-- [ ] Auth section notes that a refresh endpoint can be added later without changing the seam, and that D2 chose re-auth
-- [ ] `CONSTRAINTS.md` ratchets updated **in the same commit**: `:app` floor 165 → the new count, `:server` floor stays 50 (D2 added no route, so there is nothing to move)
-- [ ] `README.md:146-147` and the `CHANGELOG.md` `[Unreleased]` section both updated
+- [x] The token-expiry gap bullet is **removed**, not reworded — per that file's own rule an item leaves only once it is implemented
+- [x] Auth section records the `SessionSignal` seam, so the next session does not re-derive it
+- [x] Auth section notes that a refresh endpoint can be added later without changing the seam, and that D2 chose re-auth
+- [x] `CONSTRAINTS.md` ratchets updated **in the same commit**: `:app` floor 165 → the new count, `:server` floor stays 50 (D2 added no route, so there is nothing to move)
+- [x] `README.md:146-147` and the `CHANGELOG.md` `[Unreleased]` section both updated
 
 **Verification:**
-- [ ] Manual check: re-read `AGENTS.md` top to bottom and confirm every claim is true of the tree
-- [ ] Manual check: no gap bullet claims work that is not implemented
-- [ ] `git diff .mdfiles/` shows only documentation edits
-- [ ] `.\.mdfiles\check-boundaries.ps1` and `.\.mdfiles\check-contrast.ps1` green
+- [x] Manual check: re-read `AGENTS.md` top to bottom and confirm every claim is true of the tree
+- [x] Manual check: no gap bullet claims work that is not implemented
+- [x] `git diff .mdfiles/` shows only documentation edits
+- [x] `.\.mdfiles\check-boundaries.ps1` and `.\.mdfiles\check-contrast.ps1` green
 
 **Dependencies:** Tasks 7, 8, 9
 
@@ -1344,11 +1344,11 @@ count as done without it.
 
 ## Checkpoint D: Complete
 
-- [ ] `:app:testDebugUnitTest` green at ≥172; `:server:test` green at 50
-- [ ] `check-boundaries.ps1` reports `ui-imports-data` = 0 and `domain-imports-android` = 0
-- [ ] `README.md:146-147` and the `AGENTS.md` known-gap bullet updated in the same commit
-- [ ] Every new test mutation-checked: break the code, watch it fail, restore
-- [ ] Ready for review
+- [x] `:app:testDebugUnitTest` green at ≥172; `:server:test` green at 50
+- [x] `check-boundaries.ps1` reports `ui-imports-data` = 0 and `domain-imports-android` = 0
+- [x] `README.md:146-147` and the `AGENTS.md` known-gap bullet updated in the same commit
+- [x] Every new test mutation-checked: break the code, watch it fail, restore
+- [x] Ready for review
 
 ---
 

@@ -154,4 +154,34 @@ class ApiErrorsTest {
 
         assertTrue("expected the original instance back", rethrown === original)
     }
+
+    // --- isAuthFailure and isNetworkFailure independence ---------------------
+
+    @Test
+    fun `401 is flagged as auth failure and not network failure`() {
+        val failure = failureFrom {
+            call { throw httpError(401, """{"error":"unauthorized","message":"Please sign in again."}""") }
+        }
+
+        assertTrue(failure.isAuthFailure)
+        assertFalse(failure.isNetworkFailure)
+    }
+
+    @Test
+    fun `403 is neither auth failure nor network failure`() {
+        val failure = failureFrom {
+            call { throw httpError(403, """{"error":"forbidden","message":"Not permitted."}""") }
+        }
+
+        assertFalse(failure.isAuthFailure)
+        assertFalse(failure.isNetworkFailure)
+    }
+
+    @Test
+    fun `network failure is not auth failure`() {
+        val failure = failureFrom { call { throw IOException("Failed to connect") } }
+
+        assertTrue(failure.isNetworkFailure)
+        assertFalse(failure.isAuthFailure)
+    }
 }

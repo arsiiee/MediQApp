@@ -37,6 +37,7 @@ import java.time.Instant
 class RetrofitAuthRepository(
     private val api: MediQApiService,
     private val tokenStore: TokenStore,
+    private val sessionSignal: com.example.mediq.domain.model.SessionSignal? = null,
 ) : AuthRepository {
 
     override suspend fun signIn(request: SignInRequest): AuthSession {
@@ -46,19 +47,17 @@ class RetrofitAuthRepository(
     }
 
     override suspend fun signOut() {
-        runCatching { call { api.signOut() } }
-        tokenStore.clearSession()
+        try {
+            runCatching { call { api.signOut() } }
+        } finally {
+            tokenStore.clearSession()
+            sessionSignal?.clear()
+        }
     }
 
     override suspend fun currentSession(): AuthSession? {
         val dto = tokenStore.getSession() ?: return null
-        val session = dto.toDomain()
-        return if (session.isExpired(Instant.now())) {
-            tokenStore.clearSession()
-            null
-        } else {
-            session
-        }
+        return dto.toDomain()
     }
 
     override suspend fun requestOtp(request: RequestOtpRequest): String {

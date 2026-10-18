@@ -256,6 +256,21 @@ class ProfileViewModelTest {
         assertNull(authRepository.currentSessionResult)
     }
 
+    @Test
+    fun `signing out followed by signing in restores session cleanly`() {
+        var navigatedToSignIn = false
+        viewModel.signOut { navigatedToSignIn = true }
+        assertTrue(navigatedToSignIn)
+
+        // Simulate subsequent sign-in on the auth repository
+        authRepository.currentSessionResult = TestFixtures.authSession()
+        viewModel.refresh()
+
+        val state = viewModel.uiState.value.session
+        assertTrue(state is LoadState.Success)
+        assertNotNull((state as LoadState.Success).data)
+    }
+
     private fun loadedName(): String? =
         ((viewModel.uiState.value.session as? LoadState.Success)?.data as? AuthSession)
             ?.profile?.fullName

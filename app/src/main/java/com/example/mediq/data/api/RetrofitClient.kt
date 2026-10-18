@@ -42,9 +42,13 @@ object RetrofitClient {
 
     const val BASE_URL = "http://10.0.2.2:8099/"
 
-    fun create(tokenStore: TokenStore): MediQApiService {
+    fun create(
+        tokenStore: TokenStore,
+        sessionSignal: com.example.mediq.domain.model.SessionSignal,
+    ): MediQApiService {
         val client = OkHttpClient.Builder()
             .addInterceptor(AuthInterceptor(tokenStore))
+            .authenticator(SessionAuthenticator(tokenStore, sessionSignal))
             .addInterceptor(buildLoggingInterceptor())
             .build()
 
@@ -75,5 +79,67 @@ class AuthInterceptor(private val tokenStore: TokenStore) : Interceptor {
             chain.request()
         }
         return chain.proceed(request)
+    }
+}
+
+/**
+ * OkHttp [okhttp3.Authenticator] that handles HTTP 401 responses.
+ *
+ * Responsibilities in order:
+ * 1. Clears [TokenStore] on every 401 response handled so a dead token is not re-sent.
+ * 2. Signals the application via [com.example.mediq.domain.model.SessionSignal.markExpired].
+ *    Because the signal is idempotent, concurrent 401s produce only one state transition.
+ * 3. Caps retries per request: if the request has already attempted a 401 retry, returns null.
+ * 4. Refuses to re-issue any non-idempotent write request (such as POST, PUT, DELETE, PATCH).
+ *    In the past, auto-retrying non-idempotent writes without an idempotency key created
+ *    a double-booking hazard where a patient could get booked twice if the first request
+ *    succeeded on the server but the response was interrupted. Only safe read methods
+ *    (GET, HEAD) are allowed to retry.
+ */
+class SessionAuthenticator(
+    private val tokenStore: TokenStore,
+    private val sessionSignal: com.example.mediq.domain.model.SessionSignal,
+) : okhttp3.Authenticator {
+
+    override fun authenticate(route: okhttp3.Route?, response: Response): okhttp3.Request? {
+        // Guard against retry loops: a response carrying more than one prior 401 attempt returns null
+        if (responseCount(response) >= 2) {
+            tokenStore.clearSession()
+            sessionSignal.markExpired()
+            return null
+        }
+
+        // Only retry safe/idempotent read methods. Non-idempotent writes are NEVER auto-retried.
+        val method = response.request.method
+        if (method != "GET" && method != "HEAD") {
+            tokenStore.clearSession()
+            sessionSignal.markExpired()
+            return null
+        }
+
+        // If the request already carried the newest token (or no new token has been supplied),
+        // clear the dead token, signal expiry, and do not loop.
+        val currentToken = tokenStore.getAccessToken()
+        val requestAuth = response.request.header("Authorization")
+        if (currentToken == null || requestAuth == "Bearer $currentToken") {
+            tokenStore.clearSession()
+            sessionSignal.markExpired()
+            return null
+        }
+
+        // A new token is available in tokenStore (e.g. refreshed/re-authenticated)
+        return response.request.newBuilder()
+            .header("Authorization", "Bearer $currentToken")
+            .build()
+    }
+
+    private fun responseCount(response: Response): Int {
+        var count = 1
+        var prior = response.priorResponse
+        while (prior != null) {
+            count++
+            prior = prior.priorResponse
+        }
+        return count
     }
 }

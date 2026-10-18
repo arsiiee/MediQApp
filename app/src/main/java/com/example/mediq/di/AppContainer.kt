@@ -29,6 +29,7 @@ import com.example.mediq.domain.repository.ProfileRepository
  */
 object AppContainer {
 
+    lateinit var sessionSignal: com.example.mediq.domain.model.SessionSignal
     lateinit var tokenStore: TokenStore
     lateinit var doctorRepository: DoctorRepository
     lateinit var appointmentRepository: AppointmentRepository
@@ -50,12 +51,13 @@ object AppContainer {
     val baseUrl: String get() = RetrofitClient.BASE_URL
 
     fun init(context: Context) {
+        sessionSignal = com.example.mediq.domain.model.SessionSignal()
         tokenStore = TokenStore(context.applicationContext)
-        val api = RetrofitClient.create(tokenStore)
+        val api = RetrofitClient.create(tokenStore, sessionSignal)
         doctorRepository      = RetrofitDoctorRepository(api)
         appointmentRepository  = RetrofitAppointmentRepository(api)
         notificationRepository = RetrofitNotificationRepository(api)
         profileRepository      = RetrofitProfileRepository(api)
-        authRepository         = RetrofitAuthRepository(api, tokenStore)
+        authRepository         = RetrofitAuthRepository(api, tokenStore, sessionSignal)
     }
 }

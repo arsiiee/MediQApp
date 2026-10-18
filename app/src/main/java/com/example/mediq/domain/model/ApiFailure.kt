@@ -37,6 +37,15 @@ class ApiFailure(
      */
     val isNetworkFailure: Boolean get() = code == CODE_NETWORK
 
+    /**
+     * True when the server rejected the request due to missing or expired credentials.
+     *
+     * In contrast with [isNetworkFailure] (which means the request never reached the
+     * server), [isAuthFailure] means the request reached it and was told who you are
+     * is no longer valid.
+     */
+    val isAuthFailure: Boolean get() = status == 401
+
     override fun toString(): String = "ApiFailure(status=$status, code=$code)"
 
     companion object {

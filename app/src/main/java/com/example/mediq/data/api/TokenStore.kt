@@ -15,18 +15,36 @@ import com.google.gson.Gson
  * SharedPreferences. This is sufficient for development but should be
  * replaced with EncryptedSharedPreferences (Tink) before production.
  */
-class TokenStore(context: Context) {
+class TokenStore internal constructor(
+    private val prefs: android.content.SharedPreferences,
+) {
+    constructor(context: Context) : this(
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    )
 
-    private val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
     private val gson = Gson()
 
     fun saveSession(dto: AuthSessionDto) {
         prefs.edit().putString(KEY_SESSION, gson.toJson(dto)).apply()
     }
 
+    /**
+     * Reads the stored session DTO, validating that it maps to a domain session.
+     *
+     * If a stored JSON blob exists but is corrupt or cannot be mapped to a valid
+     * domain session (e.g. invalid timestamp), the corrupt key is removed and
+     * null is returned to prevent wedging the caller in an unrecoverable state.
+     * If no key exists, null is returned without writing to SharedPreferences.
+     */
     fun getSession(): AuthSessionDto? {
         val json = prefs.getString(KEY_SESSION, null) ?: return null
-        return runCatching { gson.fromJson(json, AuthSessionDto::class.java) }.getOrNull()
+        val domain = SessionMapper.toDomain(json)
+        return if (domain == null || domain.isExpired(java.time.Instant.now())) {
+            clearSession()
+            null
+        } else {
+            SessionMapper.parseDto(json)
+        }
     }
 
     fun getAccessToken(): String? = getSession()?.accessToken

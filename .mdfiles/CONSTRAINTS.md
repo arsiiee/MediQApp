@@ -34,7 +34,7 @@ no command is an aspiration, not a constraint.
 | Architecture | `secret-field-no-keyboard-options` = 0 | `.\.mdfiles\check-boundaries.ps1` | every edit, < 5s; **and every CI run** |
 | Architecture | `secret-field-not-password-keytype` = 0 | `.\.mdfiles\check-boundaries.ps1` | every edit, < 5s; **and every CI run** |
 | Tests | `:server:test` green, 101 tests minimum | `.\gradlew.bat :server:test` | task end |
-| Tests | `:app:testDebugUnitTest` green, 213 tests minimum | `.\gradlew.bat :app:testDebugUnitTest --rerun-tasks` | task end |
+| Tests | `:app:testDebugUnitTest` green, 238 tests minimum | `.\gradlew.bat :app:testDebugUnitTest --rerun-tasks` | task end |
 | Contrast | Every token pair clears WCAG AA; 0 hardcoded page backgrounds; raw-colour ratchet = 4 (over `ui/` and the shared components); 6 status-chip pairs | `.\.mdfiles\check-contrast.ps1` | every edit, < 5s; **and every CI run** |
 
 Both check scripts resolve paths relative to the working directory, so they must

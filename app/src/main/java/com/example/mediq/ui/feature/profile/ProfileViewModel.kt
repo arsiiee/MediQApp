@@ -56,6 +56,8 @@ class ProfileViewModel(
             } catch (e: ApiFailure) {
                 LoadState.Error(e.message)
             } catch (e: Exception) {
+                // Defence-in-depth: TokenStore validates blobs on read, so malformed
+                // sessions clear themselves and return null instead of throwing here.
                 LoadState.Error("Couldn't load your profile. Try again in a moment.")
             }
         )

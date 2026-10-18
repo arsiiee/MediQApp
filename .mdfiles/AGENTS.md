@@ -27,7 +27,7 @@ Verify the app with `:app:compileDebugKotlin` (~2s warm, ~3min cold). Full APK: 
 Note the 6 deprecation warnings it prints — see "Toolchain notes". A `:server:run`
 failure naming an Adoptium 17 JVM is the toolchain, not the daemon.
 
-`:app` unit tests - 213, runnable with `.\gradlew.bat :app:testDebugUnitTest`.
+`:app` unit tests - 238, runnable with `.\gradlew.bat :app:testDebugUnitTest`.
 `MediQBottomBarSemanticsTest` is the first real Compose instrumentation test; run
 `.\gradlew.bat :app:connectedDebugAndroidTest` with `mediq_api36` attached (2 tests).
 Count them with `--rerun-tasks`: the task otherwise reports UP-TO-DATE and the
@@ -35,13 +35,18 @@ previous run's XML is still in `app/build/test-results/`, so a stale count reads
 as a skipped suite. `:app` main is ~7,900 lines; `:server` is ~3,800 including
 its tests.
 
-- `data/api/` — `ApiErrorsTest.kt` (11 tests over error-body parsing),
+- `data/api/` — `ApiErrorsTest.kt` (14 tests over error-body parsing and `isAuthFailure`),
+  `SessionMapperTest.kt` (6 pinning pure session validation on read),
+  `SessionAuthenticatorTest.kt` (5 pinning 401 handling, write-retry refusal, and signal transitions),
   `UnknownWireValueTest.kt` (8 pinning how unrecognised wire values resolve),
   `GsonLeniencyTest.kt` (3 pinning JSON parsing behaviour), and
   `AppointmentCreatedAtTest.kt` (3 — `BOOKED ON` with the field present,
   absent, and unreadable, all three through Gson because Gson cannot tell
   "not sent" from "renamed" and constructing the DTO in Kotlin would never
   exercise the path that fails).
+- `data/repository/RetrofitAuthRepositoryTest.kt` (6) — validating session recovery,
+  expiry mapping, and signal clearing on sign-out.
+- `domain/model/SessionSignalTest.kt` (4) — idempotence, markExpired, and clear.
 - `domain/model/NextClinicSessionTest.kt` (6) — the `Next open` line on the
   doctors list, derived from a doctor's weekly `clinicHours` rather than read per
   row. Pins that a session later today beats one earlier in the week, that a
@@ -540,7 +545,9 @@ The LAN address is DHCP-assigned and changes when this PC joins a different netw
 
 **Cleartext HTTP** is allowed only to `10.0.2.2`, `127.0.0.1`, and that LAN address via `res/xml/network_security_config.xml`. Any host missing from that file has its cleartext refused, and the app fails with the same misleading "couldn't reach the clinic" message. All other hosts still require HTTPS.
 
-**Token storage** uses `SharedPreferences` (`TokenStore.kt`). The full `AuthSessionDto` JSON is stored so `currentSession()` can reconstruct the complete `AuthSession` — including the nested `UserProfile` — without a network call. The token is stored in plaintext in the app's private storage; `EncryptedSharedPreferences` (Tink) or Android Keystore should replace this before production.
+**Token storage** uses `SharedPreferences` (`TokenStore.kt`). The full `AuthSessionDto` JSON is stored so `currentSession()` can reconstruct the complete `AuthSession` — including the nested `UserProfile` — without a network call. The token is stored in plaintext in the app's private storage; `EncryptedSharedPreferences` (Tink) or Android Keystore should replace this before production. `TokenStore.getSession()` validates stored session blobs on read (checking JSON parsing, timestamp validity, and expiry against `Instant.now()`), automatically clearing corrupt or expired records without throwing.
+
+**Token lifecycle & expiry handling**: Mid-session 401s are intercepted centrally by `SessionAuthenticator` (in `RetrofitClient.kt`), which clears the dead token, triggers `SessionSignal.markExpired()`, and explicitly refuses to auto-retry any non-idempotent write request (`POST`, `PUT`, `DELETE`, `PATCH`) to prevent double-booking hazards. `AppContainer` owns the `SessionSignal` instance, which `MediQNavHost` observes to display a non-dismissible re-authentication dialog redirecting the patient cleanly to sign-in. D2 chose explicit re-auth over a silent refresh endpoint; a refresh route can be added in the future without changing this seam. Sign-out clears both the stored session and `SessionSignal`.
 
 **DTOs** in `data/api/ApiDtos.kt` mirror the server wire format with `String` fields for all dates, times, and enums. `data/api/ApiMappers.kt` converts them to domain types.
 
@@ -633,8 +640,6 @@ they are observations, not planned work, so they are not in `tasks/todo.md`.
 - **Status codes are overloaded.** Duplicate username and already-cancelled are
   400, not 409; missing date of birth is 400, not 422. `ApiError.conflict`
   hardcodes `code = "slot_taken"` despite being generically named.
-- **Token expiry mid-session is unhandled and there is no refresh.** After the
-  60-minute TTL every request 401s with no route back to sign-in.
 - **`getDoctors(@QueryMap)` is an untyped string bag.** A typo'd key is ignored
   by the server and silently drops the filter.
 - **`confirmedByPatient` is validated then discarded** — the insert hardcodes

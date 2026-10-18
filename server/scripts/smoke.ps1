@@ -500,6 +500,10 @@ if ($rebook.id) {
 }
 Check "cancel the rebooking" { Status DELETE "$Base/appointments/$($rebook.id)" $auth } 200
 
+# Expiry / revoked token booking assertion: a 401 on booking must fail loudly and never re-issue
+$expiredAuth = @{ Authorization = "Bearer expired-or-invalid-token" }
+Check "booking with an expired token is refused (401)" { Status POST "$Base/appointments" $expiredAuth $booking } 401
+
 # --- Profile --------------------------------------------------------------
 
 Write-Host "`nProfile"
