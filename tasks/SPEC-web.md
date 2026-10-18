@@ -45,7 +45,7 @@ storage, bearer header, error copy) end to end.
 | # | Module | Objective | Depends on | Spec |
 |---|--------|-----------|------------|------|
 | 1 | `web-staff-auth` | Staff sign-in against the real server; session store, bearer interceptor, role guard; the mock gateway and its hardcoded accounts deleted. | — | `SPEC-web-staff-auth.md` — **implemented 2026-10-18** |
-| 2 | `web-admin-accounts` | The admin area's directories read and write real rows: patients, doctors, secretaries, specializations. **Staff account creation lives here** — module 1 deliberately left it out. | 1 | `SPEC-web-admin-accounts.md` — **server reads implemented 2026-10-18**; the writes and the web wiring wait on its four open decisions |
+| 2 | `web-admin-accounts` | The admin area's directories read and write real rows: patients, doctors, secretaries, specializations. **Staff account creation lives here** — module 1 deliberately left it out. | 1 | `SPEC-web-admin-accounts.md` — **server reads + the status/description schema implemented 2026-10-18**; `POST /admin/accounts` and the web wiring remain |
 | 3 | `web-doctor-workspace` | The doctor area: appointment queue, patient list, history, and the weekly schedule. The schedule is the first *write* surface (clinic hours, and one-off dated availability). | 1, 2 | not written |
 | 4 | `web-secretary-workspace` | The secretary area: appointments, patients, schedules, messages. Mostly reads plus booking on a patient's behalf. | 1, 2 | not written |
 | 5 | `web-audit-logs` | The admin audit log, over a real event trail. Needs a server-side table that does not exist yet — the only module whose *server* half is a new aggregate rather than an exposure of one. | 2 | not written |

@@ -1693,34 +1693,152 @@ is mostly about what it did **not** build.
 
 ---
 
-## Task 5: Wire the admin reads (BLOCKED — not started)
+## Task 5: Wire the admin reads (NOT STARTED — no longer blocked on a decision)
 
 **Description:** The endpoints exist and are proved over HTTP; no page consumes
-them. This cannot be finished before the four decisions in the spec, because the
-status badge and the Enable/Disable buttons are on the same tables as the rows
-that would be wired — wiring the reads and leaving the writes mocked puts a screen
-that looks real next to buttons that quietly do nothing.
+them. The four open decisions were answered on 2026-10-18 and the status half is
+now built, so the earlier blocker is gone: `users.status` is real, disabling is
+enforced at sign-in and on every authenticated request, and Enable/Disable has an
+endpoint behind it. What still gates this task is `POST /admin/accounts` — a
+create button wired to nothing is the same defect in the other direction — and the
+web wiring itself, which is a change of its own.
 
 **Acceptance criteria:** *(all unchecked, deliberately)*
 - [ ] `AdminAccountsGateway` + `HttpAdminAccountsGateway`, following `http-auth.gateway.ts`
 - [ ] `AdminSession` reads from the gateway instead of `MOCK_PATIENTS` / `MOCK_DOCTORS` / `MOCK_SECRETARIES` / `MOCK_SPECIALIZATIONS`
-- [ ] The status badge and Enable/Disable resolved: either a real `users.status` column with a check in `configureAuth`, or removed from the screens
+- [ ] The status badge and Enable/Disable wired to `PATCH /admin/accounts/{id}/status`, and the badge drawn from the server's `status` rather than a default
 - [ ] `specializationId` and `licenseNumber` joined from `GET /doctors` via `doctorId` rather than duplicated onto the account
 - [ ] The four `*.mock-data.ts` exports for the directories deleted, and their specs moved onto a fake gateway
 - [ ] `mock-notice` stays until the last admin area is wired
 
-**Dependencies:** Task 4; **and the user's answer on the four open questions**
+**Dependencies:** Task 8; **and the doctor-row decision for `POST /admin/accounts`** (Task 9)
 
 **Files likely touched:** `mediqweb-fe/src/app/admin/` (sibling clone, not this repo)
 
-**Estimated scope:** Medium — and unmeasurable until the decisions land
+**Estimated scope:** Medium
 
 ---
 
-## Checkpoint A: Complete for the server half
+## Checkpoint A: Complete for the server read half
 
 - [x] `:server:test` green at **73** (was 68); `:app:testDebugUnitTest` green at **213** (unchanged)
 - [x] `smoke.ps1` green at **38 passed / 0 failed** against a seeded server on `:8099`, including the admin 403
 - [x] The role gate mutation-checked: one failure, and it was the 403 check; restored byte-identically (verified by `git diff`, which shows only the intended files)
-- [x] No `schema.sql` change, no new dependency, no test deleted or weakened, no gate edited
-- [x] The web half is **not** claimed as done — it is TODO Task 5, blocked on the spec's open questions
+- [x] No new dependency, no test deleted or weakened, no gate edited
+- [x] The web half is **not** claimed as done — it is Task 5
+
+---
+
+## Task 6: The schema decisions, built — `users.status` and `specialties.description`
+
+**Description:** All four answers landed on 2026-10-18. The status column was the
+one that mattered, because it was the only decision gating a screen that already
+exists — and a status nothing checks is worse than no status, so the column, the
+sign-in refusal, and the per-request token refusal are one change.
+
+**Acceptance criteria:**
+- [x] `users.status VARCHAR(16) NOT NULL DEFAULT 'active'`, wire values `active` / `inactive` to match the web's `AccountStatus`
+- [x] `UserStatus` in `server/.../db/` rather than `domain/model/`, because that package is compiled into the app as `sharedDomain`, has no notion of a disabled account, and the server parses what it shares from untrusted input
+- [x] `AuthService.signIn` refuses a disabled account **after** the password check — checking first would tell anyone who typed a username that the account exists, which is what the shared message exists to hide
+- [x] `activeSession` → `liveSession`, joining the account's status into the query that already runs on every authenticated request, so a disable bites on the next call instead of at token expiry
+- [x] A status this build cannot read reads as **inactive** on both readers, so a hand-edited row can never hand out a working account
+- [x] `PATCH /admin/accounts/{id}/status`, admin-only via `requireRole`, validating its input and refusing a self-disable (the direction that strands the only area that could re-enable it)
+- [x] `specialties.description` seeded from `ReferenceData` and read back per specialty; the list still comes from the `Specialty` enum, so the six cannot be widened past what the patient app offers
+- [x] Idempotent `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` beside each changed table, because `CREATE TABLE IF NOT EXISTS` leaves an existing database without the column while every SELECT names it
+
+**Verification:**
+- [x] `:server:test` **82 / 0** (was 73), counted from the test-results XML after `--rerun-tasks`
+- [x] `smoke.ps1` **50 / 0** (was 38) against a seeded server on `:8099`
+- [x] Mutation, unit: either `?: UserStatus.INACTIVE` fallback changed to `ACTIVE` fails exactly `a status this build cannot read reads as disabled` (82 tests, 1 failed)
+- [x] Mutation, route: `configureAuth`'s status test replaced by a bare `session != null` fails exactly the "existing token stops working" check (49 passed / 1 failed)
+- [x] Both mutations restored and verified against `git diff` and by non-ASCII character count, which is how a PowerShell round-trip would have shown damage
+
+**Dependencies:** Task 4; the four decisions
+
+**Files likely touched:** `server/src/main/resources/schema.sql`, `db/UserStatus.kt`, `db/UserStore.kt`, `db/AuthService.kt`, `db/DoctorStore.kt`, `ReferenceData.kt`, `http/Dtos.kt`, `http/Routes.kt`
+
+**Estimated scope:** Medium
+
+---
+
+## Task 7: The status tests, and the smoke checks that make it a boundary
+
+**Description:** The store tests answer what the data is; only `smoke.ps1` can
+answer whether a *route* refuses a disabled account, because the status and the
+role are read by the route layer.
+
+**Acceptance criteria:**
+- [x] `AdminAccountsTest` 5 → 11: a new account is active and setStatus flips both ways; an unreadable status reads as disabled on both readers; `liveSession` carries the status and still returns null for a revoked session; the DTO carries the status; every `Specialty` entry has a description; a null description is absent rather than blank
+- [x] `StaffSignInTest` 6 → 9: a disabled account is refused **and** a wrong password still gets the shared message; an already-issued token stops working; re-enabling lets the account back in
+- [x] `smoke.ps1`: 401/403/400/404 on the status route, self-disable refused, disable → sign-in refused → live token refused → re-enable → sign-in works, and a description on all six specialties
+- [x] No existing test deleted or weakened; `git diff` shows the new lines only
+
+**Verification:**
+- [x] `:server:test` **82 / 0**; `smoke.ps1` **50 / 0**, and the earlier 50/0 run was on the same restored tree the mutation runs were undone to
+
+**Dependencies:** Task 6
+
+**Files likely touched:** `server/src/test/kotlin/com/example/mediq/server/AdminAccountsTest.kt`, `StaffSignInTest.kt`, `server/scripts/smoke.ps1`
+
+**Estimated scope:** Small
+
+---
+
+## Task 8: Docs — the floor, the decisions recorded, and the gap that shrank
+
+**Description:** The four decisions stop being questions, the floor moves with the
+code, and the README gap about "no account status" becomes the two gaps that are
+actually left.
+
+**Acceptance criteria:**
+- [x] `CONSTRAINTS.md` server floor 73 → **82**, with the per-test reason and both mutations recorded
+- [x] `AGENTS.md`: `:server:test` 73 → 82, `smoke.ps1` 38 → 50, and the smoke line names the disable boundary
+- [x] `README.md`: the dashboard row, the staff-web feature row, the pre-commit floor, the role-gate gap naming the status route, and the account-status gap replaced by the two that remain (no create route; `lastActiveOn` still absent)
+- [x] `CHANGELOG.md`: the write half, including that the web is still not wired and there is no create route
+- [x] `tasks/SPEC-web-admin-accounts.md`: "Open questions" → "Decisions", the part-2 section, criteria 11-18, and the schema boundary corrected
+- [x] `tasks/SPEC-web.md`: module 2's row
+
+**Verification:**
+- [x] Both check scripts green; `:app:testDebugUnitTest` **213** (unchanged — no app test was added); `:server:test` 82; `smoke.ps1` 50/0
+- [x] No gate script edited, no test weakened, `CONSTRAINTS.md` not weakened to pass
+
+**Dependencies:** Tasks 6, 7
+
+**Files likely touched:** `.mdfiles/CONSTRAINTS.md`, `.mdfiles/AGENTS.md`, `.mdfiles/CHANGELOG.md`, `README.md`, `tasks/`
+
+**Estimated scope:** Small (docs only)
+
+---
+
+## Task 9: `POST /admin/accounts` (BLOCKED — needs one more decision)
+
+**Description:** The answer to decision 4 was "add mobile number and date of birth
+to the form and a real `POST /admin/accounts`", and the two fields are now
+unblocked. What the answer did not cover: a staff account with `role = doctor` also
+needs a `doctors` row, and that needs `fee_centavos`, `years_experience`, `bio`,
+`building`, `floor`, `room`, and `languages` — none of which the create-staff form
+collects, and none of which may be invented, because a fabricated fee and room is
+exactly the data the app's rules forbid.
+
+**Acceptance criteria:** *(all unchecked, deliberately)*
+- [ ] Decide: the form grows a practice-details section, or `POST /admin/accounts` creates doctor-less staff only and the role selector drops `doctor`
+- [ ] `UserStore.create` gains the doctor link, or creates the `doctors` row in the same transaction
+- [ ] Mobile number and date of birth collected on the form (both `NOT NULL` today)
+- [ ] Admin-only via `requireRole`, with the collisions the register route already handles (username, email, mobile) answered as 400s
+- [ ] A created account is active and can sign in
+
+**Dependencies:** Task 8 and the doctor-row decision
+
+**Files likely touched:** `server/.../http/Routes.kt`, `db/UserStore.kt`, `db/DoctorStore.kt`, `http/Dtos.kt`, tests, `smoke.ps1`
+
+**Estimated scope:** Medium, and unmeasurable until the decision lands
+
+---
+
+## Checkpoint B: Complete for the schema and status half
+
+- [x] `:server:test` green at **82** (was 73); `:app:testDebugUnitTest` green at **213** (unchanged)
+- [x] `smoke.ps1` green at **50 passed / 0 failed** against a seeded server on `:8099`
+- [x] Disabling mutation-checked at both layers: one unit test fails for the fail-closed fallback, one smoke check fails for `configureAuth`; both restored and verified
+- [x] The schema changed **with a decision recorded for each column**, and with the additive `ALTER` that keeps an existing database working
+- [x] The web half is **not** claimed as done, and neither is `POST /admin/accounts` — Task 5 and Task 9

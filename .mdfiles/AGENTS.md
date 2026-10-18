@@ -166,7 +166,7 @@ harness, and there is no mocking framework — a fake that records what it was a
 for says more about a state machine than a verify-count does. `MainDispatcherRule`
 swaps in an `UnconfinedTestDispatcher` so a launch runs to completion eagerly;
 without that, a test that never awaits its coroutine passes while proving
-nothing. The substantial suite is still `:server:test` (73 tests, see below).
+nothing. The substantial suite is still `:server:test` (82 tests, see below).
 
 ## Two traps in the ViewModel tests
 
@@ -371,7 +371,7 @@ $env:MEDIQ_PORT="8099"   # 8080 is often already taken on this machine
 Two ways to verify, and they cover different things:
 
 - `.\gradlew.bat :server:test` — in-process. `BookingConcurrencyTest` is the one that cannot be checked by hand.
-- `.\server\scripts\smoke.ps1 -Base http://127.0.0.1:8099` — over HTTP against a running server. 38 checks covering the status of every route, the double-booking refusal, that signing out kills the token mid-flight, that all three staff roles sign in and a doctor can read the appointment list, that the admin directory answers an administrator and **refuses a doctor's token with 403**, and that the CORS allow-list answers the configured origin while refusing a neighbouring port on the same host. Needs the server up first.
+- `.\server\scripts\smoke.ps1 -Base http://127.0.0.1:8099` — over HTTP against a running server. 50 checks covering the status of every route, the double-booking refusal, that signing out kills the token mid-flight, that all three staff roles sign in and a doctor can read the appointment list, that the admin directory answers an administrator and **refuses a doctor's token with 403**, that disabling an account is a boundary rather than a label (**a disabled account cannot sign in again, and a token issued before the disable stops working**), that an administrator cannot disable their own account, and that the CORS allow-list answers the configured origin while refusing a neighbouring port on the same host. Needs the server up first.
 
 Use `installDist` plus `server/build/install/server/bin/server.bat` when you want a server that survives the Gradle daemon. `:server:run` dies with the shell that started it.
 

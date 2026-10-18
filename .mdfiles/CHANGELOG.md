@@ -5,6 +5,33 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- **An account can be disabled, and disabling it is a boundary rather than a
+  label — module 2 of the `mediq-web` integration, the schema and status half.**
+  `users.status` (`active` / `inactive`, defaulting to `active`) lands with the
+  web's `AccountStatus` wire values, and `AuthService.signIn` refuses a disabled
+  account **after** the password check rather than before: answering "disabled"
+  to anyone who typed a username would leak the account's existence, which is the
+  one thing the shared sign-in message exists to hide. `configureAuth`'s
+  per-request session check now carries the status in the same query, so a
+  disable takes effect on the account's next request instead of at token expiry —
+  proved over HTTP, because the status is read by the route layer and no
+  store-level test can see it. `PATCH /admin/accounts/{id}/status` is the write
+  behind the web's Enable/Disable buttons, admin-only through the same
+  `Caller.requireRole` the reads use, and an administrator cannot disable their
+  own account — that direction is how a deployment locks itself out of the only
+  area that could re-enable it. A status the server cannot parse reads as
+  disabled everywhere, so a hand-edited column refuses rather than hands out a
+  working account. Accounts are never deleted; the column stands in for the
+  delete the admin area does not offer, and it reverses.
+  `specialties.description` lands too, seeded from `ReferenceData` and read back
+  per specialty, so the card has its text without the six becoming editable — the
+  `Specialty` enum stays the source of the list. Idempotent
+  `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` statements sit beside each
+  `CREATE TABLE IF NOT EXISTS`, because the alternative is an existing database
+  that never gains the column while every SELECT names it. `:server:test`
+  73 → **82** and `smoke.ps1` 38 → **50**. **Still not wired to the web**, and
+  there is no way to *create* a staff account over HTTP yet.
+
 - **The admin account directories read real rows, and the server gained its first
   role check — module 2 of the `mediq-web` integration, server half.** The
   authorization mechanism module 1 left undecided is now
