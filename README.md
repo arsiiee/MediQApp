@@ -35,7 +35,7 @@ Every number below is measured directly by automated checks, not claimed:
 |---|---|---|---|
 | **App Compilation** | `.\gradlew.bat :app:compileDebugKotlin` |  **Pass** | 6 deprecation warnings (pre-existing) |
 | **App Unit Tests** | `.\gradlew.bat :app:testDebugUnitTest` |  **213 pass** | All 10 ViewModels covered |
-| **Server Tests** | `.\gradlew.bat :server:test` |  **82 pass** | Concurrency, auth, bookings, Supabase dialect, staff sign-in, admin directory, account status |
+| **Server Tests** | `.\gradlew.bat :server:test` |  **101 pass** | Concurrency, auth, bookings, Supabase dialect, staff sign-in, admin directory, account status, staff creation |
 | **Architecture Boundaries** | `.\.mdfiles\check-boundaries.ps1` |  **Clean (0 violations)** | 56 files checked |
 | **Color Contrast (WCAG AA)** | `.\.mdfiles\check-contrast.ps1` |  **Clean** | 31 token pairs + 6 status chips; ratchet = 4 |
 | **CI Automation** | `.github/workflows/ci.yml` |  **Enforced** | Runs gates, server tests, lint, unit tests |
@@ -97,7 +97,7 @@ adb shell am start -n com.example.mediq/.MainActivity
 | **Atomic Booking** |  Done | `slot_claims` unique constraint prevents double-booking (HTTP 409) |
 | **Appointment Management**|  Done | Upcoming & history lists, detail views, cancel & reschedule |
 | **Notifications** |  Done | System alerts, mark-as-read |
-| **Staff Web Sign-in** | ⚠️ Partial | The separate `mediqweb` staff app signs in against this server (real session, role-carried JWT, CORS allow-list). The account directories it displays have real server endpoints, **role-gated to administrators**, and the server can now **disable and re-enable an account** — refused at sign-in, with its live tokens stopping immediately. The web is not wired to any of it yet: its pages still render sample data. See `tasks/SPEC-web.md` and `tasks/SPEC-web-admin-accounts.md`. |
+| **Staff Web Sign-in** | ⚠️ Partial | The separate `mediqweb` staff app signs in against this server (real session, role-carried JWT, CORS allow-list). The account directories it displays have real server endpoints, **role-gated to administrators**, and the server can now **create** a staff account — a doctor's account and its practice record in one transaction — as well as **disable and re-enable** one, refused at sign-in with live tokens stopping immediately. The web is not wired to any of it yet: its pages still render sample data. See `tasks/SPEC-web.md` and `tasks/SPEC-web-admin-accounts.md`. |
 | **Supabase PostgreSQL** |  Done | Dual-engine support (Postgres in prod, H2 in tests) |
 | **Dark Theme** |  Done | 100% WCAG AA compliant contrast in both light & dark modes |
 | **SMS OTP Dispatch** | ⚠️ Stub | Returns OTP in response body; SMS gateway not connected |
@@ -220,7 +220,7 @@ Run the local quality gates before committing code:
 ### Pre-commit Checklist
 - [ ] `check-boundaries.ps1` reports 0 errors.
 - [ ] `check-contrast.ps1` reports 0 errors; raw-color ratchet $\le 4$.
-- [ ] `:server:test` passes ($\ge 82$ tests).
+- [ ] `:server:test` passes ($\ge 101$ tests).
 - [ ] `:app:testDebugUnitTest` passes ($\ge 213$ tests).
 - [ ] Zero suppressions (`@Suppress`, `@SuppressLint`) or `TODO()` stubs.
 
@@ -233,10 +233,11 @@ Run the local quality gates before committing code:
 - **Pagination in App:** Server supports cursor pagination, but client does not yet consume `nextCursor`.
 - **Database Migrations:** Schema is applied via `CREATE TABLE IF NOT EXISTS` on boot. Migrate to Flyway once patient data is live.
 - **Idempotency Keys:** `POST /appointments` lacks an idempotency key header for network disconnect retries.
-- **Staff Web Covers Sign-in Only:** `mediqweb` (a sibling clone, not in this repo) authenticates for real; its admin, doctor, and secretary areas still render in-memory sample data.
+- **Staff Web Covers Sign-in Only:** `mediqweb` (a sibling clone, not in this repo) authenticates for real; its admin, doctor, and secretary areas still render in-memory sample data. Its create-staff form collects neither a mobile number nor a date of birth — both `NOT NULL` columns the server now requires — and no practice details at all, so it cannot yet drive `POST /admin/accounts`.
 - **The Web is Outside the Quality Gate:** `check-boundaries.ps1`, `check-contrast.ps1`, and both Gradle test tasks cover `:app` and `:server` only. The web's own `npm test` / `ng build` are its gate.
-- **Only the Admin Routes Are Role-Gated:** `GET /admin/accounts`, `GET /admin/specializations` and `PATCH /admin/accounts/{id}/status` are the only routes that check the caller's role (403 for a doctor's token). Every other authenticated route still accepts any signed-in account, so the web's router guard is *still* not a security boundary outside `/admin`. A route added without `Caller.requireRole` is readable by every role.
-- **The Admin Directories Cannot Be Added To Yet:** `users.status` now exists, so an account can be disabled and re-enabled from `PATCH /admin/accounts/{id}/status` — refused at sign-in, and live tokens stop working immediately — but there is still no way to *create* a staff account over HTTP. The web form's mobile number and date of birth fields have `NOT NULL` columns waiting for them, and a doctor account would also need the `doctors` row's fee, room, bio, and hours, which no screen collects. `lastActiveOn` stays absent for a different reason: the only activity recorded is when a session was created, which is a last sign-in, not a last activity.
+- **Only the Admin Routes Are Role-Gated:** `GET /admin/accounts`, `GET /admin/specializations`, `PATCH /admin/accounts/{id}/status` and `POST /admin/accounts` are the only routes that check the caller's role (403 for a doctor's token). Every other authenticated route still accepts any signed-in account, so the web's router guard is *still* not a security boundary outside `/admin`. A route added without `Caller.requireRole` is readable by every role.
+- **A New Doctor Cannot Be Booked Until Someone Gives Them Hours:** `POST /admin/accounts` creates a doctor's account *and* its `doctors` row in one transaction, and deliberately writes **no clinic hours** — inventing a week of sessions would make the clinic's bookable calendar a guess. The doctor appears in the directory and can sign in, but `GET /doctors/{id}/availability` has nothing to offer until the doctor-workspace module adds a schedule editor. `lastActiveOn` stays absent for a different reason: the only activity recorded is when a session was created, which is a last sign-in, not a last activity.
+- **A Staff Password Is Chosen by the Administrator, Not the Holder:** nothing forces a change on first use and there is no invitation email, so the password has to be passed on out of band. Every staff account works that way today.
 
 ---
 
@@ -260,9 +261,10 @@ MediQApp/
 
 The staff frontend (`mediqweb`) is a **separate repository**, cloned as a sibling
 at `../mediqweb` rather than vendored in. Module 1 of the integration
-(`web-staff-auth`) changed both trees; module 2 (`web-admin-accounts`) has its
-server half in this repo and its web half still to do, because the columns its
-screens need do not exist. The map for the remaining modules is
+(`web-staff-auth`) changed both trees; module 2 (`web-admin-accounts`) now has
+its whole **server** half in this repo — the directories, the account status
+column, and `POST /admin/accounts` — with its web half still to do, because
+rewiring the pages is a separate slice. The map for the remaining modules is
 `tasks/SPEC-web.md`.
 
 ### Key Documentation Links

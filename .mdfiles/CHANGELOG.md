@@ -5,6 +5,42 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- **A staff account can be created over HTTP, and a doctor's account and its
+  practice record are one transaction — the write half of module 2.**
+  `POST /admin/accounts` is admin-only through the same `Caller.requireRole` as
+  the directory reads, and answers 201 with the account in the shape
+  `GET /admin/accounts` already publishes, so a client can drop the new row
+  straight into the list it has. `db/StaffAccountService.kt` owns it: the
+  validation, and the single `db.tx { }` that writes a `users` row and, for a
+  doctor, the `doctors` row `users.doctor_id` links to. `Database.tx` takes a
+  fresh connection per call, so those two writes could not be two store calls —
+  `UserStore.createIn` and `DoctorStore.insert` are new `internal` helpers that
+  take the caller's `Connection`, and a test proves a failure *after* the doctor
+  insert rolls that row back instead of leaving a clinician nobody can sign in as.
+  This is the first place the server writes a `doctors` row at all; the demo seed
+  did it with raw SQL.
+  A `patient` role is **refused** — registration exists to prove the mobile number
+  with an OTP and this route cannot — and the role-specific fields are enforced
+  rather than ignored: a doctor needs the practice record, a secretary needs the
+  doctor they work for (checked to exist, because `users.doctor_id` has no foreign
+  key), and neither is accepted from the other's role. Every refusal is a 400
+  naming the field, including the two ranges the `doctors` table carries as
+  `CHECK`s, which would otherwise answer 500 for a typo in a number box.
+  `MIN_PASSWORD_LENGTH`, `normalizeUsername` and `normalizeMobile` moved out of
+  `AuthService`'s private members into shared `internal` functions, so
+  registration and staff creation enforce one password floor and one stored form.
+  A new doctor gets **no clinic hours**, so they appear in the directory and can
+  sign in but have no slots for a patient to book until the doctor-workspace
+  module adds a schedule editor — pinned by a test, not left to be discovered.
+  `StaffAccountCreateTest` (19) takes `:server:test` 82 → **101**, and
+  `smoke.ps1` 50 → **61**: the added checks being the four role/validation
+  refusals and the duplicate-username 400 over HTTP, that a created doctor's
+  practice record reads back from the public doctor-profile route, that the
+  account signs in with the password the administrator chose, and that both
+  created rows reach the directory they will be managed from. The web's create
+  form is **still not wired**, and still collects no mobile number, no date of
+  birth, and no practice details.
+
 - **An account can be disabled, and disabling it is a boundary rather than a
   label — module 2 of the `mediq-web` integration, the schema and status half.**
   `users.status` (`active` / `inactive`, defaulting to `active`) lands with the
@@ -29,8 +65,9 @@ All notable changes to this project will be documented in this file.
   `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` statements sit beside each
   `CREATE TABLE IF NOT EXISTS`, because the alternative is an existing database
   that never gains the column while every SELECT names it. `:server:test`
-  73 → **82** and `smoke.ps1` 38 → **50**. **Still not wired to the web**, and
-  there is no way to *create* a staff account over HTTP yet.
+  73 → **82** and `smoke.ps1` 38 → **50**. **Still not wired to the web**, and at
+  that point there was no way to *create* a staff account over HTTP — the next
+  entry adds it.
 
 - **The admin account directories read real rows, and the server gained its first
   role check — module 2 of the `mediq-web` integration, server half.** The
@@ -47,9 +84,11 @@ All notable changes to this project will be documented in this file.
   `DoctorStore.specialtyCounts()` gives the six specialties live doctor counts,
   filling an absent count with `0` from the `Specialty` enum so a specialty nobody
   practises is still listed. Part of the work is what is *not* on the wire:
-  `AdminAccountDto` carries no `status` and no `lastActiveOn` because `users` has
-  no column for either, and no `description` because `specialties` has none —
-  inventing an "active" would be exactly the fabricated data the web rules forbid.
+  `AdminAccountDto` carried no `status` and no `lastActiveOn` — `users` had no
+  column for either — and no `description`, because `specialties` had none;
+  **the first two of those three landed in the entry above, and `lastActiveOn`
+  is still absent for the reason given there.** Inventing an "active" would have
+  been exactly the fabricated data the web rules forbid.
   `AdminAccountsTest` (5) takes `:server:test` 68 → **73**, and the `Admin` section
   of `smoke.ps1` 30 → **38** checks. **The web half is not wired yet**: the admin
   pages still render sample data, because the status badge and the Enable/Disable

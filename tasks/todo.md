@@ -1693,25 +1693,29 @@ is mostly about what it did **not** build.
 
 ---
 
-## Task 5: Wire the admin reads (NOT STARTED — no longer blocked on a decision)
+## Task 5: Wire the admin reads and the create form (NOT STARTED — nothing gates it now)
 
 **Description:** The endpoints exist and are proved over HTTP; no page consumes
-them. The four open decisions were answered on 2026-10-18 and the status half is
-now built, so the earlier blocker is gone: `users.status` is real, disabling is
-enforced at sign-in and on every authenticated request, and Enable/Disable has an
-endpoint behind it. What still gates this task is `POST /admin/accounts` — a
-create button wired to nothing is the same defect in the other direction — and the
-web wiring itself, which is a change of its own.
+them. Every open decision was answered on 2026-10-18 and both server halves are
+built: `users.status` is real, disabling is enforced at sign-in and on every
+authenticated request, `PATCH /admin/accounts/{id}/status` is behind Enable/Disable,
+and `POST /admin/accounts` creates a staff account and, for a doctor, its practice
+record. None of that is claimed as a web feature — this task is the web wiring
+itself, which is a change of its own and cannot land in the same commit as the
+server because only the server is inside this repo's gate.
 
 **Acceptance criteria:** *(all unchecked, deliberately)*
 - [ ] `AdminAccountsGateway` + `HttpAdminAccountsGateway`, following `http-auth.gateway.ts`
 - [ ] `AdminSession` reads from the gateway instead of `MOCK_PATIENTS` / `MOCK_DOCTORS` / `MOCK_SECRETARIES` / `MOCK_SPECIALIZATIONS`
 - [ ] The status badge and Enable/Disable wired to `PATCH /admin/accounts/{id}/status`, and the badge drawn from the server's `status` rather than a default
+- [ ] The create form collects a mobile number and a date of birth (both `NOT NULL`) and, for `role = doctor`, a practice-details section (specialization, licence, years, fee, bio, building, floor, room, languages) as `POST /admin/accounts` requires
+- [ ] The create button calls `POST /admin/accounts` and inserts the returned account into the list rather than re-reading it
 - [ ] `specializationId` and `licenseNumber` joined from `GET /doctors` via `doctorId` rather than duplicated onto the account
 - [ ] The four `*.mock-data.ts` exports for the directories deleted, and their specs moved onto a fake gateway
 - [ ] `mock-notice` stays until the last admin area is wired
+- [ ] A doctor created here is **not** bookable until someone gives them hours, and the screen says so rather than implying the profile is complete
 
-**Dependencies:** Task 8; **and the doctor-row decision for `POST /admin/accounts`** (Task 9)
+**Dependencies:** Tasks 8, 9, 10 — all done, so only the work gates this
 
 **Files likely touched:** `mediqweb-fe/src/app/admin/` (sibling clone, not this repo)
 
@@ -1810,28 +1814,69 @@ actually left.
 
 ---
 
-## Task 9: `POST /admin/accounts` (BLOCKED — needs one more decision)
+## Task 9: `POST /admin/accounts` — decided and built
 
 **Description:** The answer to decision 4 was "add mobile number and date of birth
-to the form and a real `POST /admin/accounts`", and the two fields are now
-unblocked. What the answer did not cover: a staff account with `role = doctor` also
-needs a `doctors` row, and that needs `fee_centavos`, `years_experience`, `bio`,
-`building`, `floor`, `room`, and `languages` — none of which the create-staff form
-collects, and none of which may be invented, because a fabricated fee and room is
-exactly the data the app's rules forbid.
+to the form and a real `POST /admin/accounts`", and the question it opened — where
+a `role = doctor` account's `doctors` row comes from — was answered by putting a
+**practice-details section on the same form** and writing both rows in one
+transaction. The alternative ("create doctor-less staff only") was rejected: a
+directory whose "Add doctor" button produces an account the doctor area cannot use
+is worse than no button. Nothing is invented; every `NOT NULL` column of the
+`doctors` table is required by the route and refused by name when missing.
 
-**Acceptance criteria:** *(all unchecked, deliberately)*
-- [ ] Decide: the form grows a practice-details section, or `POST /admin/accounts` creates doctor-less staff only and the role selector drops `doctor`
-- [ ] `UserStore.create` gains the doctor link, or creates the `doctors` row in the same transaction
-- [ ] Mobile number and date of birth collected on the form (both `NOT NULL` today)
-- [ ] Admin-only via `requireRole`, with the collisions the register route already handles (username, email, mobile) answered as 400s
-- [ ] A created account is active and can sign in
+**Acceptance criteria:**
+- [x] The form grows a practice-details section, so the role selector keeps `doctor` and the route writes a real `doctors` row
+- [x] `UserStore.createIn` and `DoctorStore.insert` take the caller's `Connection`, and `StaffAccountService.create` opens the single `db.tx { }` that writes both — `Database.tx` takes a fresh connection per call, so two store calls would be two transactions that can half-apply
+- [x] `doctors.existsIn` refuses a secretary assigned to a doctor that is not there — `users.doctor_id` has no foreign key, so nothing else would
+- [x] Mobile number and date of birth are required by the route (both `NOT NULL` today); the web form that collects them is Task 5
+- [x] Admin-only via `requireRole`, with the collisions the register route already handles (username, email, mobile) answered as the same 400s
+- [x] A created account is active by default, can be created `inactive`, and can sign in with the password the administrator set
+- [x] `MIN_PASSWORD_LENGTH`, `normalizeUsername` and `normalizeMobile` hoisted into shared `internal` declarations, so the two write paths cannot enforce different password floors or store different forms of one username
+- [x] `db/StaffAccountService.kt` owns every refusal as a sentence naming the field, including the two ranges the `doctors` table carries as `CHECK`s — a negative fee would otherwise answer 500
+- [x] A `patient` role is refused, with the reason recorded
 
-**Dependencies:** Task 8 and the doctor-row decision
+**Verification:**
+- [x] `StaffAccountCreateTest` (19): the two-row write, the link, every refusal, that a refusal writes **nothing** (asserted on row counts, not only messages), the stored normal form, the no-clinic-hours consequence, and a direct `db.tx` rollback
+- [x] `:server:test` **101 / 0** (was 82), counted from the test-results XML after `--rerun-tasks`
+- [x] `smoke.ps1` **61 / 0** (was 50), run twice against one server to prove the section's timestamped usernames do not collide with themselves
+- [x] No existing test deleted or weakened; no gate script edited
 
-**Files likely touched:** `server/.../http/Routes.kt`, `db/UserStore.kt`, `db/DoctorStore.kt`, `http/Dtos.kt`, tests, `smoke.ps1`
+**Dependencies:** Task 8; the doctor-row decision
 
-**Estimated scope:** Medium, and unmeasurable until the decision lands
+**Files likely touched:** `server/.../http/Routes.kt`, `db/StaffAccountService.kt` (new), `db/UserStore.kt`, `db/DoctorStore.kt`, `db/AuthService.kt`, `http/Dtos.kt`, `Main.kt`, `StaffAccountCreateTest.kt` (new), `smoke.ps1`
+
+**Estimated scope:** Medium
+
+---
+
+## Task 10: Docs — the floor, the create route, and the gap that closed
+
+**Description:** The floor moves with the code again, and the README's "the admin
+directories cannot be added to yet" gap becomes the gaps that are actually left.
+The web's create form is the one that matters: it still sends neither a mobile
+number, a date of birth, nor any practice detail, all of which the route now
+requires.
+
+**Acceptance criteria:**
+- [x] `CONSTRAINTS.md` server floor 82 → **101**, with the per-test reason, the smoke count 50 → 61, and the stale value cell (it read 73 while the floor said 82) corrected and recorded as the same drift the previous paragraph notes
+- [x] `AGENTS.md`: `:server:test` 82 → 101, `smoke.ps1` 50 → 61, the per-route authorization section names the create route, and a new paragraph records the two-rows-in-one-transaction rule and the no-fields-via-a-store-call reason
+- [x] `AGENTS.md` architecture list gains `db/StaffAccountService.kt`, and the username-normalisation convention now names three writers and the shared `internal` declarations
+- [x] `README.md`: the dashboard row, the staff-web feature row, the pre-commit floor, the "cannot be added to yet" gap replaced (a new doctor has no clinic hours; the web form is unwired; the password is handed over out of band), and the module-status paragraph
+- [x] `CHANGELOG.md`: the create route, the one-transaction write, the shared constants, and the two counts; plus the earlier read-half entry corrected where it said no create route exists
+- [x] `tasks/SPEC-web-admin-accounts.md`: the status header, the fifth decision and its practice-details answer, the create-route section, the code-lives table, the boundaries, criteria 19-27, and the two deviations that moved
+- [x] `tasks/SPEC-web.md`: module 2's row
+- [x] `tasks/todo.md`: Task 9 closed with its verdicts, this task added, and Task 5's "still gated on Task 9" corrected
+
+**Verification:**
+- [x] Both check scripts green; `:app:testDebugUnitTest` **213** (unchanged — no app test was added); `:server:test` 101; `smoke.ps1` 61/0
+- [x] No gate script edited, no test weakened, `CONSTRAINTS.md` not weakened to pass — the floor moved up, and the one edit to a value that was already wrong moved it to the enforced number
+
+**Dependencies:** Task 9
+
+**Files likely touched:** `.mdfiles/CONSTRAINTS.md`, `.mdfiles/AGENTS.md`, `.mdfiles/CHANGELOG.md`, `README.md`, `tasks/`
+
+**Estimated scope:** Small (docs only)
 
 ---
 
@@ -1841,4 +1886,17 @@ exactly the data the app's rules forbid.
 - [x] `smoke.ps1` green at **50 passed / 0 failed** against a seeded server on `:8099`
 - [x] Disabling mutation-checked at both layers: one unit test fails for the fail-closed fallback, one smoke check fails for `configureAuth`; both restored and verified
 - [x] The schema changed **with a decision recorded for each column**, and with the additive `ALTER` that keeps an existing database working
-- [x] The web half is **not** claimed as done, and neither is `POST /admin/accounts` — Task 5 and Task 9
+- [x] The web half is **not** claimed as done — it is Task 5
+
+---
+
+## Checkpoint B2: Complete for the create half
+
+- [x] `:server:test` green at **101** (was 82); `:app:testDebugUnitTest` green at **213** (unchanged)
+- [x] `smoke.ps1` green at **61 passed / 0 failed** against a seeded server on `:8099`, run twice against the same server
+- [x] `POST /admin/accounts` proved over HTTP as an administrator, refused over HTTP with 401 and 403, and every 400 exercised
+- [x] The created doctor's practice record read back through the public `GET /doctors/{id}`, the created account signed in with the password the administrator chose, and both new rows required to appear in the directory
+- [x] A refusal proved to write **nothing** — asserted on row counts, because a message-only assertion passes on a route that half-writes and then throws
+- [x] The one-transaction claim proved directly: a throw after the `doctors` insert removes that row, which no public call path can reach because every refusal happens before the insert
+- [x] No schema change was needed — every column the route writes already existed
+- [x] The web half is **not** claimed as done — the create form still lacks the mobile number, date of birth, and practice fields; that is Task 5

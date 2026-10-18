@@ -2,12 +2,15 @@
 
 Status: **part 1 (the reads) implemented and verified 2026-10-18** — `:server:test`
 68 → 73, `smoke.ps1` 30 → 38 checks, both check scripts clean, `:app` unchanged at
-213. **Part 2's status half is implemented and verified 2026-10-18** — `users.status`
+213. **Part 2 (the writes) is implemented and verified 2026-10-18** — `users.status`
 and `specialties.description` added, disabling made a boundary at sign-in and on
-every authenticated request, `:server:test` 73 → 82 and `smoke.ps1` 38 → 50. All
-four decisions are recorded under "Decisions"; what remains is `POST
-/admin/accounts` (which needs the doctor-row fields no screen collects) and the
-whole web half. "Deviations as built" records why the server went first this time.
+every authenticated request, and `POST /admin/accounts` creating a staff account
+(and, for a doctor, its `doctors` row in the same transaction). `:server:test`
+73 → 101 and `smoke.ps1` 38 → 61 across the two halves. All four decisions are
+recorded under "Decisions", including the fifth one the fourth opened: a doctor's
+practice details go on the create form rather than the route refusing doctors. The
+**whole server half is done**; what remains is the web half, which is a change of
+its own. "Deviations as built" records why the server went first this time.
 
 Prerequisite: module 1 (`SPEC-web-staff-auth.md`), implemented 2026-10-18.
 
@@ -28,7 +31,7 @@ the fields they display cannot be produced by the server as it stands:
 | `StaffAccount.status`, `PatientAccount.status` — the Active/Inactive badge, plus the Enable and Disable buttons | `admin.models.ts:34`, `:62` | **Nothing.** `users` has no status column (`schema.sql:14-32`). The server has no notion of a disabled account, so there is no correct value to send — and the buttons cannot do anything. |
 | `StaffAccount.lastActiveOn` | `admin.models.ts:52` | **Nothing.** No column. It is *derivable* from the newest `sessions.created_at`, but that is the last sign-**in**, not the last activity, and mislabelling one as the other is worse than showing neither. |
 | `Specialization.description` | `admin.models.ts:70` | **Nothing.** `specialties` is `(id, display_name)` (`schema.sql`), and the list itself is projected from the `Specialty` enum the patient app filters by. |
-| The create-account form's inputs | `staff-directory/staff-directory.ts:147-162` — name, email, username, password, status, specialization, licence, assigned doctor | **Two `NOT NULL` columns are never collected**: `users.mobile_number` and `users.date_of_birth`. A route built from that form cannot insert a row at all. |
+| The create-account form's inputs | `admin/components/staff-directory/staff-directory.ts` — name, email, username, password, status, specialization, licence, assigned doctor | **Two `NOT NULL` columns are never collected**: `users.mobile_number` and `users.date_of_birth`. A route built from that form cannot insert a row at all. |
 | The audit log and the settings form | `admin-audit-logs`, `admin-settings` | **No table for either.** `admin-settings` already reports honestly that it cannot save (`admin-settings.ts:83-98`). |
 
 Two more findings, which are the good news:
@@ -114,8 +117,9 @@ counts across them, and it is the shape the fixture it replaces had.
 
 ## Part 2 — the writes, and the schema decisions behind them
 
-All four questions were answered on 2026-10-18. The status and description halves
-are built; `POST /admin/accounts` is not (see below).
+All four questions were answered on 2026-10-18, and the answers are built —
+including the fifth question the fourth one opened (a doctor account's practice
+fields), which is answered and built below.
 
 - **`users.status`** — `VARCHAR(16) NOT NULL DEFAULT 'active'`, wire values
   `active` / `inactive` to match the web's `AccountStatus`. A `UserStatus` enum
@@ -139,13 +143,34 @@ are built; `POST /admin/accounts` is not (see below).
   `Specialty` enum stays the source of the six; the admin area lists them with
   live counts and text and offers no create or edit.
 - **Staff creation** — mobile number and date of birth go on the form and
-  `POST /admin/accounts` is a real route, **but not in this change**. The gap the
-  answer did not cover: a staff account with `role = doctor` also needs a
-  `doctors` row, and that needs `fee_centavos`, `years_experience`, `bio`,
-  `building`, `floor`, `room`, and `languages`, none of which the create-staff
-  form collects and none of which can be invented. Either the form grows a
-  practice-details section or `POST /admin/accounts` creates doctor-less staff
-  only; that is the next decision, and it is deliberately not guessed here.
+  `POST /admin/accounts` is a real route. **Built.** The follow-up question the
+  answer opened — where a `role = doctor` account's `doctors` row comes from — is
+  answered the same way for the same reason: the create form grows a
+  **practice-details section**, and the route writes both rows in one transaction.
+  The two alternatives were rejected rather than deferred. Creating *doctor-less*
+  staff only would have shipped a directory whose "Add doctor" button silently
+  produced an account the doctor area cannot use. Wiring the web half first would
+  have meant wiring a form to a route that still had to change, and the form is
+  where the fields are collected, so the route's shape would have been decided by
+  a screen rather than by the schema. The practice details the `doctors` row
+  requires are all `NOT NULL` except the licence and bio sentences, so they are
+  all **required** and **refused by name** when missing — none is defaulted,
+  because a default fee or room is invented clinical data.
+- **`POST /admin/accounts`** — admin-only through the same
+  `Caller.requireRole` as the reads, answering 201 with the created account in
+  the `AdminAccountDto` the directory already publishes, so a client can drop the
+  new row into the list it holds instead of re-reading. `db/StaffAccountService.kt`
+  owns the validation and the single `db.tx { }`. Three rules are worth naming:
+  a `patient` role is **refused** (registration is what proves a mobile number,
+  with an OTP, and this route cannot); the role-specific fields are **enforced
+  rather than ignored** (a doctor needs the practice record, a secretary needs the
+  doctor they work for, and each is refused if sent for the other role); and the
+  assigned doctor is checked to **exist**, because `users.doctor_id` deliberately
+  has no foreign key and nothing else would refuse a link to a doctor that is not
+  there. `MIN_PASSWORD_LENGTH`, `normalizeUsername` and `normalizeMobile` moved
+  out of `AuthService`'s private members into shared `internal` functions so the
+  two write paths cannot enforce different password floors or store different
+  forms of one username.
 
 ### Migrating an existing database
 
@@ -163,15 +188,18 @@ the next column, not after.**
 |---|---|
 | `server/src/main/resources/schema.sql` | `users.status` + `specialties.description`, each with the idempotent `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` beside its table |
 | `server/.../db/UserStatus.kt` | new — `active` / `inactive`, and `fromWire` returning null for a value this build cannot read |
-| `server/.../db/UserStore.kt` | `listByRole`; `doctor_id`, `created_at` **and `status`** in `SELECT_COLUMNS`, `UserRow` and `readUser`; `setStatus`; `create` takes a status; `activeSession` → `liveSession`, which joins the account's status |
-| `server/.../db/AuthService.kt` | sign-in refuses an inactive account, after the password check |
-| `server/.../db/DoctorStore.kt` | `specialtyCounts()`, `specialtyDescriptions()` |
+| `server/.../db/UserStore.kt` | `listByRole`; `doctor_id`, `created_at` **and `status`** in `SELECT_COLUMNS`, `UserRow` and `readUser`; `setStatus`; `create` takes a status and a `doctor_id`; `activeSession` → `liveSession`, which joins the account's status; **`createIn`**, the same insert taking the caller's `Connection` so it can join the doctor-row transaction |
+| `server/.../db/AuthService.kt` | sign-in refuses an inactive account, after the password check; `MIN_PASSWORD_LENGTH`, `normalizeUsername` and `normalizeMobile` hoisted out of the private companion into shared top-level `internal` declarations |
+| `server/.../db/StaffAccountService.kt` | **new** — `NewStaffAccount` / `NewDoctorPractice`, the role and field validation, and the one `db.tx { }` that writes a `users` row and, for a doctor, its `doctors` row |
+| `server/.../db/DoctorStore.kt` | `specialtyCounts()`, `specialtyDescriptions()`; **`insert`** (the first `INSERT INTO doctors` outside the demo seed) and **`existsIn`**, both taking the caller's `Connection` |
 | `server/.../ReferenceData.kt` | the six specialty descriptions, seeded and backfilled on existing rows |
-| `server/.../http/Dtos.kt` | `AdminAccountDto` (+ `status`), `AdminAccountsDto`, `AdminSpecializationDto` (+ `description`), `UpdateAccountStatusRequestDto`, `UserRow.toAdminDto()` |
-| `server/.../http/Routes.kt` | `Caller.requireRole`; the `/admin` routes; `PATCH /admin/accounts/{id}/status`; the status check in `configureAuth` |
+| `server/.../http/Dtos.kt` | `AdminAccountDto` (+ `status`), `AdminAccountsDto`, `AdminSpecializationDto` (+ `description`), `UpdateAccountStatusRequestDto`, **`CreateAccountRequestDto` + `DoctorPracticeDto`** and their `toDomain()`, `UserRow.toAdminDto()` |
+| `server/.../http/Routes.kt` | `Caller.requireRole`; the `/admin` routes; `PATCH /admin/accounts/{id}/status`; **`POST /admin/accounts`**; the status check in `configureAuth` |
+| `server/.../Main.kt` | constructs `StaffAccountService` and passes it to `mediQRoutes` / `mediQModule` |
 | `server/src/test/.../AdminAccountsTest.kt` | 11 tests, one database each |
 | `server/src/test/.../StaffSignInTest.kt` | 9 tests, 3 of them for a disabled account |
-| `server/scripts/smoke.ps1` | the `Admin` section: the 403s, the directory's contents, and the disable/re-enable boundary |
+| `server/src/test/.../StaffAccountCreateTest.kt` | **new** — 19 tests: the two-row write, the link, every refusal, the stored form, and the rollback |
+| `server/scripts/smoke.ps1` | the `Admin` section (the 403s, the directory's contents, the disable/re-enable boundary) and the **`Create staff account`** section (the refusals over HTTP, the created doctor's practice record reading back through `GET /doctors/{id}`, the created account signing in, and both new rows reaching the directory) |
 
 ## Commands
 
@@ -205,23 +233,48 @@ answers what the route does.**
 - Every `AdminAccountsTest` test gets its own database. They create accounts of
   overlapping roles and assert on whole lists, so a shared one would make each
   assertion depend on which test ran first.
+- `StaffAccountCreateTest` follows the same rule, for the same reason, and adds
+  two kinds of assertion the reads never needed. **Row counts**, because a
+  refusal has to be proved to have written nothing rather than only to have
+  returned a sentence. And **one direct `db.tx` test**, because the atomicity
+  claim is about the transaction and no public call path can produce a
+  half-write: every application-level refusal happens before the insert. That
+  test inserts a doctor, throws, and asserts the row is gone.
+- The create route's HTTP half is `smoke.ps1`'s `Create staff account` section,
+  and it is deliberately more than status codes: the created doctor's practice
+  record is read back through the public `GET /doctors/{id}`, the created account
+  signs in with the password the administrator chose, and both new rows are
+  required to appear in the directory. A 201 that never reaches the list would
+  leave an account that can be signed in as but never disabled, which no status
+  code can show.
 
 ## Boundaries
 
 - **No `schema.sql` change in part 1.** Part 1 needed none. Part 2's change is
   `users.status` and `specialties.description`, both additive and both approved
   as decisions before any code was written — the two `ALTER TABLE ... ADD COLUMN
-  IF NOT EXISTS` statements are what keeps an existing database working.
+  IF NOT EXISTS` statements are what keeps an existing database working. The create
+  route needed **no further schema change**: every column it writes already
+  existed, which is why the form's shape is derived from the `doctors` table
+  rather than the table from the form.
 - **One DTO change in part 1, additive.** Three new response types; no existing
   DTO moves. Part 2 adds one field to two of them (`status`, `description`) and
   one request type.
 - **No existing test deleted or weakened.** `:server:test` goes 68 → 73 in part 1
-  and 73 → 82 in part 2, and the floor in `CONSTRAINTS.md` moves with it.
+  and 73 → 101 across the two halves of part 2, and the floor in `CONSTRAINTS.md`
+  moves with it.
 - **No new runtime dependency.**
 - **The web repo is not vendored.** `mediqweb` stays a sibling clone.
-- **No fabricated data.** No account value is invented to fill a field the schema
-  cannot supply — which is why `POST /admin/accounts` waits rather than filling a
-  doctor's fee and room with a default.
+- **No fabricated data.** No account value is invented to fill a field the form
+  does not collect. That is why `POST /admin/accounts` **requires** every
+  `doctors` column the schema makes `NOT NULL` and refuses by name rather than
+  defaulting a fee, a room, or a speciality — and why `sex` and `address` are left
+  `NULL` on a created account rather than filled with a guess: the admin form does
+  not collect them and the columns allow it.
+- **A doctor created by the route has no clinic hours, and that is deliberate.**
+  Writing a default week would put invented sessions on the clinic's bookable
+  calendar. The consequence — visible in the directory, can sign in, nothing
+  bookable — is pinned by a test rather than left to be found by a patient.
 
 ## Acceptance criteria — verdicts (verified 2026-10-18)
 
@@ -318,6 +371,59 @@ Every number below came from a command, not from the diff.
     test-results XML after `--rerun-tasks`. The floor in `CONSTRAINTS.md` moved
     73 → 82 in the same change, and no gate script was edited.
 
+### Part 2 — the create route (verified 2026-10-18)
+
+19. `POST /admin/accounts` is admin-only, and answers 201 with the account it
+    wrote, in the shape the directory read already publishes. **Met, over HTTP.**
+    `smoke.ps1` asserts 401 with no token, 403 for a doctor's token, and reads the
+    201 body's `role`, `status` and `doctorId`. That the response is the *same*
+    `AdminAccountDto` is a design constraint rather than a checked one: the route
+    calls `UserRow.toAdminDto()`, the function the reads use, so the two cannot
+    drift into two shapes.
+20. A doctor account and its `doctors` row are written together, and the practice
+    record reads back where a doctor profile is read from. **Met.** The test
+    asserts both rows and every practice field; `smoke.ps1` reads the record back
+    through the public `GET /doctors/{id}`, which is the route the patient app
+    uses, so the write is proved against a reader that existed before it.
+21. A failure after the `doctors` insert rolls that row back. **Met, at the
+    mechanism.** `StaffAccountCreateTest > a failure after the doctors row is
+    written rolls that row back too` opens one `db.tx`, inserts a doctor, throws,
+    and asserts the row is gone. This is what the connection-taking helpers are
+    for, and it is the only way to reach the case: every application-level
+    refusal happens *before* the insert, so no public call path can produce a
+    half-write to observe.
+22. The role decides which fields are required, and the wrong ones are refused
+    rather than ignored. **Met.** A doctor with no practice record, a secretary
+    with no assigned doctor, practice details sent for a secretary, and an
+    assigned doctor sent for an administrator are each a 400 naming the field.
+    Ignoring the extras would have let a client believe it had set something it
+    had not, which is the failure this repo's "no silent drops" rule exists for.
+23. A refusal writes nothing. **Met.** The refusal tests assert `userRowCount()`
+    or `doctorRowCount()` is unchanged, not only the message — a message-only
+    assertion would pass on a route that wrote half an account and then threw.
+24. A patient account cannot be created here. **Met.** 400 over HTTP and in the
+    service, with the reason stated: registration is what proves the number with
+    an OTP and this route cannot.
+25. A created account can sign in, active by default, and refused when created
+    inactive. **Met.** One test signs in with the password the caller set (using a
+    differently-cased username, so the create and sign-in normalizers are proved
+    to agree); another creates the account `inactive`, asserts sign-in refuses,
+    re-enables through `setStatus`, and asserts sign-in works again.
+26. The username, email and mobile number are stored in one normal form, and the
+    password floor is one number. **Met.** Normalization asserts the stored
+    `ada.admin` / `ada@clinic.test` / E.164 forms and a spaced, upper-cased
+    sign-in. The floor is now a single shared constant, so this is structural
+    rather than asserted twice: there is no second number to drift.
+27. The whole existing gate stays green, and no test was weakened. **Met.**
+    `check-boundaries.ps1` clean (56 files); `check-contrast.ps1` clean (31 pairs,
+    6 status chips, ratchet 4); `:app:testDebugUnitTest` **213 / 0** (unchanged —
+    this half added no app test); `:server:test` **101 / 0**; `smoke.ps1` **61
+    passed / 0 failed** against a seeded server on `:8099`, run twice in a row to
+    prove the section's unique usernames do not collide with themselves. Counts
+    taken from the test-results XML after `--rerun-tasks`. The floor in
+    `CONSTRAINTS.md` moved 82 → 101 in the same change, and no gate script was
+    edited.
+
 ## Deviations as built
 
 1. **The web half is not wired yet, so this module is not yet an integration.**
@@ -327,11 +433,14 @@ Every number below came from a command, not from the diff.
    while the Enable/Disable buttons sat on the same rows would have put a screen
    that looks real next to buttons that quietly do nothing. That is now fixed at
    the server; the web half stays one change of its own.
-2. **`users.mobile_number` and `users.date_of_birth` are not collected by the
-   create-account form yet.** Recorded rather than fixed: adding inputs to a
-   reviewed form is a product decision, and it now travels with `POST
-   /admin/accounts` — which also needs a decision about a doctor account's
-   practice fields.
+2. **The web's create-account form is still not updated**, so it does not yet
+   send a mobile number, a date of birth, or any practice detail — all of which
+   the route now requires. The decision that unblocked this (mobile number, date
+   of birth, and a practice-details section on the form) is recorded above and the
+   route is built against it, but editing a reviewed form is part of the web half,
+   which is one change of its own. The route went first because the form's shape
+   is *derived* from the `doctors` table's `NOT NULL` columns, not the other way
+   round.
 3. **`admin-settings` has no module.** The capability map in `SPEC-web.md` names
    five modules and none of them is the settings screen; it needs a table and a
    decision about whether clinic settings are even server state.
@@ -352,11 +461,15 @@ were answered on 2026-10-18, and the answers are what "Part 2" above records:
 3. **Adding and editing specializations** → **read-only list.** The `Specialty`
    enum stays the source of truth; the admin area lists and does not write.
 4. **Staff creation** → **add mobile number and date of birth to the form and a
-   real `POST /admin/accounts`.** The two fields are unblocked, but the route is
-   **not built yet**: a `role = doctor` account also needs a `doctors` row, and
-   that needs fee, years, bio, building, floor, room, and languages, which the
-   form does not collect and which must not be invented. That is the next
-   decision, not a thing to guess.
+   real `POST /admin/accounts`. Built.** The question it opened — where a
+   `role = doctor` account's `doctors` row comes from — was answered by adding a
+   **practice-details section to the same form** and writing both rows in one
+   transaction. The alternative ("create doctor-less staff only") was rejected:
+   a directory whose "Add doctor" button produces an account the doctor area
+   cannot use is worse than no button at all. Nothing is defaulted. Every
+   `NOT NULL` column of the `doctors` table is required by the route and refused
+   by name when it is missing, because a default fee or room is invented clinical
+   data.
 
 The one that mattered most was 1, for the reason the recommendation gave: it was
 the only one gating a screen already built, and a status nothing checks would have
