@@ -166,10 +166,10 @@ give a real third state.
 This is the checkpoint that matters, and it cannot be skipped or deferred to an
 emulator walkthrough at the end.
 
-- [ ] Server up with `MEDIQ_SEED_DEMO=true`: the screen renders rows, each with `DEMO-PRC-0001..0003` and its clinic hours
-- [ ] **Server stopped, Re-check pressed: the rows are gone and the empty card appears.** This is the line that proves the screen reads the network — a hardcoded screen passes the line above and fails this one, which is the entire reason this screen exists
-- [ ] Server up with `MEDIQ_SEED_DEMO` unset: **the same** empty card. Not a third message — see below
-- [ ] `GET /doctors` reachable at the shown base URL, from the device, not from a browser on the host
+- [x] Server up with `MEDIQ_SEED_DEMO=true`: the screen renders rows, each with `DEMO-PRC-0001..0003` and its clinic hours — **observed 2026-10-18** on `mediq_api36`: `3 doctor(s) read from the server`, `DEMO-PRC-0001` with twelve `clinic_hours` rows (`Mon 09:00–12:00` … `Sat 14:00–17:00`) and `DEMO-PRC-0003`
+- [x] **Server stopped, Re-check pressed: the rows are gone and the empty card appears.** This is the line that proves the screen reads the network — a hardcoded screen passes the line above and fails this one, which is the entire reason this screen exists — **observed 2026-10-18**: the server process was killed (nothing left listening on 8099), Re-check was pressed, and the three cards were replaced by `No doctors came back` with the two-cause sentence
+- [x] Server up with `MEDIQ_SEED_DEMO` unset: **the same** empty card. Not a third message — see below — **observed 2026-10-18**: the server was restarted with `MEDIQ_SEED_DEMO=false` (`GET /doctors` answered `{"items":[]}`) and Re-check drew the **identical** card, word for word
+- [x] `GET /doctors` reachable at the shown base URL, from the device, not from a browser on the host — **observed 2026-10-18**: the screen names `http://10.0.2.2:8099/`, which is routable only inside the emulator's virtual network, and the read it drew came from the app on `mediq_api36`
 
 ### Why "server stopped" and "seed unset" cannot read differently here
 

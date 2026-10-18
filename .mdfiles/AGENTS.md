@@ -134,7 +134,11 @@ would report a healthy clinic while proving nothing. Proven live on
 `emulator-5554` on 2026-10-07 — server up renders three doctors; server stopped
 and Re-check pressed empties the screen completely; server restarted and Re-check
 brings them back. **The stopped-server case is the one that matters** — it is
-what a hardcoded screen cannot produce.
+what a hardcoded screen cannot produce. Re-checked on `mediq_api36` on
+2026-10-18 against the four cases in `tasks/todo.md`'s Checkpoint B, including the
+one that was previously only reasoned about: with the server **up** but
+`MEDIQ_SEED_DEMO` unset, `GET /doctors` answers `{"items":[]}` and the card is the
+**same one, word for word**, as the stopped-server case.
 
 **Two states, not three.** `RetrofitDoctorRepository.kt:38-40` returns an empty
 `Paged` when the server is unreachable, which is correct for every other screen, so
