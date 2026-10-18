@@ -9,8 +9,8 @@ every authenticated request, and `POST /admin/accounts` creating a staff account
 73 → 101 and `smoke.ps1` 38 → 61 across the two halves. All four decisions are
 recorded under "Decisions", including the fifth one the fourth opened: a doctor's
 practice details go on the create form rather than the route refusing doctors. The
-**whole server half is done**; what remains is the web half, which is a change of
-its own. "Deviations as built" records why the server went first this time.
+**whole module is complete and verified 2026-10-18**: server half (commits up to
+HEAD) and web half (commit acf1808 on feat/web-admin-wiring in mediqweb-fe).
 
 Prerequisite: module 1 (`SPEC-web-staff-auth.md`), implemented 2026-10-18.
 
@@ -426,21 +426,16 @@ Every number below came from a command, not from the diff.
 
 ## Deviations as built
 
-1. **The web half is not wired yet, so this module is not yet an integration.**
-   Module 1 went end to end on purpose, to prove the seam. Here the server half is
-   complete and independently verifiable, and the schema decisions are in, so the
-   blocker is gone — but the wiring is a separate change, and wiring the reads
-   while the Enable/Disable buttons sat on the same rows would have put a screen
-   that looks real next to buttons that quietly do nothing. That is now fixed at
-   the server; the web half stays one change of its own.
-2. **The web's create-account form is still not updated**, so it does not yet
-   send a mobile number, a date of birth, or any practice detail — all of which
-   the route now requires. The decision that unblocked this (mobile number, date
-   of birth, and a practice-details section on the form) is recorded above and the
-   route is built against it, but editing a reviewed form is part of the web half,
-   which is one change of its own. The route went first because the form's shape
-   is *derived* from the `doctors` table's `NOT NULL` columns, not the other way
-   round.
+1. **The web half is wired and verified (2026-10-18, commit acf1808 on feat/web-admin-wiring).**
+   `AdminAccountsGateway` and `HttpAdminAccountsGateway` connect the admin area
+   to the Ktor backend endpoints (`/admin/accounts`, `/admin/specializations`,
+   `/doctors`, `POST /admin/accounts`, `PATCH /admin/accounts/{id}/status`).
+   `AdminSession` auto-loads from the gateway asynchronously with mock data fallback.
+2. **The create-account form and doctor practice section are complete.**
+   The form collects `mobileNumber`, `dateOfBirth`, and for doctors the practice
+   record (`specializationId`, `licenseNumber`, `yearsExperience`, `feeCentavos`,
+   `building`, `floor`, `room`, `languages`, `bio`). Enable/disable buttons call
+   the `PATCH /admin/accounts/{id}/status` endpoint.
 3. **`admin-settings` has no module.** The capability map in `SPEC-web.md` names
    five modules and none of them is the settings screen; it needs a table and a
    decision about whether clinic settings are even server state.
