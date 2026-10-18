@@ -162,6 +162,65 @@ if ($staffTokens['doctor']) {
     Check "a doctor can read the appointment list" { Status GET "$Base/appointments" $doctorAuth } 200
 }
 
+# --- Admin (role-gated) ---------------------------------------------------
+#
+# The first routes that check *who* is calling rather than only whether the
+# caller is signed in. No store-level test can prove the answer: the role comes
+# out of a JWT claim the route layer reads, so the check has to be made over
+# HTTP. The 403 below is the whole point of the section — a route that forgets
+# its role check answers 200 and every other check here still passes.
+
+Write-Host "`nAdmin"
+
+if (-not $staffTokens['admin'] -or -not $staffTokens['doctor']) {
+    Write-Host "  FAIL  no admin or doctor token - the sign-in above failed"
+    exit 1
+}
+$adminAuth = @{ Authorization = "Bearer $($staffTokens['admin'])" }
+$wrongRoleAuth = @{ Authorization = "Bearer $($staffTokens['doctor'])" }
+
+Check "the account directory needs a token" { Status GET "$Base/admin/accounts" } 401
+Check "the account directory answers an administrator" { Status GET "$Base/admin/accounts" $adminAuth } 200
+Check "a doctor's token is refused on the account directory" { Status GET "$Base/admin/accounts" $wrongRoleAuth } 403
+Check "the specialty list needs a token" { Status GET "$Base/admin/specializations" } 401
+Check "the specialty list answers an administrator" { Status GET "$Base/admin/specializations" $adminAuth } 200
+
+# A 200 with empty bodies would satisfy every check above, so the content is
+# asserted too.
+$directory = Body GET "$Base/admin/accounts" $adminAuth
+$seededDoctor = $directory.doctors | Where-Object { $_.username -eq 'demo_doctor' }
+if ($seededDoctor -and $seededDoctor.role -eq 'doctor' -and $seededDoctor.doctorId -and $seededDoctor.createdAt) {
+    $script:Pass++
+    Write-Host "  PASS  the directory carries the seeded staff account, its doctor link and its creation date"
+} else {
+    $script:Fail++
+    Write-Host "  FAIL  the directory did not carry demo_doctor: $($directory | ConvertTo-Json -Compress -Depth 5)"
+}
+
+# The one thing a directory endpoint can get wrong while still answering 200.
+$patientNames = @($directory.patients | ForEach-Object { $_.username })
+$staffNames = @($directory.doctors.username) + @($directory.secretaries.username)
+$leaked = @($staffNames | Where-Object { $patientNames -contains $_ })
+$misfiledPatients = @($directory.patients | Where-Object { $_.role -ne 'patient' })
+if ($patientNames.Count -ge 1 -and $leaked.Count -eq 0 -and $misfiledPatients.Count -eq 0) {
+    $script:Pass++
+    Write-Host "  PASS  patients and staff are in their own lists"
+} else {
+    $script:Fail++
+    Write-Host "  FAIL  the directories overlap: patients=[$($patientNames -join ',')] leaked=[$($leaked -join ',')]"
+}
+
+$specialtyItems = @((Body GET "$Base/admin/specializations" $adminAuth).items)
+$withDoctors = @($specialtyItems | Where-Object { $_.doctorCount -gt 0 })
+$withoutDoctors = @($specialtyItems | Where-Object { $_.doctorCount -eq 0 })
+if ($specialtyItems.Count -eq 6 -and $withDoctors.Count -ge 1 -and $withoutDoctors.Count -ge 1) {
+    $script:Pass++
+    Write-Host "  PASS  all six specialties are listed, some counting doctors and some a zero"
+} else {
+    $script:Fail++
+    Write-Host "  FAIL  the specialty list is wrong: $($specialtyItems | ConvertTo-Json -Compress -Depth 5)"
+}
+
 Write-Host "`nCORS"
 
 function Preflight($origin) {

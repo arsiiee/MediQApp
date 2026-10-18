@@ -26,6 +26,7 @@ import com.example.mediq.domain.model.UserProfile
 import com.example.mediq.domain.model.UserRole
 import com.example.mediq.domain.model.VerifyOtpRequest
 import com.example.mediq.server.ApiError
+import com.example.mediq.server.db.UserRow
 import kotlinx.serialization.Serializable
 import java.time.LocalDate
 
@@ -149,6 +150,64 @@ data class AuthSessionDto(
 data class PagedDto<T>(
     val items: List<T>,
     val nextCursor: String? = null,
+)
+
+/**
+ * One account as the admin area's directories see it.
+ *
+ * Two fields the admin screens model are deliberately absent: `status` and
+ * `lastActiveOn`. `users` has no column for either, so there is nothing to
+ * report — and a made-up "active" would be exactly the fabricated data the web
+ * rules forbid, while hiding the fact that the server cannot disable an account
+ * yet. Adding a column adds the field; the absence is the honest answer today.
+ *
+ * `specializationId` and `licenseNumber` are absent for a different reason:
+ * they belong to the `doctors` row, not the account, and `GET /doctors` already
+ * publishes both. The link below is what lets a client join them.
+ */
+@Serializable
+data class AdminAccountDto(
+    val id: String,
+    val username: String,
+    val fullName: String,
+    val email: String?,
+    val mobileNumber: String,
+    val dateOfBirth: String,
+    val role: String,
+    /** The `doctors` row this staff account sits behind; null for patients and for staff with no doctor. */
+    val doctorId: String? = null,
+    /** When the account was created. ISO instant, as the admin screens' "joined on". */
+    val createdAt: String,
+)
+
+/**
+ * The whole account directory in one response.
+ *
+ * Three lists rather than a `?role=` parameter because the admin screens hold
+ * all three at once — the dashboard counts across them and the directory pages
+ * each read one — so one response is one round trip instead of three or four.
+ * It is also the shape the fixture it replaces had, which is what keeps the
+ * change on the web side a swap of the data source.
+ */
+@Serializable
+data class AdminAccountsDto(
+    val patients: List<AdminAccountDto>,
+    val doctors: List<AdminAccountDto>,
+    val secretaries: List<AdminAccountDto>,
+)
+
+/**
+ * A specialty and how many doctors are under it.
+ *
+ * No description: `specialties` stores an id and a display name, and the list
+ * itself is projected from the [Specialty] enum that the patient app's filter
+ * also uses. A description is a column that does not exist.
+ */
+@Serializable
+data class AdminSpecializationDto(
+    val id: String,
+    val name: String,
+    val doctorCount: Int,
 )
 
 // --- Requests ---------------------------------------------------------------
@@ -290,6 +349,19 @@ fun UserProfile.toDto() = UserProfileDto(
     sex = sex?.wireValue,
     address = address,
     role = role.wireValue,
+)
+
+/** What the admin area is shown about an account. See [AdminAccountDto] for what is left out. */
+fun UserRow.toAdminDto() = AdminAccountDto(
+    id = id,
+    username = username,
+    fullName = fullName,
+    email = email,
+    mobileNumber = mobileNumber,
+    dateOfBirth = dateOfBirth.toString(),
+    role = role.wireValue,
+    doctorId = doctorId,
+    createdAt = createdAt.toString(),
 )
 
 fun <T, R> Paged<T>.toDto(map: (T) -> R) = PagedDto(items.map(map), nextCursor)

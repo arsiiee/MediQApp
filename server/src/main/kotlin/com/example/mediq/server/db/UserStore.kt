@@ -30,6 +30,16 @@ data class UserRow(
     val sex: Sex?,
     val address: String?,
     val role: UserRole,
+    /**
+     * The `doctors` row this staff account sits behind, when it has one.
+     *
+     * Carried on the row because the admin area links a secretary to the desk
+     * they work, and the link is a column (`users.doctor_id`) that only the demo
+     * seed had ever written. Patients and unlinked staff have none.
+     */
+    val doctorId: String?,
+    /** When the account was created. The admin area shows it as "joined on". */
+    val createdAt: Instant,
 ) {
     fun toProfile(): UserProfile = UserProfile(
         id = id,
@@ -88,6 +98,27 @@ class UserStore(private val db: com.example.mediq.server.Database) {
         db.read { c -> findByUsername(c, username) }
 
     fun findById(id: String): UserRow? = db.read { c -> findById(c, id) }
+
+    /**
+     * Every account holding [role], ordered by name.
+     *
+     * The admin area is the only caller: its three directories are this one
+     * read, so what makes them real rather than a fixture is this method
+     * existing. Ordered here rather than at the call sites so two screens cannot
+     * disagree about the order of the same list.
+     *
+     * No paging. The admin screens load a directory whole, which is what they
+     * did against a fixture; at real volume this is the method that grows a
+     * limit (see the pagination gap in SPEC-web.md).
+     */
+    fun listByRole(role: UserRole): List<UserRow> = db.read { c ->
+        c.prepareStatement("$SELECT_COLUMNS WHERE role = ? ORDER BY full_name").use { st ->
+            st.setString(1, role.wireValue)
+            st.executeQuery().use { rs ->
+                generateSequence { if (rs.next()) rs.readUser() else null }.toList()
+            }
+        }
+    }
 
     /**
      * Applies a partial profile edit: a null argument leaves that column alone.
@@ -208,7 +239,7 @@ class UserStore(private val db: com.example.mediq.server.Database) {
     private companion object {
         const val SELECT_COLUMNS = """
             SELECT id, username, password_hash, full_name, email, mobile_number,
-                   date_of_birth, sex, address, role
+                   date_of_birth, sex, address, role, doctor_id, created_at
             FROM users
         """
     }
@@ -225,4 +256,8 @@ private fun java.sql.ResultSet.readUser() = UserRow(
     sex = getString("sex")?.let { wire -> Sex.entries.firstOrNull { it.wireValue == wire } },
     address = getString("address"),
     role = UserRole.entries.first { it.wireValue == getString("role") },
+    doctorId = getString("doctor_id"),
+    // Normalised at the boundary like every other timestamp: H2 hands back an
+    // OffsetDateTime from TIMESTAMP WITH TIME ZONE.
+    createdAt = getObject("created_at", OffsetDateTime::class.java).toInstant(),
 )

@@ -3,6 +3,7 @@ package com.example.mediq.server.http
 import com.example.mediq.domain.model.AppointmentFilter
 import com.example.mediq.domain.model.CLINIC_ZONE
 import com.example.mediq.domain.model.Sex
+import com.example.mediq.domain.model.Specialty
 import com.example.mediq.domain.model.UserRole
 import com.example.mediq.server.ApiError
 import com.example.mediq.server.Database
@@ -276,7 +277,60 @@ fun Route.mediQRoutes(
             }
         }
     }
+
+    // --- Admin --------------------------------------------------------------
+    //
+    // The first role-gated routes in the server, which is why this area gets its
+    // own comment. `authenticate` proves the token is valid and its session is
+    // live, and says nothing about who may call what: a doctor's token is exactly
+    // as valid as an admin's. Until these routes, any signed-in account could
+    // call anything the server exposed — the web's role guard was a UX gate, not
+    // a boundary. Every route here re-checks the caller's role, and any route
+    // added later that forgets to is readable by every role.
+
+    authenticate(AUTH_JWT) {
+        route("/admin") {
+            get("/accounts") {
+                call.requirePrincipal()
+                    .requireRole(UserRole.ADMIN, message = ADMIN_ONLY)
+
+                call.respond(
+                    AdminAccountsDto(
+                        patients = users.listByRole(UserRole.PATIENT).map { it.toAdminDto() },
+                        doctors = users.listByRole(UserRole.DOCTOR).map { it.toAdminDto() },
+                        secretaries = users.listByRole(UserRole.SECRETARY).map { it.toAdminDto() },
+                    )
+                )
+            }
+
+            get("/specializations") {
+                call.requirePrincipal()
+                    .requireRole(UserRole.ADMIN, message = ADMIN_ONLY)
+
+                // Listed from the enum, counted from the doctors that exist. A
+                // specialty nobody practises must show as a zero rather than
+                // disappear: the admin screen is the one place that says which
+                // specialties the clinic offers, and an absent row would read as
+                // "not offered" instead of "no one yet".
+                val counts = doctors.specialtyCounts()
+                call.respond(
+                    PagedDto(
+                        Specialty.entries.map { specialty ->
+                            AdminSpecializationDto(
+                                id = specialty.wireValue,
+                                name = specialty.displayName,
+                                doctorCount = counts[specialty.wireValue] ?: 0,
+                            )
+                        }
+                    )
+                )
+            }
+        }
+    }
 }
+
+/** What a caller who is not an administrator is told. Shown to a person, verbatim. */
+private const val ADMIN_ONLY = "This area is for administrators."
 
 /** Who is making the request, taken from a token this server issued. */
 data class Caller(
@@ -296,6 +350,29 @@ private fun ApplicationCall.requirePrincipal(): Caller {
         role = claim("role"),
         sessionId = claim("sid"),
     )
+}
+
+/**
+ * Rejects a caller whose role is not one the route serves.
+ *
+ * The mechanism every module that adds a route must use, and the check the
+ * server went without until the admin area: a valid token proved who the caller
+ * was, never what they were allowed to do.
+ *
+ * 403 rather than 404 — the caller is signed in and the route exists; they
+ * simply may not call it, and a 404 would send them hunting for a typo in the
+ * path. [message] has no default on purpose: every route names the sentence its
+ * caller will read, where a shared default would put the same unhelpful sentence
+ * on every refusal.
+ *
+ * A role the server does not recognise is refused rather than reported as a bad
+ * request. The value came out of a token this server signed, so an unknown one
+ * is not a client's mistake to correct.
+ */
+private fun Caller.requireRole(vararg allowed: UserRole, message: String): Caller {
+    val mine = UserRole.entries.firstOrNull { it.wireValue == role }
+    if (mine == null || mine !in allowed) throw ApiError.forbidden(message)
+    return this
 }
 
 /** The auth provider name routes reference when they wrap themselves in [authenticate]. */

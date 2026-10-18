@@ -132,6 +132,27 @@ class DoctorStore(
     }
 
     /**
+     * How many doctors sit under each specialty, keyed by wire value.
+     *
+     * A `GROUP BY` rather than one count per specialty, and it deliberately
+     * omits specialties with no doctors: the admin screen shows a count beside
+     * every specialty, so the caller fills the gaps from [Specialty] instead.
+     * That is what keeps a specialty nobody practises shown with a zero rather
+     * than missing, which is the reading a directory has to get right.
+     */
+    fun specialtyCounts(): Map<String, Int> = db.read { c ->
+        c.prepareStatement(
+            "SELECT specialty_id, COUNT(*) AS doctor_count FROM doctors GROUP BY specialty_id"
+        ).use { st ->
+            st.executeQuery().use { rs ->
+                generateSequence {
+                    if (rs.next()) rs.getString("specialty_id") to rs.getInt("doctor_count") else null
+                }.toMap()
+            }
+        }
+    }
+
+    /**
      * Dates in [month] with at least one slot still open.
      *
      * Slots for the entire date range are materialised in one pass, then a
