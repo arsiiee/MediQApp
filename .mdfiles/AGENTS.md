@@ -166,7 +166,7 @@ harness, and there is no mocking framework — a fake that records what it was a
 for says more about a state machine than a verify-count does. `MainDispatcherRule`
 swaps in an `UnconfinedTestDispatcher` so a launch runs to completion eagerly;
 without that, a test that never awaits its coroutine passes while proving
-nothing. The substantial suite is still `:server:test` (68 tests, see below).
+nothing. The substantial suite is still `:server:test` (73 tests, see below).
 
 ## Two traps in the ViewModel tests
 
@@ -366,10 +366,12 @@ $env:MEDIQ_PORT="8099"   # 8080 is often already taken on this machine
 
 **A browser client needs CORS, and it is an allow-list.** `MEDIQ_WEB_ORIGINS` is a comma-separated list of the exact `scheme://host:port` origins the server answers preflights for; it defaults to `http://localhost:4200,http://127.0.0.1:4200` (Angular's dev server). The match is on the whole origin, **not** on the host: Ktor 3.1.3's `allowHost(host, schemes, subDomains)` has no `port` parameter and ignores it, so `allowHost("localhost")` would allow every port on the machine — proved by `smoke.ps1`, which asserts a neighbouring port is refused. Adding a second origin means adding it to the env var, not to the code.
 
+**Authorization is per route, and it is new.** `authenticate(AUTH_JWT)` proves a token is valid and its session is live; it says nothing about *which role* may call the endpoint, so until 2026-10-18 a doctor's token was accepted on every authenticated route the server had. `GET /admin/accounts` and `GET /admin/specializations` are the first routes that check, through `Caller.requireRole(UserRole.ADMIN, message = …)` in `Routes.kt`: 403 rather than 404, the message has no default so every route names the sentence its caller will read, and a role the server does not recognise is refused rather than reported as a bad request. **A route that forgets the check is readable by every signed-in account**, and only the `smoke.ps1` 403 check catches it — replacing the membership test with `allowed.isEmpty()` fails that one check and nothing else.
+
 Two ways to verify, and they cover different things:
 
 - `.\gradlew.bat :server:test` — in-process. `BookingConcurrencyTest` is the one that cannot be checked by hand.
-- `.\server\scripts\smoke.ps1 -Base http://127.0.0.1:8099` — over HTTP against a running server. 30 checks covering the status of every route, the double-booking refusal, that signing out kills the token mid-flight, that all three staff roles sign in and a doctor can read the appointment list, and that the CORS allow-list answers the configured origin while refusing a neighbouring port on the same host. Needs the server up first.
+- `.\server\scripts\smoke.ps1 -Base http://127.0.0.1:8099` — over HTTP against a running server. 38 checks covering the status of every route, the double-booking refusal, that signing out kills the token mid-flight, that all three staff roles sign in and a doctor can read the appointment list, that the admin directory answers an administrator and **refuses a doctor's token with 403**, and that the CORS allow-list answers the configured origin while refusing a neighbouring port on the same host. Needs the server up first.
 
 Use `installDist` plus `server/build/install/server/bin/server.bat` when you want a server that survives the Gradle daemon. `:server:run` dies with the shell that started it.
 

@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- **The admin account directories read real rows, and the server gained its first
+  role check — module 2 of the `mediq-web` integration, server half.** The
+  authorization mechanism module 1 left undecided is now
+  `Caller.requireRole(UserRole.ADMIN, message = …)` in `Routes.kt`, applied to
+  `GET /admin/accounts` and `GET /admin/specializations`: 403 (not 404) for a
+  signed-in account of the wrong role, 401 with no token at all. Before it, a
+  doctor's token was accepted on *every* authenticated route the server had, so
+  the web's router guard was a UX gate rather than a boundary.
+  `UserStore.listByRole` is the first way to list accounts at all, and
+  `users.created_at` and `users.doctor_id` now reach the wire — `UserRow` had
+  never selected either, so "joined on" and "which doctor a staff account sits
+  behind" were real columns nobody could read.
+  `DoctorStore.specialtyCounts()` gives the six specialties live doctor counts,
+  filling an absent count with `0` from the `Specialty` enum so a specialty nobody
+  practises is still listed. Part of the work is what is *not* on the wire:
+  `AdminAccountDto` carries no `status` and no `lastActiveOn` because `users` has
+  no column for either, and no `description` because `specialties` has none —
+  inventing an "active" would be exactly the fabricated data the web rules forbid.
+  `AdminAccountsTest` (5) takes `:server:test` 68 → **73**, and the `Admin` section
+  of `smoke.ps1` 30 → **38** checks. **The web half is not wired yet**: the admin
+  pages still render sample data, because the status badge and the Enable/Disable
+  buttons sit on the same rows and have nothing behind them.
+  `tasks/SPEC-web-admin-accounts.md` carries the recon evidence and the four
+  decisions the rest of the module waits on.
+
 - **The staff web app signs in for real — module 1 of the `mediq-web`
   integration.** `mediqweb` is a separate GitHub project, cloned as a sibling at
   `../mediqweb`, and its 23 pages all rendered in-memory sample data with zero

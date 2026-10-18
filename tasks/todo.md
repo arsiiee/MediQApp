@@ -1568,3 +1568,159 @@ that the gate does not see.
 - [x] Both halves mutation-checked, both restorations verified byte-identical
 - [x] Every deviation disclosed in the spec: the `ktor-server-cors` dependency, the deleted mock spec, the username-only identifier
 - [x] Ready for review
+
+---
+
+# v4 — `mediq-web` integration, module 2: `web-admin-accounts`
+
+**Spec:** `tasks/SPEC-web-admin-accounts.md`. It carries the recon evidence — five
+fields the admin screens display that the schema cannot produce — and the four
+decisions the rest of the module waits on.
+
+**Shape of this version:** the admin area's directories get real server reads, and
+the server gets its **first role check**. Nothing here is a write. Each write needs
+either a `schema.sql` column (account status) or a UI decision (specialization
+create/edit, mobile number and date of birth on the create-staff form), and
+building one before that decision would put a screen that looks real next to a
+button that quietly does nothing. **The web half is not wired yet**, for the same
+reason: the status badge and the Enable/Disable buttons sit on the same rows.
+
+## Task 1: `listByRole`, and the two columns nobody selected
+
+**Description:** The admin directories could not be listed at all — `UserStore` had
+create, findByUsername, findById, updateProfile, and the sessions, and no way to
+read a set of accounts. And two columns the screens already displayed were in the
+table but in no `SELECT`: `users.created_at` ("joined on") and `users.doctor_id`
+("which doctor this staff account sits behind"). `DoctorStore` could read one
+doctor or many and had no counts.
+
+**Acceptance criteria:**
+- [x] `UserRow.doctorId` and `UserRow.createdAt`, in `SELECT_COLUMNS` and mapped in `readUser` (timestamps normalised at the boundary like every other store)
+- [x] `UserStore.listByRole(role)`, ordered by `full_name` so two screens cannot disagree about the order of one list
+- [x] `DoctorStore.specialtyCounts()` — one `GROUP BY`, **omitting** specialties with no doctors so the route fills the zero from the `Specialty` enum
+- [x] No `schema.sql` change: every column used already existed
+
+**Verification:**
+- [x] `AdminAccountsTest`: `listByRole` filters and orders, and a role nobody holds comes back **empty** rather than as the whole table (what a dropped `WHERE` breaks while every other assertion still passes)
+- [x] `created_at` round-trips and is not the epoch; `doctor_id` reads back after a raw `UPDATE`, and null for unlinked staff
+- [x] `specialtyCounts` counts per specialty and returns **absent**, not `0`, for one nobody practises
+
+**Dependencies:** none
+
+**Files likely touched:** `server/src/main/kotlin/com/example/mediq/server/db/UserStore.kt`, `db/DoctorStore.kt`
+
+**Estimated scope:** Small
+
+---
+
+## Task 2: The authorization mechanism, and the first gated routes
+
+**Description:** `authenticate(AUTH_JWT)` proves a token is valid and its session
+live, and says nothing about who may call the endpoint — so a doctor's token was
+accepted on every authenticated route the server had. Module 2 owns this decision
+because it is the first module to add a route. The mechanism is
+`Caller.requireRole(vararg allowed, message)`: 403 rather than 404, the message has
+no default so every route names the sentence its caller will read, and a role the
+server does not recognise is refused rather than reported as a bad request.
+
+**Acceptance criteria:**
+- [x] `requireRole` in `Routes.kt`, beside `requirePrincipal`, with the reason a route added without it is readable by every role
+- [x] `GET /admin/accounts` — the three directories in one response (`patients`, `doctors`, `secretaries`), admin only
+- [x] `GET /admin/specializations` — all six `Specialty` entries with live counts, a missing count filled with `0`
+- [x] `AdminAccountDto` / `AdminAccountsDto` / `AdminSpecializationDto` + `UserRow.toAdminDto()`, with a comment on what is deliberately absent and why
+- [x] No existing DTO changed (additive only)
+
+**Verification:**
+- [x] `smoke.ps1`: 401 with no token, 200 for an admin, **403 for a doctor's token**, on both routes
+- [x] Content asserted, not only status: the directory carries the seeded staff account with its `doctorId` and `createdAt`, patients and staff are in their own lists, and the six specialties include both a non-zero and a zero count
+- [x] Mutation: the membership test replaced by `allowed.isEmpty()` fails **exactly** the admin 403 check (37 passed / 1 failed) and nothing else; restored
+- [x] An earlier mutation attempt (`mine == null && mine !in allowed`) did not compile — the `&&` kills the smart cast — so it proved nothing and is recorded rather than passed off as evidence
+
+**Dependencies:** Task 1
+
+**Files likely touched:** `server/src/main/kotlin/com/example/mediq/server/http/Routes.kt`, `http/Dtos.kt`, `server/scripts/smoke.ps1`
+
+**Estimated scope:** Medium
+
+---
+
+## Task 3: `AdminAccountsTest`, and the DTO asserted directly
+
+**Description:** Server tests are store level and there is no HTTP harness, so the
+split module 1 established holds: the store answers what the data *is*, `smoke.ps1`
+answers what the *route* does. One test asserts on the DTO rather than the row,
+because `explicitNulls = false` means a null or mismapped field leaves the response
+silently instead of failing anything.
+
+**Acceptance criteria:**
+- [x] Five tests, each with **its own database** — they create accounts of overlapping roles and assert on whole lists, so a shared one would make every assertion depend on run order
+- [x] The DTO test pins every field the directories read, including that `dateOfBirth` and `createdAt` reach it as strings
+- [x] No existing test deleted or weakened
+
+**Verification:**
+- [x] `:server:test` **73 / 0 failures** (was 68), counted from the test-results XML rather than from the diff
+
+**Dependencies:** Tasks 1, 2
+
+**Files likely touched:** `server/src/test/kotlin/com/example/mediq/server/AdminAccountsTest.kt`
+
+**Estimated scope:** Small
+
+---
+
+## Task 4: Docs — the floor, and the four decisions
+
+**Description:** The floor ratchets with the code, and this module's honest record
+is mostly about what it did **not** build.
+
+**Acceptance criteria:**
+- [x] `CONSTRAINTS.md` server floor 68 → **73**, with the mutation evidence and the reason for each new test
+- [x] `CONSTRAINTS.md`'s `:server:test` row also corrected: its "Today" cell still read **60** while the enforced floor was already 68 — module 1's raise moved the rule and left the column behind
+- [x] `AGENTS.md`: `:server:test` 68 → 73, `smoke.ps1` 30 → 38, and a paragraph on the per-route authorization rule
+- [x] `README.md`: the dashboard row, the staff-web feature row, the pre-commit floor, the fixed role-gate gap, a new gap for the missing account status, and the sibling-clone note
+- [x] `tasks/SPEC-web.md`: module 2's map row points at its spec, and the "no role gate" gap now names what is gated and what is not
+- [x] `tasks/SPEC-web-admin-accounts.md` — the recon table, the mechanism, the acceptance verdicts, three deviations, and the four open decisions
+
+**Verification:**
+- [x] Both check scripts green; `:app:testDebugUnitTest` **213** (unchanged — this module added no app or web test); `:server:test` 73; `smoke.ps1` 38/0
+- [x] No `schema.sql` change, no new dependency, no test weakened, `CONSTRAINTS.md` not weakened to pass
+
+**Dependencies:** Tasks 1–3
+
+**Files likely touched:** `.mdfiles/CONSTRAINTS.md`, `.mdfiles/AGENTS.md`, `.mdfiles/CHANGELOG.md`, `README.md`, `tasks/`
+
+**Estimated scope:** Small (docs only)
+
+---
+
+## Task 5: Wire the admin reads (BLOCKED — not started)
+
+**Description:** The endpoints exist and are proved over HTTP; no page consumes
+them. This cannot be finished before the four decisions in the spec, because the
+status badge and the Enable/Disable buttons are on the same tables as the rows
+that would be wired — wiring the reads and leaving the writes mocked puts a screen
+that looks real next to buttons that quietly do nothing.
+
+**Acceptance criteria:** *(all unchecked, deliberately)*
+- [ ] `AdminAccountsGateway` + `HttpAdminAccountsGateway`, following `http-auth.gateway.ts`
+- [ ] `AdminSession` reads from the gateway instead of `MOCK_PATIENTS` / `MOCK_DOCTORS` / `MOCK_SECRETARIES` / `MOCK_SPECIALIZATIONS`
+- [ ] The status badge and Enable/Disable resolved: either a real `users.status` column with a check in `configureAuth`, or removed from the screens
+- [ ] `specializationId` and `licenseNumber` joined from `GET /doctors` via `doctorId` rather than duplicated onto the account
+- [ ] The four `*.mock-data.ts` exports for the directories deleted, and their specs moved onto a fake gateway
+- [ ] `mock-notice` stays until the last admin area is wired
+
+**Dependencies:** Task 4; **and the user's answer on the four open questions**
+
+**Files likely touched:** `mediqweb-fe/src/app/admin/` (sibling clone, not this repo)
+
+**Estimated scope:** Medium — and unmeasurable until the decisions land
+
+---
+
+## Checkpoint A: Complete for the server half
+
+- [x] `:server:test` green at **73** (was 68); `:app:testDebugUnitTest` green at **213** (unchanged)
+- [x] `smoke.ps1` green at **38 passed / 0 failed** against a seeded server on `:8099`, including the admin 403
+- [x] The role gate mutation-checked: one failure, and it was the 403 check; restored byte-identically (verified by `git diff`, which shows only the intended files)
+- [x] No `schema.sql` change, no new dependency, no test deleted or weakened, no gate edited
+- [x] The web half is **not** claimed as done — it is TODO Task 5, blocked on the spec's open questions

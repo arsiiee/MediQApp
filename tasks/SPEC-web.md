@@ -45,7 +45,7 @@ storage, bearer header, error copy) end to end.
 | # | Module | Objective | Depends on | Spec |
 |---|--------|-----------|------------|------|
 | 1 | `web-staff-auth` | Staff sign-in against the real server; session store, bearer interceptor, role guard; the mock gateway and its hardcoded accounts deleted. | — | `SPEC-web-staff-auth.md` — **implemented 2026-10-18** |
-| 2 | `web-admin-accounts` | The admin area's directories read and write real rows: patients, doctors, secretaries, specializations. **Staff account creation lives here** — module 1 deliberately left it out. | 1 | not written |
+| 2 | `web-admin-accounts` | The admin area's directories read and write real rows: patients, doctors, secretaries, specializations. **Staff account creation lives here** — module 1 deliberately left it out. | 1 | `SPEC-web-admin-accounts.md` — **server reads implemented 2026-10-18**; the writes and the web wiring wait on its four open decisions |
 | 3 | `web-doctor-workspace` | The doctor area: appointment queue, patient list, history, and the weekly schedule. The schedule is the first *write* surface (clinic hours, and one-off dated availability). | 1, 2 | not written |
 | 4 | `web-secretary-workspace` | The secretary area: appointments, patients, schedules, messages. Mostly reads plus booking on a patient's behalf. | 1, 2 | not written |
 | 5 | `web-audit-logs` | The admin audit log, over a real event trail. Needs a server-side table that does not exist yet — the only module whose *server* half is a new aggregate rather than an exposure of one. | 2 | not written |
@@ -86,12 +86,16 @@ Named here so each is a decision rather than a discovery:
   of module 2's writes, and module 3's schedule writes, need new endpoints.
 - **No staff registration.** `POST /auth/register` is the patient path. Staff
   accounts are currently only created by the seed. Module 2.
-- **No server-side role gate.** `configureAuth` checks that a token is valid; it
-  does not check which role may call the endpoint. Module 1's guard is therefore
-  a **UX** gate, not a security boundary: the server would answer a doctor's token
-  on an admin route today. Every module that adds a write must add the
-  authorization check with it, and `web-admin-accounts` is where the mechanism
-  gets decided.
+- **No server-side role gate, except on `/admin`.** `configureAuth` checks that a
+  token is valid and its session live; it does not check which role may call the
+  endpoint. Module 2 decided and built the mechanism — `Caller.requireRole(vararg
+  allowed, message)` in `Routes.kt`, 403 rather than 404 — and applied it to
+  `GET /admin/accounts` and `GET /admin/specializations`. **Every other
+  authenticated route still accepts any signed-in account**, so outside `/admin`
+  module 1's guard is a **UX** gate, not a security boundary, and every module
+  that adds a route must add the check with it. The admin 403 check in
+  `smoke.ps1` is the only thing that catches a route which forgot — a route-level
+  claim is not visible from a store test.
 - **No audit or event table.** Module 5.
 - **No pagination in the web.** The server has cursors and `MAX_PAGE_SIZE`; the
   web has no notion of a page. Fine at demo volume, wrong at real volume.
