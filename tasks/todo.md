@@ -18,6 +18,14 @@ unrendered), and `ui-appointment` (figure 6, `f17ffa9`) are done — that was th
 last module, so all six screens are restyled. v4 above landed first
 because its chips are figure 3's chip row.
 
+**Figure 6 was checked on the device, not asserted** (2026-10-18, `mediq_api36`,
+seeded server): the rows, the chip in the app bar, the two actions and the
+always-drawn warning card all read correctly off the accessibility tree, and the
+drawn colours sample to `MediQGreen`, `MediQError`, and the warning pair. Tapping
+cancel re-read the appointment and moved it to `Cancelled` with the actions gone
+and the card still there. That closes the last acceptance box the module spec
+had open.
+
 **v4 is complete** (2026-10-15). Spec at `tasks/SPEC-specialty-filter.md`. It
 touched no file v3 touched, and its floor move was measured rather than
 predicted: **189**, from `DoctorsViewModelTest`'s four new tests.

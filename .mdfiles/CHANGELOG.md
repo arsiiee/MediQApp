@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- **Postgres/Supabase is documented as the second engine, and the plan that added
+  it is reconciled rather than assumed.** `35250c3` added dual-dialect SQL, the
+  `42.7.5` driver, and `DatabaseDialectTest` without a changelog entry; the setup
+  (`MEDIQ_JDBC_URL`, `MEDIQ_DB_USER`, `MEDIQ_DB_PASSWORD`, and the fact that the
+  real environment wins over `.env`) is now in `AGENTS.md` under "Running the
+  server" as well as in `README.md`. `tasks/plan-supabase.md` carries a status per
+  box with the file and line that verifies it — **fourteen done, one left open**:
+  `schema.sql` has never been executed against a real Postgres from this machine,
+  because the Supabase host in `.env` does not resolve here, so "guarantee valid
+  execution under PostgreSQL" is a review and not the guarantee it asks for.
+
 - **Nine shared design-system components, and the status chip moved into one of
   them.** `core/designsystem/component/` now holds `MediQBrandAppBar`,
   `MediQBrandTextField`, `MediQButton`, `MediQAvatar`, `MediQInfoCard`,
@@ -79,6 +90,22 @@ All notable changes to this project will be documented in this file.
   the reschedule picker and its slot rules, and every written failure sentence are
   untouched; no token, no raw-colour literal, and no check script changed (31
   pairs, 6 status chips, ratchet 4).
+
+  **Checked on the emulator, not asserted.** On `mediq_api36` against the seeded
+  server on 2026-10-18, signed in as `demo_patient` with a real booking made
+  through `POST /appointments`: the accessibility tree reads the app bar
+  `Appointment` with `Awaiting confirmation` in its corner, `DR` + `Dr. Demo
+  Rivera` + `Internal Medicine · PRC DEMO-PRC-0001`, and the six rows `DATE
+  Monday, 19 October 2026` / `TIME 09:00 - 09:30` / `LOCATION Main Building · 2F ·
+  Clinic 204` / `FEE ₱700.00` / `STATUS Awaiting confirmation` / `BOOKED ON 18 Oct
+  2026` — every value the server's own response carries, and `BOOKED ON` the
+  booking timestamp this change added. Sampled pixels confirm the drawn tokens
+  rather than merely the intent: the bar is `#006B3C` (`MediQGreen`), the
+  reschedule label `#006B3C`, the cancel label `#B00020` (`MediQError`), and the
+  warning card `#8F5000` on `#FFF8E1` — the measured 5.96:1 pair. Tapping cancel
+  re-read the appointment, moved `STATUS` to `Cancelled`, emptied the chip in the
+  bar, and **left the warning card and the slot hint in place**, which is the
+  always-drawn placement the figure asks for.
 - **Doctor details and booking confirmation now match figures 4 and 5, and the
   slot grid draws claimed slots.** `DoctorDetailsScreen` draws the green
   `MediQBrandAppBar`, the avatar-and-licence header, the light-green fee card

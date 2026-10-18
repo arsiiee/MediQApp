@@ -367,6 +367,14 @@ Two ways to verify, and they cover different things:
 
 Use `installDist` plus `server/build/install/server/bin/server.bat` when you want a server that survives the Gradle daemon. `:server:run` dies with the shell that started it.
 
+**Postgres/Supabase is a second engine, not the default.** Set `MEDIQ_JDBC_URL` (`jdbc:postgresql://…?sslmode=require`), `MEDIQ_DB_USER`, and `MEDIQ_DB_PASSWORD` to run against Supabase; leave `MEDIQ_JDBC_URL` unset and it is H2 in memory. `Database.isPostgres` picks the dialect: `DoctorStore` swaps `MERGE INTO` for `ON CONFLICT` and `FORMATDATETIME` for `TO_CHAR`, and `AppointmentStore` treats Postgres' `23505` unique violation the same as H2's `SQLIntegrityConstraintViolationException`. TLS is carried by the URL's `sslmode`, not by code, so a local Postgres still works. There is a `.env` in the repo root holding a Supabase URL; `ServerConfig.loadDotEnv` reads it, and **the real environment wins over it** — which is how a local run overrides it without editing the file:
+
+```powershell
+$env:MEDIQ_JDBC_URL="jdbc:h2:mem:mediq;DB_CLOSE_DELAY=-1"
+```
+
+That override is worth knowing because the Supabase host does not always resolve: the failure reads `UnknownHostException: db.….supabase.co` from Hikari at boot, and it is the network, not the code. The schema has only ever been executed against H2 (`DatabaseDialectTest`); see `tasks/plan-supabase.md` for the one box that is still open because of it.
+
 All config is env vars (`ServerConfig.fromEnv`), read in `server/.../Db.kt`. `MEDIQ_ENV=production` makes `validate()` refuse to boot on the dev JWT secret or an H2 URL, which is the backstop against shipping a signing key that is printed in a source file.
 
 ## Architecture

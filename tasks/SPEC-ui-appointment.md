@@ -121,7 +121,10 @@ inserted. The redundant prefix goes; the data does not change.
 ## Acceptance criteria
 
 1. On `mediq_api36` against the seeded server, the detail screen draws figure 6
-   with the figure open beside it.
+   with the figure open beside it. — **observed 2026-10-18** on `mediq_api36`
+   against the seeded server, with the rows read off the accessibility tree and
+   the drawn colours sampled from the framebuffer; see `CHANGELOG.md` for the
+   values.
 2. All three `LoadState` cases still render, and no figure sample
    (`Dr. Ana Reyes`, `DEMO-PRC-0001`, `Itchy rash…`, `07 Oct 2026`) appears as a
    literal — every row is read off the appointment.
