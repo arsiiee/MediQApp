@@ -34,8 +34,8 @@ Every number below is measured directly by automated checks, not claimed:
 | Gate / Metric | Command | Status / Value | Notes |
 |---|---|---|---|
 | **App Compilation** | `.\gradlew.bat :app:compileDebugKotlin` |  **Pass** | 6 deprecation warnings (pre-existing) |
-| **App Unit Tests** | `.\gradlew.bat :app:testDebugUnitTest` |  **210 pass** | All 10 ViewModels covered |
-| **Server Tests** | `.\gradlew.bat :server:test` |  **60 pass** | Concurrency, auth, bookings, Supabase dialect |
+| **App Unit Tests** | `.\gradlew.bat :app:testDebugUnitTest` |  **213 pass** | All 10 ViewModels covered |
+| **Server Tests** | `.\gradlew.bat :server:test` |  **62 pass** | Concurrency, auth, bookings, Supabase dialect |
 | **Architecture Boundaries** | `.\.mdfiles\check-boundaries.ps1` |  **Clean (0 violations)** | 56 files checked |
 | **Color Contrast (WCAG AA)** | `.\.mdfiles\check-contrast.ps1` |  **Clean** | 31 token pairs + 6 status chips; ratchet = 4 |
 | **CI Automation** | `.github/workflows/ci.yml` |  **Enforced** | Runs gates, server tests, lint, unit tests |
@@ -218,8 +218,8 @@ Run the local quality gates before committing code:
 ### Pre-commit Checklist
 - [ ] `check-boundaries.ps1` reports 0 errors.
 - [ ] `check-contrast.ps1` reports 0 errors; raw-color ratchet $\le 4$.
-- [ ] `:server:test` passes ($\ge 60$ tests).
-- [ ] `:app:testDebugUnitTest` passes ($\ge 210$ tests).
+- [ ] `:server:test` passes ($\ge 62$ tests).
+- [ ] `:app:testDebugUnitTest` passes ($\ge 213$ tests).
 - [ ] Zero suppressions (`@Suppress`, `@SuppressLint`) or `TODO()` stubs.
 
 ---

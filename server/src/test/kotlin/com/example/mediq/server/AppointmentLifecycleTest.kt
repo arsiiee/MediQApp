@@ -1,5 +1,6 @@
 package com.example.mediq.server
 
+import com.example.mediq.domain.model.AppointmentFilter
 import com.example.mediq.domain.model.BookingRequest
 import com.example.mediq.domain.model.RescheduleRequest
 import com.example.mediq.domain.model.Sex
@@ -8,6 +9,7 @@ import com.example.mediq.server.db.AppointmentStore
 import com.example.mediq.server.db.DoctorStore
 import com.example.mediq.server.db.NotificationStore
 import com.example.mediq.server.db.UserStore
+import com.example.mediq.server.http.toDto
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.OffsetDateTime
@@ -145,6 +147,44 @@ class AppointmentLifecycleTest {
         val (items, hasMore) = notifications.list(userId, 3, 0)
         assertEquals(3, items.size)
         assertTrue(!hasMore, "hasMore must be false when all items fit in the page")
+    }
+
+    // -------------------------------------------------------------------------
+    // BOOKED ON — the row figure 6 draws
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun `the booking timestamp on the row reaches the wire DTO`() {
+        val doctorId = createDoctorWithClinic()
+        val slot = firstSlotFor(doctorId)
+        val userId = createPatient("booked_on_1")
+
+        val booked = appointments.book(userId, BookingRequest(slot, null, true))
+        val row = appointments.get(userId, UserRole.PATIENT, booked.id)
+
+        val dto = appointments.toAppointment(row, withReason = true).toDto(withReason = true)
+
+        // The client hides its `BOOKED ON` row when this is null, so null here
+        // would be a row silently missing for every patient, with nothing
+        // failing anywhere else.
+        assertNotNull(dto.createdAt, "createdAt must reach the DTO")
+        assertEquals(row.createdAt.toString(), dto.createdAt)
+    }
+
+    @Test
+    fun `the list query reads created_at as well as the single read`() {
+        val doctorId = createDoctorWithClinic()
+        val slot = firstSlotFor(doctorId)
+        val userId = createPatient("booked_on_2")
+
+        val booked = appointments.book(userId, BookingRequest(slot, null, true))
+
+        // Two separate SELECTs build the list and the single read. Fixing only
+        // one of them is the way this field would have shipped half-wired.
+        val (rows, _) = appointments.list(userId, UserRole.PATIENT, AppointmentFilter.ALL, 10, 0)
+        val single = appointments.get(userId, UserRole.PATIENT, booked.id)
+
+        assertEquals(single.createdAt, rows.single { it.id == booked.id }.createdAt)
     }
 
     // -------------------------------------------------------------------------

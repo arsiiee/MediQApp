@@ -129,6 +129,10 @@ fun AppointmentDto.toDomain() = Appointment(
     location = location.toDomain(),
     fee = Money(fee.amountInCentavos),
     reasonForVisit = reasonForVisit,
+    // Guarded, not because the server is expected to send a bad timestamp but
+    // because a value this build cannot read must not blank the screen: null
+    // hides the `BOOKED ON` row, which is the honest rendering of "unknown".
+    createdAt = createdAt?.let { runCatching { Instant.parse(it) }.getOrNull() },
 )
 
 // ─── Notifications ────────────────────────────────────────────────────────────

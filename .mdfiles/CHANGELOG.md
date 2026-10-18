@@ -41,6 +41,44 @@ All notable changes to this project will be documented in this file.
   scratch branch rather than asserted. See `AGENTS.md` "The seeded-data screen".
 
 ### Changed
+- **The appointment detail screen now matches figure 6, and the contract carries
+  the booking timestamp it draws.** `AppointmentDetailsScreen` draws the green
+  `MediQBrandAppBar` titled `Appointment` with the status chip in its `actions`
+  slot, the avatar-and-licence doctor card, one `MediQKeyValueGrid` of `DATE` /
+  `TIME` / `LOCATION` / `FEE` / `STATUS` / `BOOKED ON`, the reason-for-visit card
+  with its hint, `Request a reschedule` above `Cancel this appointment` (green
+  outline and red outline, both only for a status the patient can still act on),
+  and the amber "Why you may not see these buttons" note with the
+  cancelling-frees-the-slot line beneath it.
+
+  **`BOOKED ON` needed a field the contract did not have.** `appointments.created_at`
+  has existed in `schema.sql` since the table did, but neither `Appointment` nor
+  either `AppointmentDto` carried it. The path is now
+  `created_at` → `AppointmentRow.createdAt` → `Appointment.createdAt: Instant?` →
+  `AppointmentDto.createdAt: String?`, on the list and the single-appointment
+  response alike, because it is one column both SELECTs already read. **No schema
+  change** — the column was there; only the contract moved. Nullable on the client
+  on purpose: Gson cannot tell "the server never sent this" from "the field was
+  renamed", so an absent or unreadable value yields `null` and the screen drops
+  the row rather than failing to render. `AppointmentCreatedAtTest` (3) pins all
+  three cases through Gson, and `AppointmentLifecycleTest` (2) pins the column
+  reaching the DTO from each SELECT — one per query, since fixing only one is how
+  this field would have shipped half-wired. Both halves were mutation-checked, so
+  `:app` moves 210 → 213 and `:server` 60 → 62.
+
+  Three deviations from the figure are deliberate and recorded in
+  `tasks/SPEC-ui-appointment.md`. The status chip is the shared `MediQStatusChip`
+  (a light container) rather than a white pill, because that component is the one
+  place the six status pairs are mapped and the one `check-contrast.ps1` parses —
+  a second mapping would take the count to seven and fail the gate. The figure's
+  two columns collapse to one grid, which is the same resolution figure 5's grid
+  was given. And the location prints `building · floor · room` verbatim: the old
+  `"Floor $floor"` prefix rendered the seed's `2F` as "Floor 2F".
+
+  **No behaviour changed.** The three `LoadState` cases, the `isActionable` gate,
+  the reschedule picker and its slot rules, and every written failure sentence are
+  untouched; no token, no raw-colour literal, and no check script changed (31
+  pairs, 6 status chips, ratchet 4).
 - **Doctor details and booking confirmation now match figures 4 and 5, and the
   slot grid draws claimed slots.** `DoctorDetailsScreen` draws the green
   `MediQBrandAppBar`, the avatar-and-licence header, the light-green fee card

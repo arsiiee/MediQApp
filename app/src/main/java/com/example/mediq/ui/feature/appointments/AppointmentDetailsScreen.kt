@@ -1,7 +1,7 @@
 package com.example.mediq.ui.feature.appointments
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -10,59 +10,58 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.EventBusy
-import androidx.compose.material.icons.outlined.LocationOn
-import androidx.compose.material.icons.outlined.Payments
-import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.example.mediq.core.designsystem.component.EmptyState
+import com.example.mediq.core.designsystem.component.MediQAvatar
+import com.example.mediq.core.designsystem.component.MediQBrandAppBar
+import com.example.mediq.core.designsystem.component.MediQButton
+import com.example.mediq.core.designsystem.component.MediQButtonVariant
+import com.example.mediq.core.designsystem.component.MediQInfoCard
+import com.example.mediq.core.designsystem.component.MediQInfoCardTint
+import com.example.mediq.core.designsystem.component.MediQKeyValueGrid
 import com.example.mediq.core.designsystem.component.MediQStatusChip
 import com.example.mediq.core.designsystem.theme.LocalMediQColors
 import com.example.mediq.domain.model.Appointment
 import com.example.mediq.domain.model.LoadState
-import com.example.mediq.domain.model.Money
 import com.example.mediq.domain.model.TimeSlot
 import com.example.mediq.domain.model.toClinicDate
 import com.example.mediq.domain.model.toClinicTime
 import com.example.mediq.ui.feature.booking.SlotPicker
+import com.example.mediq.ui.format.formatWithCentavos
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
-private val appointmentDayFormat: DateTimeFormatter = DateTimeFormatter.ofPattern("EEE, MMM d, yyyy")
-private val appointmentTimeFormat: DateTimeFormatter = DateTimeFormatter.ofPattern("h:mm a")
+/** Figure 6's `DATE` and `TIME` rows, in the clinic's zone — never the device's. */
+private val appointmentDayFormat: DateTimeFormatter = DateTimeFormatter.ofPattern("EEEE, d MMMM yyyy")
+private val appointmentTimeFormat: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm")
 
-/** Matches the `Money.format()` convention in `DoctorsScreen.kt`. */
-private fun Money.format(): String = "₱$pesos"
+/** Figure 6's `BOOKED ON 07 Oct 2026`. */
+private val bookedOnFormat: DateTimeFormatter = DateTimeFormatter.ofPattern("dd MMM yyyy")
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AppointmentDetailsScreen(navController: NavController, appointmentId: String?) {
     val viewModel: AppointmentDetailsViewModel =
@@ -71,16 +70,19 @@ fun AppointmentDetailsScreen(navController: NavController, appointmentId: String
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Appointment Details", fontWeight = FontWeight.Bold) },
-                navigationIcon = {
-                    IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+            // The status lives here rather than in the body because figure 6
+            // draws it top-right of the green bar. It stays `MediQStatusChip`
+            // (not a pill styled for the bar) because that component is the one
+            // place the six status pairs are mapped and the one
+            // `check-contrast.ps1` parses.
+            MediQBrandAppBar(
+                title = "Appointment",
+                onBack = { navController.popBackStack() },
+                actions = {
+                    (uiState.appointment as? LoadState.Success)?.data?.let {
+                        MediQStatusChip(it.status)
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background
-                )
             )
         }
     ) { innerPadding ->
@@ -91,7 +93,7 @@ fun AppointmentDetailsScreen(navController: NavController, appointmentId: String
                         .fillMaxSize()
                         .background(MaterialTheme.colorScheme.background)
                         .padding(innerPadding),
-                    contentAlignment = Alignment.Center
+                    contentAlignment = Alignment.Center,
                 ) {
                     CircularProgressIndicator(color = LocalMediQColors.current.accent)
                 }
@@ -104,7 +106,7 @@ fun AppointmentDetailsScreen(navController: NavController, appointmentId: String
                     modifier = Modifier
                         .fillMaxSize()
                         .background(MaterialTheme.colorScheme.background)
-                        .padding(innerPadding)
+                        .padding(innerPadding),
                 ) {
                     EmptyState(
                         icon = Icons.Outlined.EventBusy,
@@ -153,105 +155,147 @@ private fun AppointmentDetailsContent(
             .verticalScroll(rememberScrollState())
             .padding(16.dp),
     ) {
-        // ── Doctor ────────────────────────────────────────────────────────
-        Text(
-            text = appointment.doctor.displayName,
-            style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.Bold,
-        )
-        Text(
-            text = appointment.doctor.specialty.displayName,
-            style = MaterialTheme.typography.bodyMedium,
-            color = colors.accent,
-            fontWeight = FontWeight.SemiBold,
-        )
-        Spacer(modifier = Modifier.height(12.dp))
-        MediQStatusChip(appointment.status)
-        Spacer(modifier = Modifier.height(24.dp))
+        // ── Doctor card ────────────────────────────────────────────────────
+        // Figure 6 draws this white on white, separated only by a hairline, so
+        // the fill is a token (`background`) and never `Color.White` — the
+        // literal is what the contrast gate exists to keep out, and in dark
+        // mode a hardcoded white card would carry theme text at 1.00:1.
+        Surface(
+            shape = RoundedCornerShape(12.dp),
+            color = MaterialTheme.colorScheme.background,
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Row(
+                modifier = Modifier.padding(14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                MediQAvatar(initials = appointment.doctor.initials, size = 44.dp)
+                Spacer(modifier = Modifier.width(12.dp))
+                Column {
+                    Text(
+                        text = appointment.doctor.displayName,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    Text(
+                        text = "${appointment.doctor.specialty.displayName} · " +
+                            "PRC ${appointment.doctor.licenseNumber}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = colors.secondaryText,
+                    )
+                }
+            }
+        }
 
-        // ── Details ───────────────────────────────────────────────────────
-        DetailRow(
-            icon = { Icon(Icons.Outlined.CalendarMonth, null, tint = colors.accent) },
-            label = "When",
-            // Clinic zone, never the device's — a booking must not land on the
-            // wrong day for someone travelling or on a differently-set phone.
-            value = "${appointment.startsAt.toClinicDate().format(appointmentDayFormat)}\n" +
-                "${appointment.startsAt.toClinicTime().format(appointmentTimeFormat)}" +
-                " – ${appointment.endsAt.toClinicTime().format(appointmentTimeFormat)}",
-        )
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(20.dp))
 
-        DetailRow(
-            icon = { Icon(Icons.Outlined.LocationOn, null, tint = colors.accent) },
-            label = "Where",
-            value = "${appointment.location.building} · Floor ${appointment.location.floor} · " +
-                appointment.location.room,
+        // ── Facts ──────────────────────────────────────────────────────────
+        // The figure lays these out in two columns; `MediQKeyValueGrid` draws
+        // them as one label/value row per pair, which is the same resolution
+        // figure 5's grid was already given in `ui-scheduling`. Two screens
+        // drawing the same facts differently would cost more recognisability
+        // than either column split buys.
+        val facts = mutableListOf(
+            "DATE" to appointment.startsAt.toClinicDate().format(appointmentDayFormat),
+            "TIME" to "${appointment.startsAt.toClinicTime().format(appointmentTimeFormat)} - " +
+                appointment.endsAt.toClinicTime().format(appointmentTimeFormat),
+            // The seed stores `2F`, so the old `"Floor $floor"` prefix rendered
+            // "Floor 2F". The three fields are joined verbatim, as the figure
+            // writes them.
+            "LOCATION" to appointment.location.let {
+                "${it.building} · ${it.floor} · ${it.room}"
+            },
+            "FEE" to appointment.fee.formatWithCentavos(),
+            "STATUS" to appointment.status.displayName,
         )
-        Spacer(modifier = Modifier.height(16.dp))
+        // Null when the server does not send the field or sends one this build
+        // cannot read (both arrive as null through Gson). The row is dropped
+        // rather than drawn empty — "unknown" is the honest rendering, and the
+        // rest of the appointment still reads.
+        appointment.createdAt?.let {
+            facts += "BOOKED ON" to it.toClinicDate().format(bookedOnFormat)
+        }
+        MediQKeyValueGrid(rows = facts)
 
-        DetailRow(
-            icon = { Icon(Icons.Outlined.Payments, null, tint = colors.accent) },
-            label = "Fee",
-            value = appointment.fee.format(),
-        )
-
+        // ── Reason for visit ───────────────────────────────────────────────
         // Only this endpoint returns the reason — the list response omits it, so
         // it is null for anything read off the Appointments tab.
         val reason = appointment.reasonForVisit
         if (!reason.isNullOrBlank()) {
-            Spacer(modifier = Modifier.height(24.dp))
-            Text(
-                text = "Reason for visit",
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.Bold,
-            )
-            Spacer(modifier = Modifier.height(6.dp))
+            Spacer(modifier = Modifier.height(20.dp))
             Surface(
-                shape = RoundedCornerShape(12.dp),
+                shape = RoundedCornerShape(10.dp),
                 color = MaterialTheme.colorScheme.surface,
                 modifier = Modifier.fillMaxWidth(),
             ) {
-                Text(
-                    text = reason,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = colors.secondaryText,
-                    modifier = Modifier.padding(14.dp),
-                )
+                Column(modifier = Modifier.padding(14.dp)) {
+                    Text(
+                        text = "REASON FOR VISIT",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = colors.secondaryText,
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = reason,
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = "Returned only by this endpoint, never by the list.",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = colors.secondaryText,
+                    )
+                }
             }
         }
 
-        // ── Changes ───────────────────────────────────────────────────────
+        // ── Changes ────────────────────────────────────────────────────────
         // Only for a status the patient can still act on. `isActionable` is
         // false for COMPLETED, CANCELLED, DECLINED, and for UNKNOWN — an
         // unreadable status must not put a mutation on screen.
         if (state.canCancelOrReschedule) {
-            Spacer(modifier = Modifier.height(24.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            Spacer(modifier = Modifier.height(20.dp))
+
+            // Toggling rather than a sticky flag: `openReschedulePicker` and
+            // `closeReschedulePicker` also clear the chosen slot, so reopening
+            // the picker never starts on the slot the patient picked last time.
+            MediQButton(
+                text = if (state.isReschedulePickerOpen) "Close" else "Request a reschedule",
+                onClick = {
+                    if (state.isReschedulePickerOpen) {
+                        onCloseReschedule()
+                    } else {
+                        onOpenReschedule()
+                    }
+                },
+                variant = MediQButtonVariant.Outline,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp),
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // The same outlined shape in the error role: figure 6 draws cancel
+            // in `#B00020`, and `MaterialTheme.colorScheme.error` is the
+            // mode-dependent form of it the gate already measures in both modes
+            // (`light error on raised`, `dark error on background`).
+            OutlinedButton(
+                onClick = onCancel,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp),
+                colors = ButtonDefaults.outlinedButtonColors(
+                    contentColor = MaterialTheme.colorScheme.error,
+                ),
+                border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.error),
             ) {
-                OutlinedButton(
-                    onClick = onCancel,
-                    modifier = Modifier.weight(1f),
-                ) {
-                    Text("Cancel appointment")
-                }
-                Button(
-                    // Toggling rather than a sticky flag: `openReschedulePicker`
-                    // and `closeReschedulePicker` also clear the chosen slot, so
-                    // reopening the picker never starts on the slot the patient
-                    // picked last time.
-                    onClick = {
-                        if (state.isReschedulePickerOpen) {
-                            onCloseReschedule()
-                        } else {
-                            onOpenReschedule()
-                        }
-                    },
-                    modifier = Modifier.weight(1f),
-                ) {
-                    Text(if (state.isReschedulePickerOpen) "Close" else "Reschedule")
-                }
+                Text(
+                    text = "Cancel this appointment",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.SemiBold,
+                )
             }
 
             if (state.isReschedulePickerOpen) {
@@ -284,16 +328,17 @@ private fun AppointmentDetailsContent(
                 )
 
                 Spacer(modifier = Modifier.height(16.dp))
-                Button(
+                MediQButton(
                     // Disabled until a slot is chosen, so the ViewModel's
                     // no-slot guard is a second line of defence rather than the
                     // only one.
+                    text = "Send request",
                     onClick = onSendReschedule,
                     enabled = state.canSendRescheduleRequest,
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Text("Send request")
-                }
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp),
+                )
             }
 
             val actionError = state.actionError
@@ -307,36 +352,43 @@ private fun AppointmentDetailsContent(
             }
         }
 
-        Spacer(modifier = Modifier.height(24.dp))
-    }
-}
+        // ── Why the buttons may be missing ─────────────────────────────────
+        // Deliberately *outside* the branch above: figure 6 draws it
+        // unconditionally, and it earns its place exactly when the buttons are
+        // gone — a cancelled, completed or declined appointment explains itself
+        // instead of showing an empty stretch. The card sets its own content
+        // colour, so every line here is the measured `MediQWarningOnContainer on
+        // MediQWarningContainer` pair (5.96:1) rather than a token picked per
+        // Text.
+        Spacer(modifier = Modifier.height(20.dp))
+        MediQInfoCard(tint = MediQInfoCardTint.Warning) {
+            Text(
+                text = "Why you may not see these buttons",
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Bold,
+            )
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                text = "They are driven by one rule — the status permits a change.",
+                style = MaterialTheme.typography.bodySmall,
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "Cancelled, completed or declined shows no action at all, so " +
+                    "the app never offers an action the server would refuse.",
+                style = MaterialTheme.typography.bodySmall,
+            )
+        }
 
-@Composable
-private fun DetailRow(
-    icon: @Composable () -> Unit,
-    label: String,
-    value: String,
-) {
-    Row(modifier = Modifier.fillMaxWidth()) {
-        Box(
-            modifier = Modifier.size(20.dp),
-            contentAlignment = Alignment.Center,
-        ) {
-            icon()
-        }
-        Spacer(modifier = Modifier.width(12.dp))
-        Column {
-            Text(
-                text = label,
-                style = MaterialTheme.typography.labelMedium,
-                color = LocalMediQColors.current.secondaryText,
-            )
-            Text(
-                text = value,
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.SemiBold,
-                fontSize = 15.sp,
-            )
-        }
+        Spacer(modifier = Modifier.height(14.dp))
+        Text(
+            text = "Cancelling frees the slot so another patient can take it.",
+            style = MaterialTheme.typography.labelSmall,
+            color = colors.secondaryText,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth(),
+        )
+
+        Spacer(modifier = Modifier.height(20.dp))
     }
 }

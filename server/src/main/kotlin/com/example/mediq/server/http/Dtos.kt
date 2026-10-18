@@ -101,6 +101,17 @@ data class AppointmentDto(
      * scrolling list is the wrong place to hand it out.
      */
     val reasonForVisit: String? = null,
+    /**
+     * When the booking was made, from `appointments.created_at`.
+     *
+     * Sent on the list and the single-appointment response alike: it is one
+     * column the query already reads, and a second query for one row would cost
+     * more contract than the row is worth. Nullable because a client running an
+     * older build must be able to read a response without it — Gson cannot tell
+     * "not sent" from "renamed", so the client hides its row rather than
+     * guessing.
+     */
+    val createdAt: String? = null,
 )
 
 @Serializable
@@ -256,6 +267,7 @@ fun Appointment.toDto(withReason: Boolean = false) = AppointmentDto(
     location = location.toDto(),
     fee = fee.toDto(),
     reasonForVisit = reasonForVisit.takeIf { withReason },
+    createdAt = createdAt?.toString(),
 )
 
 fun Notification.toDto() = NotificationDto(

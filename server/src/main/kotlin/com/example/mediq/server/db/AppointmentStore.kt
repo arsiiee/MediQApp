@@ -26,6 +26,14 @@ data class AppointmentRow(
     val endsAt: Instant,
     val status: AppointmentStatus,
     val reasonForVisit: String?,
+    /**
+     * When the booking was made, read from `appointments.created_at`.
+     *
+     * Non-null because the column is `NOT NULL`. It stays nullable only on the
+     * domain `Appointment`, where the client half of the contract can be talking
+     * to a server that does not send it yet.
+     */
+    val createdAt: Instant,
 )
 
 /**
@@ -68,7 +76,7 @@ class AppointmentStore(
         val rows = c.prepareStatement(
             """
             SELECT a.id, a.user_id, a.doctor_id, a.slot_id, a.starts_at, a.ends_at,
-                   a.status, a.reason_for_visit
+                   a.status, a.reason_for_visit, a.created_at
             FROM appointments a
             $where
             ORDER BY a.starts_at ${if (filter == AppointmentFilter.HISTORY) "DESC" else "ASC"}
@@ -283,6 +291,7 @@ class AppointmentStore(
             location = doctor.location,
             fee = Money(doctor.consultationFee.amountInCentavos),
             reasonForVisit = row.reasonForVisit.takeIf { withReason },
+            createdAt = row.createdAt,
         )
     }
 
@@ -301,7 +310,7 @@ class AppointmentStore(
     private companion object {
         const val SELECT = """
             SELECT a.id, a.user_id, a.doctor_id, a.slot_id, a.starts_at, a.ends_at,
-                   a.status, a.reason_for_visit
+                   a.status, a.reason_for_visit, a.created_at
             FROM appointments a
         """
     }
@@ -316,4 +325,5 @@ private fun java.sql.ResultSet.readRow() = AppointmentRow(
     endsAt = getObject("ends_at", OffsetDateTime::class.java).toInstant(),
     status = AppointmentStatus.entries.first { it.wireValue == getString("status") },
     reasonForVisit = getString("reason_for_visit"),
+    createdAt = getObject("created_at", OffsetDateTime::class.java).toInstant(),
 )

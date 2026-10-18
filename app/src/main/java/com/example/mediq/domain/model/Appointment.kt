@@ -58,6 +58,18 @@ data class Appointment(
     val fee: Money,
     /** Why the patient wants to be seen. Free text from the booking form. */
     val reasonForVisit: String?,
+
+    /**
+     * When the booking was made — `BOOKED ON` on the detail screen.
+     *
+     * Nullable, and defaulted, because both halves of the contract meet here: a
+     * fixture that does not care builds an appointment without it, and a client
+     * reading a response that lacks the field (an older server, or a rename
+     * Gson cannot detect) maps it to `null` and hides the row rather than
+     * throwing. The server always sets it — `appointments.created_at` is
+     * `NOT NULL`.
+     */
+    val createdAt: Instant? = null,
 ) {
     fun isPast(now: Instant): Boolean = startsAt.isBefore(now)
 

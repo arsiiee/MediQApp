@@ -27,7 +27,7 @@ Verify the app with `:app:compileDebugKotlin` (~2s warm, ~3min cold). Full APK: 
 Note the 6 deprecation warnings it prints — see "Toolchain notes". A `:server:run`
 failure naming an Adoptium 17 JVM is the toolchain, not the daemon.
 
-`:app` unit tests - 210, runnable with `.\gradlew.bat :app:testDebugUnitTest`.
+`:app` unit tests - 213, runnable with `.\gradlew.bat :app:testDebugUnitTest`.
 `MediQBottomBarSemanticsTest` is the first real Compose instrumentation test; run
 `.\gradlew.bat :app:connectedDebugAndroidTest` with `mediq_api36` attached (2 tests).
 Count them with `--rerun-tasks`: the task otherwise reports UP-TO-DATE and the
@@ -36,8 +36,12 @@ as a skipped suite. `:app` main is ~7,900 lines; `:server` is ~3,800 including
 its tests.
 
 - `data/api/` — `ApiErrorsTest.kt` (11 tests over error-body parsing),
-  `UnknownWireValueTest.kt` (8 pinning how unrecognised wire values resolve), and
-  `GsonLeniencyTest.kt` (3 pinning JSON parsing behaviour).
+  `UnknownWireValueTest.kt` (8 pinning how unrecognised wire values resolve),
+  `GsonLeniencyTest.kt` (3 pinning JSON parsing behaviour), and
+  `AppointmentCreatedAtTest.kt` (3 — `BOOKED ON` with the field present,
+  absent, and unreadable, all three through Gson because Gson cannot tell
+  "not sent" from "renamed" and constructing the DTO in Kotlin would never
+  exercise the path that fails).
 - `domain/model/NextClinicSessionTest.kt` (6) — the `Next open` line on the
   doctors list, derived from a doctor's weekly `clinicHours` rather than read per
   row. Pins that a session later today beats one earlier in the week, that a
@@ -158,7 +162,7 @@ harness, and there is no mocking framework — a fake that records what it was a
 for says more about a state machine than a verify-count does. `MainDispatcherRule`
 swaps in an `UnconfinedTestDispatcher` so a launch runs to completion eagerly;
 without that, a test that never awaits its coroutine passes while proving
-nothing. The substantial suite is still `:server:test` (59 tests, see below).
+nothing. The substantial suite is still `:server:test` (62 tests, see below).
 
 ## Two traps in the ViewModel tests
 

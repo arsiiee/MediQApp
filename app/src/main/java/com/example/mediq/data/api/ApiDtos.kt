@@ -64,6 +64,12 @@ data class AppointmentDto(
     val location: ClinicLocationDto,
     val fee: MoneyDto,
     val reasonForVisit: String? = null,
+    /**
+     * When the booking was made. Optional so a response from a server that does
+     * not send it yet still parses — Gson hands back `null` for "absent" and
+     * "renamed" identically, so the mapper has to be able to take either.
+     */
+    val createdAt: String? = null,
 )
 
 data class NotificationDto(

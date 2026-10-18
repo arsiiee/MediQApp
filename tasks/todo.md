@@ -14,7 +14,8 @@ with one module spec per step (`tasks/SPEC-ui-*.md`). Modules land one commit
 each, both check scripts and the test gate green at every step. `ui-foundation`
 (`529e1d6`, `456b1e6`), `ui-auth` (`049b717`), `ui-doctors` (`1ecff3a`), and
 `ui-scheduling` (figures 4 and 5, plus the month stepper `8c986b0` had left
-unrendered) are done; `ui-appointment` (figure 6) remains. v4 above landed first
+unrendered), and `ui-appointment` (figure 6, `f17ffa9`) are done — that was the
+last module, so all six screens are restyled. v4 above landed first
 because its chips are figure 3's chip row.
 
 **v4 is complete** (2026-10-15). Spec at `tasks/SPEC-specialty-filter.md`. It
@@ -462,10 +463,10 @@ it. Four claims remain, and three of them are claims about observed behaviour.
 > in the "Not enforced" table, contradicting the 174 three lines above it.
 
 **Verification:**
-- [ ] `.\.mdfiles\check-boundaries.ps1` and `.\.mdfiles\check-contrast.ps1` green
-- [ ] `.\gradlew.bat :app:compileDebugKotlin :app:testDebugUnitTest :server:test --console=plain` green at 174 / 50
-- [ ] `git diff .mdfiles/ README.md` shows **only** documentation edits
-- [ ] The 174 in every doc matches a measured count, not a prediction
+- [x] `.\.mdfiles\check-boundaries.ps1` and `.\.mdfiles\check-contrast.ps1` green — re-run 2026-10-18: boundaries clean over 56 files, contrast clean (31 token pairs, 6 status chips, ratchet 4)
+- [x] `.\gradlew.bat :app:compileDebugKotlin :app:testDebugUnitTest :server:test --console=plain` green — re-run 2026-10-18 as **213 / 62**, 0 failures, counted from the JUnit XML. The 174 / 50 in this box was the v3-era count; it has since moved with `ui-doctors` (195), `ui-scheduling` (210 / 60) and `ui-appointment` (213 / 62), each recorded in `CONSTRAINTS.md`
+- [x] `git diff .mdfiles/ README.md` shows **only** documentation edits — checked against the closing commit `917e0ae`, whose `--stat` lists `.mdfiles/AGENTS.md`, `.mdfiles/CHANGELOG.md`, `.mdfiles/CONSTRAINTS.md`, `README.md`, and `tasks/`, and no code
+- [x] The 174 in every doc matches a measured count, not a prediction — every **live** count does: the `CONSTRAINTS.md` rows, the `AGENTS.md` header, and the `README.md` table all read 213 / 62, which is the measured pair. The 166/174/182/195/206 still in the tree are inside dated ratchet notes describing what the number *was*, not claims about what it is
 
 **Dependencies:** Tasks 4, 5, 6
 
