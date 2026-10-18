@@ -54,6 +54,14 @@ class AuthService(
             throw ApiError.unauthorized("Those details don't match an account.")
         }
 
+        // Checked after the password, never before: answering "that account is
+        // disabled" to anyone who typed a username would leak the one thing the
+        // shared message above exists to hide. Reaching here means the password
+        // was right, so the caller is the account's owner and is owed the reason.
+        if (user.status != UserStatus.ACTIVE) {
+            throw ApiError.unauthorized("That account is not active. Ask an administrator to re-enable it.")
+        }
+
         val expiresAt = Instant.now().plusSeconds(tokenTtlMinutes * 60)
         val sessionId = users.createSession(user.id, expiresAt)
         val token = tokens.issue(sessionId, user.id, user.role.wireValue, expiresAt)
@@ -67,8 +75,12 @@ class AuthService(
         val claims = tokens.verify(token) ?: return null
         // The token being valid is not enough — the session must still be live,
         // or sign-out would leave a usable token behind.
-        val userId = users.activeSession(claims.sessionId) ?: return null
-        return users.findById(userId)
+        val session = users.liveSession(claims.sessionId) ?: return null
+        // And a live session is not enough once the account is disabled, for the
+        // same reason in the other direction: the answer to "may this caller act
+        // as this user" changed, and nothing in the token records that.
+        if (session.status != UserStatus.ACTIVE) return null
+        return users.findById(session.userId)
     }
 
     /**

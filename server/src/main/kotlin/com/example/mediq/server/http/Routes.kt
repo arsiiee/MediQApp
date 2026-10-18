@@ -14,6 +14,7 @@ import com.example.mediq.server.db.AuthService
 import com.example.mediq.server.db.DoctorStore
 import com.example.mediq.server.db.NotificationStore
 import com.example.mediq.server.db.UserRow
+import com.example.mediq.server.db.UserStatus
 import com.example.mediq.server.db.UserStore
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.ApplicationCall
@@ -311,8 +312,11 @@ fun Route.mediQRoutes(
                 // specialty nobody practises must show as a zero rather than
                 // disappear: the admin screen is the one place that says which
                 // specialties the clinic offers, and an absent row would read as
-                // "not offered" instead of "no one yet".
+                // "not offered" instead of "no one yet". The description comes
+                // from the `specialties` row instead, so the list cannot be
+                // widened past what the patient app's filter already offers.
                 val counts = doctors.specialtyCounts()
+                val descriptions = doctors.specialtyDescriptions()
                 call.respond(
                     PagedDto(
                         Specialty.entries.map { specialty ->
@@ -320,10 +324,49 @@ fun Route.mediQRoutes(
                                 id = specialty.wireValue,
                                 name = specialty.displayName,
                                 doctorCount = counts[specialty.wireValue] ?: 0,
+                                description = descriptions[specialty.wireValue],
                             )
                         }
                     )
                 )
+            }
+
+            /**
+             * Enables or disables an account.
+             *
+             * A `PATCH` on the one field rather than a `PUT` of the account:
+             * everything else on the row is meant to be left alone, and these are
+             * the writes behind the admin screen's Enable and Disable buttons.
+             * The status is not a delete — the account keeps its appointments and
+             * notifications — and it is reversible from the same route.
+             */
+            patch("/accounts/{id}/status") {
+                val caller = call.requirePrincipal()
+                    .requireRole(UserRole.ADMIN, message = ADMIN_ONLY)
+                val id = call.pathParam("id")
+                val body = call.receive<UpdateAccountStatusRequestDto>()
+
+                // A named 400 rather than an enum on the request DTO: the two
+                // accepted values are part of the contract, so a client that sent
+                // something else is told which ones it may send.
+                val status = UserStatus.fromWire(body.status)
+                    ?: throw ApiError.badRequest(
+                        "status must be '${UserStatus.ACTIVE.wireValue}' or '${UserStatus.INACTIVE.wireValue}'."
+                    )
+
+                val target = users.findById(id)
+                    ?: throw ApiError.notFound("That account was not found.")
+
+                // Refused in the disabling direction only. An administrator who
+                // disables their own account locks themselves out of the one area
+                // that could re-enable it, and there may be no second
+                // administrator to undo it. Enabling yourself changes nothing, so
+                // there is no reason to refuse it.
+                if (target.id == caller.userId && status == UserStatus.INACTIVE) {
+                    throw ApiError.badRequest("You cannot disable your own account.")
+                }
+
+                call.respond(users.setStatus(id, status).toAdminDto())
             }
         }
     }
@@ -401,7 +444,14 @@ fun AuthenticationConfig.configureAuth(tokens: Tokens, users: UserStore) = jwt(A
         // Reaches the database on every authenticated request. That is the price
         // of a sign-out that takes effect immediately; a cache would have to be
         // invalidated on revoke too.
-        if (!sid.isNullOrBlank() && !subject.isNullOrBlank() && users.activeSession(sid) != null) {
+        //
+        // The same query also carries the account's status, which is what makes
+        // disabling an account bite on its next request instead of at token
+        // expiry. A disabled account answers here exactly as a revoked session
+        // does, because from the caller's side they are the same answer: sign in
+        // again, and sign-in is where the reason is given.
+        val session = if (!sid.isNullOrBlank() && !subject.isNullOrBlank()) users.liveSession(sid) else null
+        if (session != null && session.status == UserStatus.ACTIVE) {
             JWTPrincipal(credential.payload)
         } else {
             null

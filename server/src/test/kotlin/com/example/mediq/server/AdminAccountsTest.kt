@@ -5,6 +5,7 @@ import com.example.mediq.domain.model.Specialty
 import com.example.mediq.domain.model.UserRole
 import com.example.mediq.server.db.DoctorStore
 import com.example.mediq.server.db.UserRow
+import com.example.mediq.server.db.UserStatus
 import com.example.mediq.server.db.UserStore
 import com.example.mediq.server.http.toAdminDto
 import java.time.Instant
@@ -128,6 +129,118 @@ class AdminAccountsTest {
         )
     }
 
+    @Test
+    fun `a new account is active and setStatus flips it both ways`() {
+        val f = Fixture()
+        val created = f.create(UserRole.SECRETARY, "Status Secretary")
+
+        assertEquals(UserStatus.ACTIVE, f.users.findById(created.id)?.status, "a new account must be usable")
+
+        f.users.setStatus(created.id, UserStatus.INACTIVE)
+        assertEquals(UserStatus.INACTIVE, f.users.findById(created.id)?.status)
+
+        f.users.setStatus(created.id, UserStatus.ACTIVE)
+        assertEquals(
+            UserStatus.ACTIVE,
+            f.users.findById(created.id)?.status,
+            "disabling must be reversible from the same column",
+        )
+    }
+
+    @Test
+    fun `a status this build cannot read reads as disabled`() {
+        val f = Fixture()
+        val created = f.create(UserRole.DOCTOR, "Unreadable Status")
+
+        // The fail-closed direction, on both readers of the column. The status
+        // gates sign-in and every authenticated request, so "the server cannot
+        // tell" has to read as disabled; reading it as active would hand out a
+        // working account on a guess. The admin screen shows it as inactive,
+        // which is truthful.
+        f.run("UPDATE users SET status = ? WHERE id = ?", "suspended", created.id)
+
+        assertEquals(UserStatus.INACTIVE, f.users.findById(created.id)?.status)
+
+        // Same fallback on the check that runs on every request. Without this
+        // one, a hand-edited status would leave a live token working.
+        val sessionId = f.users.createSession(created.id, Instant.now().plusSeconds(3600))
+        assertEquals(UserStatus.INACTIVE, f.users.liveSession(sessionId)?.status)
+    }
+
+    @Test
+    fun `liveSession joins the account's status and dies with the session`() {
+        val f = Fixture()
+        val user = f.create(UserRole.PATIENT, "Session Patient")
+        val sessionId = f.users.createSession(user.id, Instant.now().plusSeconds(3600))
+
+        assertEquals(user.id, f.users.liveSession(sessionId)?.userId)
+        assertEquals(UserStatus.ACTIVE, f.users.liveSession(sessionId)?.status)
+
+        // One query answers both "is this session live" and "may this account be
+        // used". If the status were left out of the join, disabling an account
+        // would be invisible to the check that runs on every request, and an
+        // admin's Disable button would do nothing until the token expired.
+        f.users.setStatus(user.id, UserStatus.INACTIVE)
+        assertEquals(UserStatus.INACTIVE, f.users.liveSession(sessionId)?.status)
+
+        f.users.revokeSession(sessionId)
+        assertNull(
+            f.users.liveSession(sessionId),
+            "a revoked session must be null, not merely reported as an inactive account",
+        )
+    }
+
+    @Test
+    fun `the admin DTO carries the account status`() {
+        val f = Fixture()
+        val created = f.create(UserRole.DOCTOR, "Dto Doctor")
+
+        // Asserted on the DTO, not only the row: `explicitNulls = false` means a
+        // status that never made it into the response leaves it silently, so the
+        // badge would fall back to whatever the web defaults to.
+        assertEquals("active", created.toAdminDto().status)
+        assertEquals("inactive", f.users.setStatus(created.id, UserStatus.INACTIVE).toAdminDto().status)
+    }
+
+    @Test
+    fun `every specialty has a description and the store reads it back`() {
+        // Total over the enum by test rather than by type. A specialty added
+        // without prose would compile, seed as null, and ship a blank card —
+        // this is the only place that notices.
+        Specialty.entries.forEach { specialty ->
+            assertTrue(
+                ReferenceData.descriptionOf(specialty).isNotBlank(),
+                "${specialty.wireValue} has no description",
+            )
+        }
+
+        val f = Fixture()
+        ReferenceData.seedSpecialties(f.db)
+
+        val descriptions = f.doctors.specialtyDescriptions()
+
+        assertEquals(Specialty.entries.size, descriptions.size, "every seeded row must carry its text")
+        assertEquals(
+            ReferenceData.descriptionOf(Specialty.CARDIOLOGY),
+            descriptions[Specialty.CARDIOLOGY.wireValue],
+        )
+    }
+
+    @Test
+    fun `a specialty row with no text is absent rather than blank`() {
+        val f = Fixture()
+        ReferenceData.seedSpecialties(f.db)
+        f.run("UPDATE specialties SET description = NULL WHERE id = ?", Specialty.ORTHOPEDICS.wireValue)
+
+        // Absent, not an empty string: the response reports null, so the screen
+        // draws nothing rather than an empty box, and the caller does not have to
+        // tell "no text" apart from "text someone blanked".
+        assertNull(
+            f.doctors.specialtyDescriptions()[Specialty.ORTHOPEDICS.wireValue],
+            "a row with no text must be absent from the descriptions",
+        )
+    }
+
     /** Its own database, so one test's accounts cannot reach another's assertions. */
     private class Fixture {
         private val config = ServerConfig(
@@ -141,7 +254,7 @@ class AdminAccountsTest {
             seedDemoData = false,
         )
 
-        private val db = Database(config)
+        val db = Database(config)
         val users = UserStore(db)
         val doctors = DoctorStore(db, config.slotDurationMinutes)
 

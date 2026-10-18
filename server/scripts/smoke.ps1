@@ -221,6 +221,76 @@ if ($specialtyItems.Count -eq 6 -and $withDoctors.Count -ge 1 -and $withoutDocto
     Write-Host "  FAIL  the specialty list is wrong: $($specialtyItems | ConvertTo-Json -Compress -Depth 5)"
 }
 
+# The status column and the writes behind the admin screen's Enable and Disable
+# buttons. Disabling has to mean something: an account that can still sign in and
+# whose live token still works is a badge, not a control.
+$everyAccount = @($directory.patients) + @($directory.doctors) + @($directory.secretaries)
+$withStatus = @($everyAccount | Where-Object { $_.status })
+if ($everyAccount.Count -ge 1 -and $withStatus.Count -eq $everyAccount.Count) {
+    $script:Pass++
+    Write-Host "  PASS  every account in the directory reports a status"
+} else {
+    $script:Fail++
+    Write-Host "  FAIL  $($withStatus.Count) of $($everyAccount.Count) accounts carry a status"
+}
+
+$described = @($specialtyItems | Where-Object { $_.description })
+if ($described.Count -eq $specialtyItems.Count) {
+    $script:Pass++
+    Write-Host "  PASS  every specialty carries its description"
+} else {
+    $script:Fail++
+    Write-Host "  FAIL  only $($described.Count) of $($specialtyItems.Count) specialties carry a description"
+}
+
+# The demo secretary is the account this section disables, so the three checks
+# below it need a token that is live at the start.
+$secretary = $directory.secretaries | Where-Object { $_.username -eq 'demo_secretary' }
+$adminProfile = Body GET "$Base/profile" $adminAuth
+$secretaryAuth = @{ Authorization = "Bearer $($staffTokens['secretary'])" }
+$statusUrl = "$Base/admin/accounts/$($secretary.id)/status"
+
+Check "the status route needs a token" { Status PATCH $statusUrl $null @{ status = 'inactive' } } 401
+Check "a doctor's token is refused on the status route" { Status PATCH $statusUrl $wrongRoleAuth @{ status = 'inactive' } } 403
+Check "an unknown status is a 400" { Status PATCH $statusUrl $adminAuth @{ status = 'suspended' } } 400
+Check "an unknown account is a 404" {
+    Status PATCH "$Base/admin/accounts/00000000-0000-0000-0000-000000000000/status" $adminAuth @{ status = 'inactive' }
+} 404
+Check "an administrator cannot disable their own account" {
+    Status PATCH "$Base/admin/accounts/$($adminProfile.id)/status" $adminAuth @{ status = 'inactive' }
+} 400
+
+$disabled = Body PATCH $statusUrl $adminAuth @{ status = 'inactive' }
+if ($disabled.status -eq 'inactive') {
+    $script:Pass++
+    Write-Host "  PASS  an administrator can disable an account"
+} else {
+    $script:Fail++
+    Write-Host "  FAIL  disabling returned status '$($disabled.status)'"
+}
+
+# The two checks that make the column a boundary rather than a label: sign-in has
+# to refuse, and a token issued *before* the disable has to stop working.
+Check "a disabled account can no longer sign in" {
+    Status POST "$Base/auth/sign-in" $null @{ username = 'demo_secretary'; password = $StaffPassword }
+} 401
+Check "a disabled account's existing token stops working" { Status GET "$Base/profile" $secretaryAuth } 401
+
+$enabled = Body PATCH $statusUrl $adminAuth @{ status = 'active' }
+if ($enabled.status -eq 'active') {
+    $script:Pass++
+    Write-Host "  PASS  an administrator can re-enable an account"
+} else {
+    $script:Fail++
+    Write-Host "  FAIL  re-enabling returned status '$($enabled.status)'"
+}
+
+# Disabling is reversible from the same column, so leaving the demo secretary
+# enabled keeps the rest of the run and any later manual walk unchanged.
+Check "a re-enabled account can sign in again" {
+    Status POST "$Base/auth/sign-in" $null @{ username = 'demo_secretary'; password = $StaffPassword }
+} 200
+
 Write-Host "`nCORS"
 
 function Preflight($origin) {

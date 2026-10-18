@@ -153,6 +153,27 @@ class DoctorStore(
     }
 
     /**
+     * Each specialty's description, keyed by wire value.
+     *
+     * Separate from [specialtyCounts] even though both feed one response: the
+     * counts come from `doctors` and the prose comes from `specialties`, and the
+     * list is built from neither. A row with no text is left out, so the caller
+     * reports null rather than an empty description it would have to distinguish
+     * from prose someone deliberately blanked.
+     */
+    fun specialtyDescriptions(): Map<String, String> = db.read { c ->
+        c.prepareStatement(
+            "SELECT id, description FROM specialties WHERE description IS NOT NULL"
+        ).use { st ->
+            st.executeQuery().use { rs ->
+                generateSequence {
+                    if (rs.next()) rs.getString("id") to rs.getString("description") else null
+                }.toMap()
+            }
+        }
+    }
+
+    /**
      * Dates in [month] with at least one slot still open.
      *
      * Slots for the entire date range are materialised in one pass, then a

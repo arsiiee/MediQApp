@@ -31,6 +31,16 @@ data class UserRow(
     val address: String?,
     val role: UserRole,
     /**
+     * Whether the account may be used.
+     *
+     * Read as [UserStatus.INACTIVE] when the column holds something this build
+     * does not recognise, rather than as active: the value gates sign-in and
+     * every authenticated request, so the only safe reading of "cannot tell" is
+     * the one that refuses. A hand-edited column reads as disabled and is
+     * visible as such on the admin screen.
+     */
+    val status: UserStatus,
+    /**
      * The `doctors` row this staff account sits behind, when it has one.
      *
      * Carried on the row because the admin area links a secretary to the desk
@@ -57,6 +67,19 @@ data class UserRow(
     )
 }
 
+/**
+ * A session that is still live, and whether its account may still be used.
+ *
+ * The two travel together because the second is what decides the first: a
+ * revoked session and a disabled account are the same answer to the caller, and
+ * separating them would mean a second query on every authenticated request to
+ * find out whether the first answer was worth having.
+ */
+data class LiveSession(
+    val userId: String,
+    val status: UserStatus,
+)
+
 class UserStore(private val db: com.example.mediq.server.Database) {
 
     fun create(
@@ -69,13 +92,22 @@ class UserStore(private val db: com.example.mediq.server.Database) {
         sex: Sex?,
         role: UserRole = UserRole.PATIENT,
         address: String? = null,
+        /**
+         * Active on creation, always, for every caller that matters — the
+         * registration flow and the admin's create-staff form both produce an
+         * account someone can sign in with. The parameter exists so a test can
+         * build a disabled account in one write rather than create-then-disable,
+         * which is the shape a fixture wants and would otherwise be two calls
+         * away from the thing under test.
+         */
+        status: UserStatus = UserStatus.ACTIVE,
     ): UserRow = db.tx { c ->
         val id = UUID.randomUUID().toString()
         c.prepareStatement(
             """
             INSERT INTO users (id, username, password_hash, full_name, email, mobile_number,
-                               date_of_birth, sex, address, role, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                               date_of_birth, sex, address, role, status, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """.trimIndent()
         ).use { st ->
             st.setString(1, id)
@@ -88,7 +120,8 @@ class UserStore(private val db: com.example.mediq.server.Database) {
             st.setString(8, sex?.wireValue)
             st.setString(9, address)
             st.setString(10, role.wireValue)
-            st.setObject(11, OffsetDateTime.now(ZoneOffset.UTC))
+            st.setString(11, status.wireValue)
+            st.setObject(12, OffsetDateTime.now(ZoneOffset.UTC))
             st.executeUpdate()
         }
         findById(c, id)!!
@@ -164,6 +197,27 @@ class UserStore(private val db: com.example.mediq.server.Database) {
         findById(c, id) ?: throw IllegalStateException("user $id vanished during update")
     }
 
+    /**
+     * Enables or disables an account.
+     *
+     * Never a delete: an account carries its appointments, notifications, and
+     * its row in `sessions`, so removing it would take that history with it. The
+     * column is what the admin area's Enable/Disable buttons write, and
+     * [AuthService.signIn] plus `configureAuth` are what make the value mean
+     * anything.
+     *
+     * Returns the updated row, so the caller answers with what the column now
+     * holds rather than with what it asked for.
+     */
+    fun setStatus(id: String, status: UserStatus): UserRow = db.tx { c ->
+        c.prepareStatement("UPDATE users SET status = ? WHERE id = ?").use { st ->
+            st.setString(1, status.wireValue)
+            st.setString(2, id)
+            st.executeUpdate()
+        }
+        findById(c, id) ?: throw IllegalStateException("user $id vanished during update")
+    }
+
     fun usernameExists(username: String): Boolean =
         db.read { c -> findByUsername(c, username) != null }
 
@@ -199,19 +253,34 @@ class UserStore(private val db: com.example.mediq.server.Database) {
     }
 
     /**
-     * Null when the session is unknown, revoked, or past its expiry. Called on
-     * every authenticated request, which is what makes sign-out real.
+     * The account a live session belongs to, or null when the session is
+     * unknown, revoked, or past its expiry. Called on every authenticated
+     * request, which is what makes sign-out real.
      */
-    fun activeSession(sessionId: String): String? = db.read { c ->
+    fun liveSession(sessionId: String): LiveSession? = db.read { c ->
+        // The status is joined here rather than fetched in a second query. This
+        // runs on every authenticated request, and it is also what makes
+        // disabling an account take effect on the account's next call instead of
+        // at token expiry — the same reason the session row is checked at all
+        // rather than trusting the signature.
         c.prepareStatement(
             """
-            SELECT user_id FROM sessions
-            WHERE id = ? AND revoked_at IS NULL AND expires_at > ?
+            SELECT s.user_id, u.status FROM sessions s
+            JOIN users u ON u.id = s.user_id
+            WHERE s.id = ? AND s.revoked_at IS NULL AND s.expires_at > ?
             """.trimIndent()
         ).use { st ->
             st.setString(1, sessionId)
             st.setObject(2, OffsetDateTime.now(ZoneOffset.UTC))
-            st.executeQuery().use { rs -> if (rs.next()) rs.getString("user_id") else null }
+            st.executeQuery().use { rs ->
+                if (!rs.next()) return@use null
+                LiveSession(
+                    userId = rs.getString("user_id"),
+                    // A status this build cannot read is refused, not accepted:
+                    // this is the check that decides whether a token still works.
+                    status = UserStatus.fromWire(rs.getString("status")) ?: UserStatus.INACTIVE,
+                )
+            }
         }
     }
 
@@ -239,7 +308,7 @@ class UserStore(private val db: com.example.mediq.server.Database) {
     private companion object {
         const val SELECT_COLUMNS = """
             SELECT id, username, password_hash, full_name, email, mobile_number,
-                   date_of_birth, sex, address, role, doctor_id, created_at
+                   date_of_birth, sex, address, role, status, doctor_id, created_at
             FROM users
         """
     }
@@ -256,6 +325,7 @@ private fun java.sql.ResultSet.readUser() = UserRow(
     sex = getString("sex")?.let { wire -> Sex.entries.firstOrNull { it.wireValue == wire } },
     address = getString("address"),
     role = UserRole.entries.first { it.wireValue == getString("role") },
+    status = UserStatus.fromWire(getString("status")) ?: UserStatus.INACTIVE,
     doctorId = getString("doctor_id"),
     // Normalised at the boundary like every other timestamp: H2 hands back an
     // OffsetDateTime from TIMESTAMP WITH TIME ZONE.

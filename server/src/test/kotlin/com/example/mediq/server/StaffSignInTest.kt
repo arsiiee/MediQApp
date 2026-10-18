@@ -8,6 +8,7 @@ import com.example.mediq.server.auth.Tokens
 import com.example.mediq.server.db.AppointmentStore
 import com.example.mediq.server.db.AuthService
 import com.example.mediq.server.db.DoctorStore
+import com.example.mediq.server.db.UserStatus
 import com.example.mediq.server.db.UserStore
 import java.time.LocalDate
 import java.time.LocalTime
@@ -91,6 +92,56 @@ class StaffSignInTest {
         auth.signOut(tokens.verify(token.value)!!.sessionId)
 
         assertNull(auth.authenticate(token.value), "sign-out must revoke a staff session too")
+    }
+
+    // -------------------------------------------------------------------------
+    // A disabled account
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun `signIn refuses a disabled account, and only after the password matches`() {
+        val secretary = createStaff(UserRole.SECRETARY)
+        users.setStatus(secretary.id, UserStatus.INACTIVE)
+
+        // The order is the point of this being one test rather than two. If the
+        // status were checked before the password, the reply would tell anyone
+        // who typed a username that the account exists — the one thing the
+        // shared sign-in message exists to hide. Reaching the disabled message
+        // has to require knowing the password first.
+        val wrongPassword = assertFailsWith<ApiError> { auth.signIn(secretary.username, "not-the-password") }
+        assertEquals("Those details don't match an account.", wrongPassword.message)
+
+        val disabled = assertFailsWith<ApiError> { auth.signIn(secretary.username, PASSWORD) }
+        assertEquals("That account is not active. Ask an administrator to re-enable it.", disabled.message)
+    }
+
+    @Test
+    fun `disabling an account stops a token that was already issued`() {
+        val doctor = createStaff(UserRole.DOCTOR)
+        val (token, _) = auth.signIn(doctor.username, PASSWORD)
+        assertNotNull(auth.authenticate(token.value), "the fresh token must work")
+
+        users.setStatus(doctor.id, UserStatus.INACTIVE)
+
+        // The reason the session row is checked on every request at all is that a
+        // signed token otherwise stays valid until it expires. Disabling has to
+        // ride the same check, or an admin's Disable button would take up to an
+        // hour to mean anything.
+        assertNull(auth.authenticate(token.value), "a disabled account's token must stop working now")
+    }
+
+    @Test
+    fun `re-enabling an account lets it sign in again`() {
+        val admin = createStaff(UserRole.ADMIN)
+        users.setStatus(admin.id, UserStatus.INACTIVE)
+        users.setStatus(admin.id, UserStatus.ACTIVE)
+
+        val (token, profile) = auth.signIn(admin.username, PASSWORD)
+
+        // Reversible from the same column, which is what the admin screen's
+        // Enable button relies on: nothing about the account was deleted.
+        assertEquals(UserRole.ADMIN, profile.role)
+        assertNotNull(auth.authenticate(token.value))
     }
 
     // -------------------------------------------------------------------------

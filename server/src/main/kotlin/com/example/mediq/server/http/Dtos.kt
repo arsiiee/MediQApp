@@ -155,11 +155,16 @@ data class PagedDto<T>(
 /**
  * One account as the admin area's directories see it.
  *
- * Two fields the admin screens model are deliberately absent: `status` and
- * `lastActiveOn`. `users` has no column for either, so there is nothing to
- * report — and a made-up "active" would be exactly the fabricated data the web
- * rules forbid, while hiding the fact that the server cannot disable an account
- * yet. Adding a column adds the field; the absence is the honest answer today.
+ * `status` is here because `users` now has the column: the admin screen's
+ * Active/Inactive badge and its Enable/Disable buttons are the reason the column
+ * exists, and the value is load-bearing — a disabled account is refused at
+ * sign-in and its live tokens stop working.
+ *
+ * `lastActiveOn` is still absent, and the reason is worth keeping: the only
+ * activity the server records is `sessions.created_at`, which is when an account
+ * last *signed in*, not when it last did anything. Reporting it under a "last
+ * active" heading would overstate what is known. Nothing stores per-request
+ * activity, so there is nothing honest to send.
  *
  * `specializationId` and `licenseNumber` are absent for a different reason:
  * they belong to the `doctors` row, not the account, and `GET /doctors` already
@@ -174,6 +179,8 @@ data class AdminAccountDto(
     val mobileNumber: String,
     val dateOfBirth: String,
     val role: String,
+    /** `active` or `inactive`. See [AdminAccountDto] — this is what disables an account. */
+    val status: String,
     /** The `doctors` row this staff account sits behind; null for patients and for staff with no doctor. */
     val doctorId: String? = null,
     /** When the account was created. ISO instant, as the admin screens' "joined on". */
@@ -197,17 +204,21 @@ data class AdminAccountsDto(
 )
 
 /**
- * A specialty and how many doctors are under it.
+ * A specialty, how many doctors are under it, and what it covers.
  *
- * No description: `specialties` stores an id and a display name, and the list
- * itself is projected from the [Specialty] enum that the patient app's filter
- * also uses. A description is a column that does not exist.
+ * The list is projected from the [Specialty] enum that the patient app's filter
+ * also uses, so a specialty cannot be added through the admin area that the app
+ * would then not offer — which is what keeps two screens from disagreeing about
+ * what the clinic practises. `description` is read from the `specialties` row
+ * instead, because prose is the one part of this that is content rather than
+ * contract, and it is null when the row carries no text.
  */
 @Serializable
 data class AdminSpecializationDto(
     val id: String,
     val name: String,
     val doctorCount: Int,
+    val description: String? = null,
 )
 
 // --- Requests ---------------------------------------------------------------
@@ -220,6 +231,17 @@ data class SignInRequestDto(
 
 @Serializable
 data class RequestOtpRequestDto(val mobileNumber: String)
+
+/**
+ * Enables or disables an account.
+ *
+ * A string rather than the enum, so an unrecognised value is a 400 the caller
+ * can read and correct instead of a serialization failure that names a Kotlin
+ * class. `Routes.kt` maps it through [UserStatus.fromWire] and names the two
+ * accepted values in the message.
+ */
+@Serializable
+data class UpdateAccountStatusRequestDto(val status: String)
 
 /**
  * Response to an OTP request.
@@ -360,6 +382,7 @@ fun UserRow.toAdminDto() = AdminAccountDto(
     mobileNumber = mobileNumber,
     dateOfBirth = dateOfBirth.toString(),
     role = role.wireValue,
+    status = status.wireValue,
     doctorId = doctorId,
     createdAt = createdAt.toString(),
 )

@@ -24,12 +24,29 @@ CREATE TABLE IF NOT EXISTS users (
     sex               VARCHAR(24),
     address           VARCHAR(400),
     role              VARCHAR(24)  NOT NULL,
+    -- 'active' or 'inactive', never absent. An account is disabled rather than
+    -- deleted — it keeps its history and can be re-enabled — so this is what
+    -- stands in for the delete the admin area does not offer.
+    status            VARCHAR(16)  NOT NULL DEFAULT 'active',
     -- Set when a doctor record is linked, so appointments can be traced back.
     doctor_id         VARCHAR(36),
     created_at        TIMESTAMP WITH TIME ZONE NOT NULL,
     CONSTRAINT users_username_unique UNIQUE (username),
     CONSTRAINT users_mobile_unique   UNIQUE (mobile_number)
 );
+
+-- Columns added to `users` after it first shipped.
+--
+-- `CREATE TABLE IF NOT EXISTS` above does nothing to a database that already
+-- has the table, so without these an existing database would never gain the
+-- column — and every user SELECT names it, so the first request after an
+-- upgrade would fail outright rather than degrade. Idempotent on both engines
+-- and a no-op on a fresh database. `status` is NOT NULL with a default so
+-- existing rows become active instead of unreadable.
+--
+-- This is the stopgap the "schema.sql is applied at boot, not migrated" gap in
+-- AGENTS.md names. Move to Flyway before the next column, not after.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS status VARCHAR(16) DEFAULT 'active' NOT NULL;
 
 -- Sessions exist so sign-out actually kills the token. A bare JWT cannot be
 -- revoked before it expires, which means "sign out" would leave the token
@@ -66,8 +83,16 @@ CREATE INDEX IF NOT EXISTS idx_otp_mobile ON otp_codes (mobile_number);
 
 CREATE TABLE IF NOT EXISTS specialties (
     id              VARCHAR(24) PRIMARY KEY,
-    display_name    VARCHAR(80) NOT NULL
+    display_name    VARCHAR(80) NOT NULL,
+    -- Nullable on purpose: the row can exist without prose, and the admin
+    -- screen draws nothing rather than an empty box. Seeded from the enum in
+    -- ReferenceData, which is where the text is written down.
+    description     VARCHAR(400)
 );
+
+-- See the note on the `users` ALTER above: needed so a database created before
+-- this column gains it. Nullable, so no default is required.
+ALTER TABLE specialties ADD COLUMN IF NOT EXISTS description VARCHAR(400);
 
 CREATE TABLE IF NOT EXISTS doctors (
     id                  VARCHAR(36) PRIMARY KEY,
