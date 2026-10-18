@@ -170,7 +170,7 @@ CREATE TABLE IF NOT EXISTS appointments (
     CONSTRAINT appointments_doctor_fk FOREIGN KEY (doctor_id) REFERENCES doctors (id),
     CONSTRAINT appointments_slot_fk   FOREIGN KEY (slot_id) REFERENCES slots (id),
     CONSTRAINT appointments_status_chk CHECK (
-        status IN ('pending_confirmation', 'confirmed', 'completed', 'cancelled', 'declined')
+        status IN ('pending_confirmation', 'confirmed', 'completed', 'cancelled', 'declined', 'no_show')
     )
 );
 

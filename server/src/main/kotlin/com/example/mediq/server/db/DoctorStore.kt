@@ -247,6 +247,57 @@ class DoctorStore(
         }
     }
 
+    fun updateBio(doctorId: String, bio: String): Unit = db.tx { c ->
+        c.prepareStatement("UPDATE doctors SET bio = ? WHERE id = ?").use { st ->
+            st.setString(1, bio.trim())
+            st.setString(2, doctorId)
+            st.executeUpdate()
+        }
+    }
+
+    /** All repeating weekly clinic hours for this doctor, ordered by day and start time. */
+    fun getClinicHours(doctorId: String): List<ClinicHours> = db.read { c ->
+        c.prepareStatement(
+            "SELECT day_of_week, opens_at, closes_at FROM clinic_hours WHERE doctor_id = ? ORDER BY day_of_week, opens_at"
+        ).use { st ->
+            st.setString(1, doctorId)
+            st.executeQuery().use { rs ->
+                generateSequence {
+                    if (rs.next()) {
+                        ClinicHours(
+                            dayOfWeek = DayOfWeek.of(rs.getInt("day_of_week")),
+                            opensAt = rs.getTime("opens_at").toLocalTime(),
+                            closesAt = rs.getTime("closes_at").toLocalTime(),
+                        )
+                    } else null
+                }.toList()
+            }
+        }
+    }
+
+    /** Replaces the entire repeating weekly schedule for this doctor in one transaction. */
+    fun replaceClinicHours(doctorId: String, hours: List<ClinicHours>): Unit = db.tx { c ->
+        c.prepareStatement("DELETE FROM clinic_hours WHERE doctor_id = ?").use { st ->
+            st.setString(1, doctorId)
+            st.executeUpdate()
+        }
+        if (hours.isNotEmpty()) {
+            c.prepareStatement(
+                "INSERT INTO clinic_hours (id, doctor_id, day_of_week, opens_at, closes_at) VALUES (?, ?, ?, ?, ?)"
+            ).use { st ->
+                for (h in hours) {
+                    st.setString(1, UUID.randomUUID().toString())
+                    st.setString(2, doctorId)
+                    st.setInt(3, h.dayOfWeek.value)
+                    st.setTime(4, java.sql.Time.valueOf(h.opensAt))
+                    st.setTime(5, java.sql.Time.valueOf(h.closesAt))
+                    st.addBatch()
+                }
+                st.executeBatch()
+            }
+        }
+    }
+
     /**
      * Dates in [month] with at least one slot still open.
      *

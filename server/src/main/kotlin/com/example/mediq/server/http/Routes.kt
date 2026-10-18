@@ -2,6 +2,7 @@ package com.example.mediq.server.http
 
 import com.example.mediq.domain.model.AppointmentFilter
 import com.example.mediq.domain.model.CLINIC_ZONE
+import com.example.mediq.domain.model.ClinicHours
 import com.example.mediq.domain.model.Sex
 import com.example.mediq.domain.model.Specialty
 import com.example.mediq.domain.model.UserRole
@@ -393,11 +394,169 @@ fun Route.mediQRoutes(
                 call.respond(users.setStatus(id, status).toAdminDto())
             }
         }
+
+        route("/doctor") {
+            get("/profile") {
+                val caller = call.requirePrincipal()
+                    .requireRole(UserRole.DOCTOR, message = DOCTOR_ONLY)
+                val user = users.findById(caller.userId)
+                    ?: throw ApiError.notFound("That account was not found.")
+                val doctorId = user.doctorId
+                    ?: throw ApiError.badRequest("Doctor account is not linked to a clinical practice.")
+                val doctor = doctors.get(doctorId)
+
+                call.respond(
+                    DoctorProfileDto(
+                        id = doctor.id,
+                        name = user.fullName,
+                        email = user.email ?: "",
+                        specialization = doctor.specialty.displayName,
+                        licenseNumber = doctor.licenseNumber,
+                        joinedOn = user.createdAt.toString().slice(0..9),
+                        bio = doctor.bio,
+                    )
+                )
+            }
+
+            put("/profile") {
+                val caller = call.requirePrincipal()
+                    .requireRole(UserRole.DOCTOR, message = DOCTOR_ONLY)
+                val user = users.findById(caller.userId)
+                    ?: throw ApiError.notFound("That account was not found.")
+                val doctorId = user.doctorId
+                    ?: throw ApiError.badRequest("Doctor account is not linked to a clinical practice.")
+                val body = call.receive<UpdateDoctorProfileDto>()
+
+                val updatedUser = users.updateProfile(
+                    id = user.id,
+                    fullName = body.name.trim(),
+                    email = body.email.trim(),
+                )
+                doctors.updateBio(doctorId, body.bio)
+                val doctor = doctors.get(doctorId)
+
+                call.respond(
+                    DoctorProfileDto(
+                        id = doctor.id,
+                        name = updatedUser.fullName,
+                        email = updatedUser.email ?: "",
+                        specialization = doctor.specialty.displayName,
+                        licenseNumber = doctor.licenseNumber,
+                        joinedOn = updatedUser.createdAt.toString().slice(0..9),
+                        bio = doctor.bio,
+                    )
+                )
+            }
+
+            get("/appointments") {
+                val caller = call.requirePrincipal()
+                    .requireRole(UserRole.DOCTOR, message = DOCTOR_ONLY)
+                val user = users.findById(caller.userId)
+                    ?: throw ApiError.notFound("That account was not found.")
+                val doctorId = user.doctorId
+                    ?: throw ApiError.badRequest("Doctor account is not linked to a clinical practice.")
+
+                val items = appointments.listForDoctor(doctorId)
+                call.respond(
+                    items.map { item ->
+                        val startsAtLocal = item.startsAt.atZone(CLINIC_ZONE).toLocalDateTime().toString()
+                        val duration = java.time.Duration.between(item.startsAt, item.endsAt).toMinutes().toInt()
+                        DoctorAppointmentDto(
+                            id = item.id,
+                            patientId = item.patientId,
+                            doctorId = item.doctorId,
+                            startsAt = startsAtLocal,
+                            durationMinutes = duration,
+                            status = when (item.status) {
+                                "pending_confirmation" -> "booked"
+                                "confirmed" -> "confirmed"
+                                "completed" -> "completed"
+                                "cancelled", "declined" -> "cancelled"
+                                "no_show" -> "no-show"
+                                else -> item.status
+                            },
+                            reason = item.reasonForVisit ?: "",
+                        )
+                    }
+                )
+            }
+
+            post("/appointments/{id}/outcome") {
+                val caller = call.requirePrincipal()
+                    .requireRole(UserRole.DOCTOR, message = DOCTOR_ONLY)
+                val user = users.findById(caller.userId)
+                    ?: throw ApiError.notFound("That account was not found.")
+                val doctorId = user.doctorId
+                    ?: throw ApiError.badRequest("Doctor account is not linked to a clinical practice.")
+                val appointmentId = call.pathParam("id")
+                val body = call.receive<RecordOutcomeRequestDto>()
+
+                val recorded = appointments.recordOutcome(doctorId, appointmentId, body.outcome)
+                call.respond(mapOf("status" to (if (recorded == "no_show") "no-show" else recorded)))
+            }
+
+            get("/patients") {
+                val caller = call.requirePrincipal()
+                    .requireRole(UserRole.DOCTOR, message = DOCTOR_ONLY)
+                val user = users.findById(caller.userId)
+                    ?: throw ApiError.notFound("That account was not found.")
+                val doctorId = user.doctorId
+                    ?: throw ApiError.badRequest("Doctor account is not linked to a clinical practice.")
+
+                val patients = users.listPatientsForDoctor(doctorId)
+                call.respond(patients.map { it.toDoctorPatientDto() })
+            }
+
+            get("/schedule") {
+                val caller = call.requirePrincipal()
+                    .requireRole(UserRole.DOCTOR, message = DOCTOR_ONLY)
+                val user = users.findById(caller.userId)
+                    ?: throw ApiError.notFound("That account was not found.")
+                val doctorId = user.doctorId
+                    ?: throw ApiError.badRequest("Doctor account is not linked to a clinical practice.")
+
+                val hours = doctors.getClinicHours(doctorId)
+                val days = (0..6).map { jsDay ->
+                    val javaDay = if (jsDay == 0) java.time.DayOfWeek.SUNDAY else java.time.DayOfWeek.of(jsDay)
+                    val sessions = hours
+                        .filter { it.dayOfWeek == javaDay }
+                        .map { ScheduleBlockDto(it.opensAt.toString().slice(0..4), it.closesAt.toString().slice(0..4)) }
+                    ScheduleDayDto(dayOfWeek = jsDay, sessions = sessions)
+                }
+                call.respond(DoctorScheduleDto(days = days))
+            }
+
+            put("/schedule") {
+                val caller = call.requirePrincipal()
+                    .requireRole(UserRole.DOCTOR, message = DOCTOR_ONLY)
+                val user = users.findById(caller.userId)
+                    ?: throw ApiError.notFound("That account was not found.")
+                val doctorId = user.doctorId
+                    ?: throw ApiError.badRequest("Doctor account is not linked to a clinical practice.")
+                val body = call.receive<SaveScheduleRequestDto>()
+
+                val newHours = body.days.flatMap { day ->
+                    val javaDay = if (day.dayOfWeek == 0) java.time.DayOfWeek.SUNDAY else java.time.DayOfWeek.of(day.dayOfWeek)
+                    day.sessions.map { session ->
+                        ClinicHours(
+                            dayOfWeek = javaDay,
+                            opensAt = java.time.LocalTime.parse(session.startTime),
+                            closesAt = java.time.LocalTime.parse(session.endTime),
+                        )
+                    }
+                }
+                doctors.replaceClinicHours(doctorId, newHours)
+                call.respond(mapOf("ok" to true))
+            }
+        }
     }
 }
 
 /** What a caller who is not an administrator is told. Shown to a person, verbatim. */
 private const val ADMIN_ONLY = "This area is for administrators."
+
+/** What a caller who is not a doctor is told. Shown to a person, verbatim. */
+private const val DOCTOR_ONLY = "This area is for doctors."
 
 /** Who is making the request, taken from a token this server issued. */
 data class Caller(

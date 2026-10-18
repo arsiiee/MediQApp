@@ -357,6 +357,76 @@ data class ErrorDto(
     val message: String,
 )
 
+// --- Doctor Workspace DTOs --------------------------------------------------
+
+@Serializable
+data class DoctorProfileDto(
+    val id: String,
+    val name: String,
+    val email: String,
+    val specialization: String,
+    val licenseNumber: String,
+    val joinedOn: String,
+    val bio: String,
+)
+
+@Serializable
+data class UpdateDoctorProfileDto(
+    val name: String,
+    val email: String,
+    val bio: String,
+)
+
+@Serializable
+data class DoctorAppointmentDto(
+    val id: String,
+    val patientId: String,
+    val doctorId: String,
+    val startsAt: String,
+    val durationMinutes: Int,
+    val status: String,
+    val reason: String,
+)
+
+@Serializable
+data class RecordOutcomeRequestDto(
+    val outcome: String,
+)
+
+@Serializable
+data class ScheduleBlockDto(
+    val startTime: String,
+    val endTime: String,
+)
+
+@Serializable
+data class ScheduleDayDto(
+    val dayOfWeek: Int,
+    val sessions: List<ScheduleBlockDto>,
+)
+
+@Serializable
+data class DoctorScheduleDto(
+    val days: List<ScheduleDayDto>,
+)
+
+@Serializable
+data class SaveScheduleRequestDto(
+    val days: List<ScheduleDayDto>,
+)
+
+@Serializable
+data class DoctorPatientDto(
+    val id: String,
+    val name: String,
+    val email: String,
+    val phone: String,
+    val dateOfBirth: String,
+    val address: String,
+    val registeredOn: String,
+    val status: String,
+)
+
 // --- Mapping ----------------------------------------------------------------
 
 fun Money.toDto() = MoneyDto(amountInCentavos)
@@ -431,6 +501,17 @@ fun UserRow.toAdminDto() = AdminAccountDto(
     status = status.wireValue,
     doctorId = doctorId,
     createdAt = createdAt.toString(),
+)
+
+fun UserRow.toDoctorPatientDto() = DoctorPatientDto(
+    id = id,
+    name = fullName,
+    email = email ?: "",
+    phone = mobileNumber,
+    dateOfBirth = dateOfBirth.toString(),
+    address = address ?: "",
+    registeredOn = createdAt.toString().slice(0..9),
+    status = status.wireValue,
 )
 
 fun <T, R> Paged<T>.toDto(map: (T) -> R) = PagedDto(items.map(map), nextCursor)

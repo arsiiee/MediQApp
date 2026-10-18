@@ -203,12 +203,12 @@ class UserStore(private val db: com.example.mediq.server.Database) {
      */
     fun updateProfile(
         id: String,
-        fullName: String?,
-        email: String?,
-        mobileNumber: String?,
-        dateOfBirth: LocalDate?,
-        sex: Sex?,
-        address: String?,
+        fullName: String? = null,
+        email: String? = null,
+        mobileNumber: String? = null,
+        dateOfBirth: LocalDate? = null,
+        sex: Sex? = null,
+        address: String? = null,
     ): UserRow = db.tx { c ->
         c.prepareStatement(
             """
@@ -269,6 +269,29 @@ class UserStore(private val db: com.example.mediq.server.Database) {
         c.prepareStatement("SELECT 1 FROM users WHERE LOWER(email) = LOWER(?)").use { st ->
             st.setString(1, email)
             st.executeQuery().use { rs -> rs.next() }
+        }
+    }
+
+    /**
+     * The cohort of patients who have booked or attended an appointment with this doctor.
+     *
+     * Used by the Doctor area's patient list and relationship checks: a doctor
+     * may only see patients with whom they have an existing appointment record.
+     */
+    fun listPatientsForDoctor(doctorId: String): List<UserRow> = db.read { c ->
+        c.prepareStatement(
+            """
+            $SELECT_COLUMNS
+            WHERE id IN (
+                SELECT DISTINCT user_id FROM appointments WHERE doctor_id = ?
+            )
+            ORDER BY full_name ASC
+            """.trimIndent()
+        ).use { st ->
+            st.setString(1, doctorId)
+            st.executeQuery().use { rs ->
+                generateSequence { if (rs.next()) rs.readUser() else null }.toList()
+            }
         }
     }
 

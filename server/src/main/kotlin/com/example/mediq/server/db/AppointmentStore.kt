@@ -295,6 +295,73 @@ class AppointmentStore(
         )
     }
 
+    fun listForDoctor(doctorId: String): List<DoctorAppointmentItem> = db.read { c ->
+        c.prepareStatement(
+            """
+            SELECT a.id, a.user_id, a.doctor_id, a.starts_at, a.ends_at, a.status, a.reason_for_visit
+            FROM appointments a
+            WHERE a.doctor_id = ?
+            ORDER BY a.starts_at ASC
+            """.trimIndent()
+        ).use { st ->
+            st.setString(1, doctorId)
+            st.executeQuery().use { rs ->
+                generateSequence {
+                    if (rs.next()) {
+                        DoctorAppointmentItem(
+                            id = rs.getString("id"),
+                            patientId = rs.getString("user_id"),
+                            doctorId = rs.getString("doctor_id"),
+                            startsAt = rs.getObject("starts_at", OffsetDateTime::class.java).toInstant(),
+                            endsAt = rs.getObject("ends_at", OffsetDateTime::class.java).toInstant(),
+                            status = rs.getString("status"),
+                            reasonForVisit = rs.getString("reason_for_visit"),
+                        )
+                    } else null
+                }.toList()
+            }
+        }
+    }
+
+    /**
+     * Records what happened at a confirmed visit.
+     *
+     * A doctor can only mark an appointment as completed or no-show. The appointment
+     * must belong to this doctor and must be in confirmed status.
+     */
+    fun recordOutcome(doctorId: String, appointmentId: String, outcome: String): String = db.tx { c ->
+        val normalized = when (outcome.lowercase().replace('-', '_')) {
+            "completed" -> "completed"
+            "no_show" -> "no_show"
+            else -> throw ApiError.badRequest("Outcome must be 'completed' or 'no-show'.")
+        }
+
+        val currentStatus = c.prepareStatement(
+            "SELECT status FROM appointments WHERE id = ? AND doctor_id = ?"
+        ).use { st ->
+            st.setString(1, appointmentId)
+            st.setString(2, doctorId)
+            st.executeQuery().use { rs ->
+                if (rs.next()) rs.getString("status")
+                else throw ApiError.notFound("That appointment was not found.")
+            }
+        }
+
+        if (currentStatus != "confirmed") {
+            throw ApiError.badRequest("Only confirmed appointments can record a visit outcome.")
+        }
+
+        c.prepareStatement(
+            "UPDATE appointments SET status = ?, updated_at = ? WHERE id = ?"
+        ).use { st ->
+            st.setString(1, normalized)
+            st.setObject(2, OffsetDateTime.now(ZoneOffset.UTC))
+            st.setString(3, appointmentId)
+            st.executeUpdate()
+        }
+        normalized
+    }
+
     private fun readDoctorBrief(c: Connection, doctorId: String): String =
         c.prepareStatement("SELECT full_name FROM doctors WHERE id = ?").use { st ->
             st.setString(1, doctorId)
@@ -316,6 +383,16 @@ class AppointmentStore(
     }
 }
 
+data class DoctorAppointmentItem(
+    val id: String,
+    val patientId: String,
+    val doctorId: String,
+    val startsAt: Instant,
+    val endsAt: Instant,
+    val status: String,
+    val reasonForVisit: String?,
+)
+
 private fun java.sql.ResultSet.readRow() = AppointmentRow(
     id = getString("id"),
     userId = getString("user_id"),
@@ -323,7 +400,7 @@ private fun java.sql.ResultSet.readRow() = AppointmentRow(
     slotId = getString("slot_id"),
     startsAt = getObject("starts_at", OffsetDateTime::class.java).toInstant(),
     endsAt = getObject("ends_at", OffsetDateTime::class.java).toInstant(),
-    status = AppointmentStatus.entries.first { it.wireValue == getString("status") },
+    status = AppointmentStatus.entries.firstOrNull { it.wireValue == getString("status") } ?: AppointmentStatus.UNKNOWN,
     reasonForVisit = getString("reason_for_visit"),
     createdAt = getObject("created_at", OffsetDateTime::class.java).toInstant(),
 )
