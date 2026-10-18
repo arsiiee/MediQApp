@@ -1349,3 +1349,222 @@ count as done without it.
 - [ ] `README.md:146-147` and the `AGENTS.md` known-gap bullet updated in the same commit
 - [ ] Every new test mutation-checked: break the code, watch it fail, restore
 - [ ] Ready for review
+
+---
+
+# v4 — `mediq-web` integration, module 1: `web-staff-auth`
+
+**Spec:** `tasks/SPEC-web-staff-auth.md`. Capability map for the other four
+modules and the backend decision: `tasks/SPEC-web.md`.
+
+**Shape of this version:** the staff frontend (`mediqweb`, a sibling clone at
+`../mediqweb`) signs in against this repo's Ktor `:server` instead of three
+hardcoded accounts. It is the first of five modules; the other four are scoped
+but unbuilt. **The web repo is outside `CONSTRAINTS.md`'s gate** — its own
+`npm test` and `ng build` are its gate, and the gap is recorded in
+`CONSTRAINTS.md` under "Not enforced, and why".
+
+## Task 1: CORS, so a browser may call the server at all
+
+**Description:** Every route already worked over HTTP; none of it worked from a
+browser. A preflight is an unauthenticated `OPTIONS` request, so the plugin has to
+be installed before `Authentication`, and the origin must be matched as the whole
+`scheme://host:port` — Ktor 3.1.3's `allowHost(host, schemes, subDomains)` ignores
+the port entirely, so it would allow every port on the machine.
+
+**Acceptance criteria:**
+- [x] `ktor-server-cors` added to the version catalog and `server/build.gradle.kts` (**disclosed deviation** — the spec said "ask first" for a new runtime dependency)
+- [x] `install(CORS)` before `ContentNegotiation`, with `allowOrigins { it == origin }` per configured origin
+- [x] `MEDIQ_WEB_ORIGINS` (comma-separated) with a default of `http://localhost:4200,http://127.0.0.1:4200`
+- [x] `Authorization` and `Content-Type` allowed as request headers
+
+**Verification:**
+- [x] Preflight from `http://localhost:4200` → 200 with the origin echoed back and `Allow-Headers: Authorization, Content-Type`
+- [x] `http://localhost:4201` and `https://evil.example` → 403 with no `Allow-Origin`
+- [x] Mutation: making the install conditional fails the preflight check and nothing else (29 passed / 1 failed, 405, no `Allow-Origin`); restored
+
+**Dependencies:** none
+
+**Files likely touched:** `gradle/libs.versions.toml`, `server/build.gradle.kts`, `server/src/main/kotlin/com/example/mediq/server/Main.kt`, `server/src/main/kotlin/com/example/mediq/server/Db.kt`
+
+**Estimated scope:** Small (4 files)
+
+---
+
+## Task 2: A staff seed — one account per role
+
+**Description:** Each web area needs an account that can reach it. `seed()` used
+to early-return when the demo flag was set, so adding staff meant restructuring it
+into `seedDoctors`, `seedPatient`, and `seedStaff` rather than appending rows.
+
+**Acceptance criteria:**
+- [x] `demo_admin`, `demo_doctor`, `demo_secretary`, all with password `demo12345`
+- [x] The doctor and secretary carry `users.doctor_id` for the seeded `Demo Rivera`; the admin carries none, deliberately
+- [x] Idempotent per username, so booting twice does not duplicate rows
+- [x] The seeded password is the demo password — demo mode only, and the web's login page now says so in the UI
+
+**Verification:**
+- [x] `StaffSignInTest` (6 tests) green; `:server:test` 62 → **68**
+- [x] `smoke.ps1` signs in as all three and reads each `profile.role` back over HTTP
+
+**Dependencies:** Task 1 (nothing to seed *for* otherwise)
+
+**Files likely touched:** `server/src/main/kotlin/com/example/mediq/server/DemoData.kt`, `server/src/test/kotlin/com/example/mediq/server/StaffSignInTest.kt`
+
+**Estimated scope:** Small
+
+---
+
+## Task 3: Staff sign-in proven over HTTP
+
+**Description:** A store-level test cannot see a JWT claim as the route layer
+reads it, and the server has no HTTP test harness. `smoke.ps1` is where an
+end-to-end claim gets checked, so the staff checks went there.
+
+**Acceptance criteria:**
+- [x] Three checks — one per role — asserting the returned `profile.role` is its own
+- [x] One check that a doctor's token can read the appointment list (the widening module 3 and 4 depend on)
+- [x] Both CORS checks, positive and negative
+- [x] Wrong password and unknown username stay indistinguishable (unchanged)
+
+**Verification:**
+- [x] `smoke.ps1` **30 passed / 0 failed** (was 24), against a seeded server on `:8099`
+
+**Dependencies:** Tasks 1, 2
+
+**Files likely touched:** `server/scripts/smoke.ps1`
+
+**Estimated scope:** Small
+
+---
+
+## Task 4: The web's HTTP layer, session store, and bearer interceptor
+
+**Description:** As cloned, the app had no `HttpClient` at all. This task adds the
+whole request path once so no later module re-decides it: one `apiBaseUrl`, one
+session store, one interceptor, one gateway per area behind an interface.
+
+**Acceptance criteria:**
+- [x] `environments/environment.ts` with `apiBaseUrl: 'http://localhost:8099'`
+- [x] `StaffSessionStore` — signal + `localStorage` + expiry, tested for surviving a reload
+- [x] `authInterceptor` injects `Authorization: Bearer` from the store and leaves anonymous requests alone
+- [x] `HttpAuthGateway`: the server's sentence on 401/403, one written sentence for everything else (dead server, CORS, unreadable body), and **no session stored** for a `patient` role
+- [x] `staff-login` resolves `AUTH_GATEWAY` to the HTTP implementation; `provideHttpClient(withInterceptors([authInterceptor]))` in `app.config.ts`
+
+**Verification:**
+- [x] 20 new web tests across `http-auth.gateway.spec.ts` (10), `staff-session.spec.ts` (8), `auth.interceptor.spec.ts` (2)
+- [x] Mutation: dropping `isStaffRole` from `toSignInResult` fails exactly `HttpAuthGateway > refuses a patient`; restored byte-identically
+
+**Dependencies:** Tasks 1, 2
+
+**Files likely touched:** `src/environments/`, `src/app/core/services/staff-session.ts`, `src/app/core/interceptors/`, `src/app/auth/pages/staff-login/http-auth.gateway.ts`, `src/app/app.config.ts`
+
+**Estimated scope:** Medium
+
+---
+
+## Task 5: Role guard and the three area trees
+
+**Description:** A role-gated area has to be refused by the router, not by the
+page it lands on — a page that decides for itself leaves the data fetch reachable
+by deep link. **This is a UX gate, not a security boundary**: the server does not
+yet check which role may call an endpoint, which is why module 2 must decide the
+authorization mechanism.
+
+**Acceptance criteria:**
+- [x] `staffRoleGuard` per role on the admin, doctor, and secretary trees
+- [x] No session, a mismatched role, and a non-staff role all return a `UrlTree` to `/login`
+- [x] `StaffRole` union + `isStaffRole` in `shared/domain/`, re-exported by `auth.gateway.ts` so the domain type has one home
+
+**Verification:**
+- [x] 6 guard tests covering the matching role, both mismatches, no session, and a non-staff role
+
+**Dependencies:** Task 4
+
+**Files likely touched:** `src/app/core/guards/staff-role.guard.ts`, `src/app/shared/domain/staff-role.ts`, `src/app/app.routes.ts`
+
+**Estimated scope:** Small
+
+---
+
+## Task 6: Delete the mock gateway, make the sample accounts honest
+
+**Description:** `MockAuthGateway` and its three hardcoded accounts (`123123`) were
+the thing being replaced, and their own comments said to delete them when the API
+landed. The login page's "sample accounts" copy also claimed there was no API
+connected, which stops being true here.
+
+**Acceptance criteria:**
+- [x] `mock-auth.gateway.ts` and `mock-auth.gateway.spec.ts` deleted (**disclosed deviation** — the spec said no existing spec would be deleted; 8 tests went with it)
+- [x] `DEMO_STAFF_ACCOUNTS` replaces the hardcoded list and points at the server's seed
+- [x] Sample-account copy rewritten: they come from the server's demo seed and exist only in demo mode
+- [x] The identifier field reads "Username", because the server looks accounts up by username only (`users.email` has no sign-in lookup)
+
+**Verification:**
+- [x] `components.spec.ts` and `staff-login.spec.ts` updated, asserting against `DEMO_STAFF_ACCOUNTS` and asserting `123123` is *not* present
+- [x] Web suite: **+26 added, −8 deleted = +18**; 35 → 38 spec files, 782 → 800 tests
+
+**Dependencies:** Tasks 4, 5
+
+**Files likely touched:** `src/app/auth/pages/staff-login/`, `src/app/shared/components/sample-accounts/`
+
+**Estimated scope:** Small
+
+---
+
+## Task 7: The web's own gate, run for the first time
+
+**Description:** The clone had never had its tests run. Its suite is the only gate
+it has, since `CONSTRAINTS.md` does not cover it.
+
+**Acceptance criteria:**
+- [x] `npm test` run and its numbers recorded rather than assumed
+- [x] `npx ng build` clean, with the staff-login page as its own lazy chunk
+- [x] The one failure investigated rather than reported as flake
+
+**Verification:**
+- [x] **800 tests, 799 passed.** The single failure is `doctor-schedule.spec.ts > one-off dates > marks the dates that already carry an exception`
+- [x] Proven **pre-existing and date-rot**, not caused by this work: `MOCK_DATED_AVAILABILITY` spaces its three exceptions `+9`, `+16`, `+23` days from today, and on 2026-10-18 `+23` is 2026-11-10 — outside the picker's ~6-week grid. Reproduced on the **stashed pristine clone**: 35 files / 782 tests / the same one failure
+- [x] `ng build` clean, initial 289.77 kB, `staff-login` chunk 12.30 kB
+- [x] Not fixed here: it is the doctor area's fixture, a different module's file
+
+**Dependencies:** Tasks 4, 5, 6
+
+**Files likely touched:** none — verification only
+
+**Estimated scope:** Small
+
+---
+
+## Task 8: Docs — the floor, and the web-outside-the-gate record
+
+**Description:** `AGENTS.md` must be updated in the same change that alters the
+repo, and the honest record here includes a *new* kind of gap: a whole frontend
+that the gate does not see.
+
+**Acceptance criteria:**
+- [x] `CONSTRAINTS.md` server floor 62 → **68**, with the reason and the mutation evidence recorded
+- [x] `CONSTRAINTS.md` gains a row under "Not enforced, and why" naming the web as outside the gate, with its own gate's numbers
+- [x] `AGENTS.md`: the `:server:test` count, the `smoke.ps1` count (24 → 30), the staff seed accounts, and a CORS / `MEDIQ_WEB_ORIGINS` section
+- [x] `tasks/SPEC-web.md` written (the capability map) and `SPEC-web-staff-auth.md` closed with per-criterion verdicts and its three deviations
+
+**Verification:**
+- [x] Both check scripts green; `:server:test` 68; `:app:testDebugUnitTest` 213
+- [x] The `:app` floor did not move — this module added no app test
+
+**Dependencies:** Tasks 1–7
+
+**Files likely touched:** `.mdfiles/CONSTRAINTS.md`, `.mdfiles/AGENTS.md`, `tasks/`
+
+**Estimated scope:** Small (docs only)
+
+---
+
+## Checkpoint A: Complete
+
+- [x] `:server:test` green at **68** (was 62); `:app:testDebugUnitTest` green at **213** (unchanged)
+- [x] `smoke.ps1` green at **30 passed / 0 failed** against a seeded server, including the CORS preflight both ways
+- [x] Web gate run: `npm test` 799/800 with the one failure proven pre-existing, `ng build` clean
+- [x] Both halves mutation-checked, both restorations verified byte-identical
+- [x] Every deviation disclosed in the spec: the `ktor-server-cors` dependency, the deleted mock spec, the username-only identifier
+- [x] Ready for review

@@ -35,7 +35,7 @@ Every number below is measured directly by automated checks, not claimed:
 |---|---|---|---|
 | **App Compilation** | `.\gradlew.bat :app:compileDebugKotlin` |  **Pass** | 6 deprecation warnings (pre-existing) |
 | **App Unit Tests** | `.\gradlew.bat :app:testDebugUnitTest` |  **213 pass** | All 10 ViewModels covered |
-| **Server Tests** | `.\gradlew.bat :server:test` |  **62 pass** | Concurrency, auth, bookings, Supabase dialect |
+| **Server Tests** | `.\gradlew.bat :server:test` |  **68 pass** | Concurrency, auth, bookings, Supabase dialect, staff sign-in |
 | **Architecture Boundaries** | `.\.mdfiles\check-boundaries.ps1` |  **Clean (0 violations)** | 56 files checked |
 | **Color Contrast (WCAG AA)** | `.\.mdfiles\check-contrast.ps1` |  **Clean** | 31 token pairs + 6 status chips; ratchet = 4 |
 | **CI Automation** | `.github/workflows/ci.yml` |  **Enforced** | Runs gates, server tests, lint, unit tests |
@@ -97,6 +97,7 @@ adb shell am start -n com.example.mediq/.MainActivity
 | **Atomic Booking** |  Done | `slot_claims` unique constraint prevents double-booking (HTTP 409) |
 | **Appointment Management**|  Done | Upcoming & history lists, detail views, cancel & reschedule |
 | **Notifications** |  Done | System alerts, mark-as-read |
+| **Staff Web Sign-in** | ⚠️ Partial | The separate `mediqweb` staff app signs in against this server (real session, role-carried JWT, CORS allow-list). Its other four areas still render sample data — see `tasks/SPEC-web.md`. |
 | **Supabase PostgreSQL** |  Done | Dual-engine support (Postgres in prod, H2 in tests) |
 | **Dark Theme** |  Done | 100% WCAG AA compliant contrast in both light & dark modes |
 | **SMS OTP Dispatch** | ⚠️ Stub | Returns OTP in response body; SMS gateway not connected |
@@ -194,7 +195,8 @@ Configuration is read from environment variables or a root `.env` file on startu
 | `MEDIQ_JDBC_URL` | `jdbc:h2:mem:mediq;DB_CLOSE_DELAY=-1` | Database URL (H2 or Supabase PostgreSQL) |
 | `MEDIQ_DB_USER` | `null` | Database user (e.g. `postgres`) |
 | `MEDIQ_DB_PASSWORD` | `null` | Database password |
-| `MEDIQ_SEED_DEMO` | `false` | Seeds mock doctors and demo patient on startup |
+| `MEDIQ_SEED_DEMO` | `false` | Seeds mock doctors, demo patient, and three demo staff accounts (`demo_admin`, `demo_doctor`, `demo_secretary` — password `demo12345`) on startup |
+| `MEDIQ_WEB_ORIGINS` | `http://localhost:4200,http://127.0.0.1:4200` | Comma-separated exact origins the browser frontend may call from (CORS allow-list; the port is part of the match) |
 | `MEDIQ_ENV` | *unset* | Set to `production` to enforce security guards |
 | `MEDIQ_JWT_SECRET` | `dev-only-...` | JWT signing secret ($\ge 32$ chars required in prod) |
 
@@ -218,7 +220,7 @@ Run the local quality gates before committing code:
 ### Pre-commit Checklist
 - [ ] `check-boundaries.ps1` reports 0 errors.
 - [ ] `check-contrast.ps1` reports 0 errors; raw-color ratchet $\le 4$.
-- [ ] `:server:test` passes ($\ge 62$ tests).
+- [ ] `:server:test` passes ($\ge 68$ tests).
 - [ ] `:app:testDebugUnitTest` passes ($\ge 213$ tests).
 - [ ] Zero suppressions (`@Suppress`, `@SuppressLint`) or `TODO()` stubs.
 
@@ -231,6 +233,9 @@ Run the local quality gates before committing code:
 - **Pagination in App:** Server supports cursor pagination, but client does not yet consume `nextCursor`.
 - **Database Migrations:** Schema is applied via `CREATE TABLE IF NOT EXISTS` on boot. Migrate to Flyway once patient data is live.
 - **Idempotency Keys:** `POST /appointments` lacks an idempotency key header for network disconnect retries.
+- **Staff Web Covers Sign-in Only:** `mediqweb` (a sibling clone, not in this repo) authenticates for real; its admin, doctor, and secretary areas still render in-memory sample data.
+- **The Web is Outside the Quality Gate:** `check-boundaries.ps1`, `check-contrast.ps1`, and both Gradle test tasks cover `:app` and `:server` only. The web's own `npm test` / `ng build` are its gate.
+- **The Web's Role Guard is Not a Security Boundary:** the router keeps a role out of another role's area, but the server does not yet check which role may call which endpoint.
 
 ---
 
@@ -252,7 +257,14 @@ MediQApp/
 └── README.md             # This document
 ```
 
+The staff frontend (`mediqweb`) is a **separate repository**, cloned as a sibling
+at `../mediqweb` rather than vendored in. Module 1 of the integration
+(`web-staff-auth`) changes both trees; the map for the remaining four modules is
+`tasks/SPEC-web.md`.
+
 ### Key Documentation Links
 - [AGENTS.md](file:///C:/Users/You/Desktop/MediQApp/.mdfiles/AGENTS.md) — Comprehensive architecture conventions and testing traps.
 - [CONSTRAINTS.md](file:///C:/Users/You/Desktop/MediQApp/.mdfiles/CONSTRAINTS.md) — Exact numerical ratchets and test floors.
 - [SPEC-supabase.md](file:///C:/Users/You/Desktop/MediQApp/tasks/SPEC-supabase.md) — Supabase PostgreSQL integration specification.
+- [SPEC-web.md](file:///C:/Users/You/Desktop/MediQApp/tasks/SPEC-web.md) — Capability map for the five `mediq-web` integration modules.
+- [SPEC-web-staff-auth.md](file:///C:/Users/You/Desktop/MediQApp/tasks/SPEC-web-staff-auth.md) — Module 1: real staff sign-in, with per-criterion verdicts.

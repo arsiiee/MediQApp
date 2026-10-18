@@ -166,7 +166,7 @@ harness, and there is no mocking framework — a fake that records what it was a
 for says more about a state machine than a verify-count does. `MainDispatcherRule`
 swaps in an `UnconfinedTestDispatcher` so a launch runs to completion eagerly;
 without that, a test that never awaits its coroutine passes while proving
-nothing. The substantial suite is still `:server:test` (62 tests, see below).
+nothing. The substantial suite is still `:server:test` (68 tests, see below).
 
 ## Two traps in the ViewModel tests
 
@@ -362,12 +362,14 @@ $env:MEDIQ_PORT="8099"   # 8080 is often already taken on this machine
 .\gradlew.bat :server:run --console=plain
 ```
 
-`MEDIQ_SEED_DEMO=true` inserts three invented doctors plus `demo_patient` / `demo12345`. That data is demo-only and clearly labelled (`DEMO-PRC-0001` licence numbers) — never seed a database that holds real patients.
+`MEDIQ_SEED_DEMO=true` inserts three invented doctors plus `demo_patient` / `demo12345`, and the three staff accounts `demo_admin`, `demo_doctor`, `demo_secretary` — all four share the password `demo12345`. The doctor and secretary are linked to a seeded doctor row (`Demo Rivera`), because a doctor area with no doctor behind it is not a usable test; the admin is deliberately unlinked, since an admin is not a clinician. That data is demo-only and clearly labelled (`DEMO-PRC-0001` licence numbers) — never seed a database that holds real patients.
+
+**A browser client needs CORS, and it is an allow-list.** `MEDIQ_WEB_ORIGINS` is a comma-separated list of the exact `scheme://host:port` origins the server answers preflights for; it defaults to `http://localhost:4200,http://127.0.0.1:4200` (Angular's dev server). The match is on the whole origin, **not** on the host: Ktor 3.1.3's `allowHost(host, schemes, subDomains)` has no `port` parameter and ignores it, so `allowHost("localhost")` would allow every port on the machine — proved by `smoke.ps1`, which asserts a neighbouring port is refused. Adding a second origin means adding it to the env var, not to the code.
 
 Two ways to verify, and they cover different things:
 
 - `.\gradlew.bat :server:test` — in-process. `BookingConcurrencyTest` is the one that cannot be checked by hand.
-- `.\server\scripts\smoke.ps1 -Base http://127.0.0.1:8099` — over HTTP against a running server. 24 checks covering the status of every route, the double-booking refusal, and that signing out kills the token mid-flight. Needs the server up first.
+- `.\server\scripts\smoke.ps1 -Base http://127.0.0.1:8099` — over HTTP against a running server. 30 checks covering the status of every route, the double-booking refusal, that signing out kills the token mid-flight, that all three staff roles sign in and a doctor can read the appointment list, and that the CORS allow-list answers the configured origin while refusing a neighbouring port on the same host. Needs the server up first.
 
 Use `installDist` plus `server/build/install/server/bin/server.bat` when you want a server that survives the Gradle daemon. `:server:run` dies with the shell that started it.
 

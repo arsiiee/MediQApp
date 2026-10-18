@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- **The staff web app signs in for real — module 1 of the `mediq-web`
+  integration.** `mediqweb` is a separate GitHub project, cloned as a sibling at
+  `../mediqweb`, and its 23 pages all rendered in-memory sample data with zero
+  `HttpClient` calls and no `environment*.ts` at all. It now authenticates against
+  this repo's Ktor `:server` rather than `mediqweb/mediqapp-api`, which is an
+  empty Hono scaffold (`package.json` and `tsconfig.json`, no source) — building
+  the second API would have been a second implementation of the double-booking
+  rule, which `AGENTS.md` forbids. Server half: `install(CORS)` with an exact
+  `scheme://host:port` allow-list (`MEDIQ_WEB_ORIGINS`), and `MEDIQ_SEED_DEMO=true`
+  now seeds `demo_admin`, `demo_doctor`, `demo_secretary` alongside the patient,
+  all on password `demo12345`. `StaffSignInTest` (6) takes `:server:test` 62 → 68
+  and `smoke.ps1` 24 → 30 checks, including both directions of the CORS preflight.
+  Web half: an HTTP auth gateway, a session store, a bearer interceptor, and a
+  role guard on the three area trees; `MockAuthGateway` and its hardcoded
+  `123123` accounts are deleted, along with its spec (8 tests) — a recorded
+  deviation from module 1's own "no spec deleted" criterion. Web suite as it
+  stands: **800 tests, 799 pass**, the one failure a pre-existing date-rot bug in
+  `doctor-schedule.spec.ts` reproduced on the pristine clone.
+  `tasks/SPEC-web-staff-auth.md` carries a verdict per acceptance criterion and the
+  three deviations; `tasks/SPEC-web.md` maps the four remaining modules and names
+  what the server does not have yet (no admin CRUD routes, no staff registration,
+  no server-side role gate, no audit table). **`CONSTRAINTS.md` covers only
+  `:app` and `:server`, so the web is outside the enforced gate** — that gap is now
+  recorded there rather than left to look like coverage.
+
 - **Postgres/Supabase is documented as the second engine, and the plan that added
   it is reconciled rather than assumed.** `35250c3` added dual-dialect SQL, the
   `42.7.5` driver, and `DatabaseDialectTest` without a changelog entry; the setup
