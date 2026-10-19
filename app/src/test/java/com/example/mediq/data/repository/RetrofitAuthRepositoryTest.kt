@@ -110,4 +110,49 @@ class RetrofitAuthRepositoryTest {
         assertNull(prefs.getString("session_json", null))
         org.junit.Assert.assertFalse(signal.isExpired.value)
     }
+
+    // --- Rewriting the cached profile after an edit ---------------------------
+
+    @Test
+    fun `updateCachedProfile rewrites the stored profile and keeps the token`() = runBlocking {
+        // `currentSession()` reads the store, not the server. Without this write
+        // the profile screen would keep showing the pre-edit name and email
+        // until the next sign-in, even though the save succeeded.
+        prefs.edit().putString("session_json", validJson).apply()
+
+        repository.updateCachedProfile(
+            com.example.mediq.fake.TestFixtures.userProfile(
+                fullName = "Renamed Patient",
+                email = "renamed@example.com",
+            )
+        )
+
+        val reloaded = repository.currentSession()
+        assertNotNull("the session must survive an edit", reloaded)
+        assertEquals("an edit is not a re-authentication", "valid-token-123", reloaded?.accessToken)
+        assertEquals("Renamed Patient", reloaded?.profile?.fullName)
+        assertEquals("renamed@example.com", reloaded?.profile?.email)
+    }
+
+    @Test
+    fun `updateCachedProfile writes nothing when nobody is signed in`() = runBlocking {
+        // No stored session means no token to attach a profile to. Creating one
+        // would hand the app a session the server never issued.
+        repository.updateCachedProfile(com.example.mediq.fake.TestFixtures.userProfile())
+
+        assertNull(prefs.getString("session_json", null))
+    }
+
+    @Test
+    fun `updateCachedProfile leaves the expiry it found`() = runBlocking {
+        // An edit must not extend a session. `saveSession` takes the whole DTO,
+        // so a hand-built one that defaulted the expiry would silently make the
+        // token live longer than the server thinks it does.
+        prefs.edit().putString("session_json", validJson).apply()
+        val before = repository.currentSession()?.expiresAt
+
+        repository.updateCachedProfile(com.example.mediq.fake.TestFixtures.userProfile(fullName = "X"))
+
+        assertEquals(before, repository.currentSession()?.expiresAt)
+    }
 }

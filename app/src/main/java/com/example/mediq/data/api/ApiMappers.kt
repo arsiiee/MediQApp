@@ -70,6 +70,27 @@ fun UserProfileDto.toDomain(): UserProfile = UserProfile(
     role = UserRole.entries.firstOrNull { it.wireValue == role } ?: UserRole.PATIENT,
 )
 
+/**
+ * The reverse of [UserProfileDto.toDomain], for rewriting the cached session
+ * after an edit.
+ *
+ * It exists only for that round trip, so it copies the domain's own rule that
+ * blank means absent ([UserProfile.email] is a non-null `String` where the wire
+ * type is nullable). `dateOfBirth` goes back out in the ISO form the server
+ * sends and `TokenStore` stores, not a display format.
+ */
+fun UserProfile.toDto(): UserProfileDto = UserProfileDto(
+    id = id,
+    username = username,
+    fullName = fullName,
+    email = email.ifBlank { null },
+    mobileNumber = mobileNumber,
+    dateOfBirth = dateOfBirth.toString(),
+    sex = sex?.wireValue,
+    address = address,
+    role = role.wireValue,
+)
+
 // ─── Doctors ─────────────────────────────────────────────────────────────────
 
 fun DoctorDto.toDomain(): Doctor = Doctor(

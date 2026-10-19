@@ -15,6 +15,7 @@ import com.example.mediq.domain.model.AuthSession
 import com.example.mediq.domain.model.RegisterRequest
 import com.example.mediq.domain.model.RequestOtpRequest
 import com.example.mediq.domain.model.SignInRequest
+import com.example.mediq.domain.model.UserProfile
 import com.example.mediq.domain.model.VerifyOtpRequest
 import com.example.mediq.domain.repository.AuthRepository
 import java.time.Instant
@@ -81,5 +82,20 @@ class RetrofitAuthRepository(
         val dto = call { api.register(request.toDto()) }
         tokenStore.saveSession(dto)
         return dto.toDomain()
+    }
+
+    /**
+     * Rewrites the stored session's profile, keeping the token and expiry it
+     * already held.
+     *
+     * `saveSession` takes a whole [AuthSessionDto], so this reuses the one the
+     * store parsed rather than rebuilding it from the edit. A rebuilt DTO would
+     * need a token and an expiry the caller does not hold, and defaulting either
+     * is how an edit would silently extend a session past what the server
+     * issued. No stored session means no-op: see [AuthRepository.updateCachedProfile].
+     */
+    override suspend fun updateCachedProfile(profile: UserProfile) {
+        val current = tokenStore.getSession() ?: return
+        tokenStore.saveSession(current.copy(profile = profile.toDto()))
     }
 }

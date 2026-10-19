@@ -103,4 +103,10 @@ class EmptyAuthRepository : AuthRepository {
 
     override suspend fun register(request: RegisterRequest): AuthSession =
         throw BackendNotConnectedException()
+
+    /**
+     * Nobody is signed in, so there is no cached session to rewrite. A no-op
+     * rather than a throw, matching [signOut]: nothing the caller can act on.
+     */
+    override suspend fun updateCachedProfile(profile: UserProfile): Unit = Unit
 }

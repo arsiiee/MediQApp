@@ -4,6 +4,7 @@ import com.example.mediq.domain.model.AuthSession
 import com.example.mediq.domain.model.RegisterRequest
 import com.example.mediq.domain.model.RequestOtpRequest
 import com.example.mediq.domain.model.SignInRequest
+import com.example.mediq.domain.model.UserProfile
 import com.example.mediq.domain.model.VerifyOtpRequest
 import com.example.mediq.domain.repository.AuthRepository
 import kotlinx.coroutines.CompletableDeferred
@@ -115,5 +116,26 @@ class FakeAuthRepository : AuthRepository {
         registerRequests += request
         registerError?.let { throw it }
         return registerResult
+    }
+
+    // --- Rewriting the cached session after a profile edit -------------------
+
+    /**
+     * Set to throw when a test needs a cache write to fail.
+     *
+     * It records the write first, matching every other fake here and the real
+     * repository: whether the request left is the assertion that matters.
+     */
+    var updateCachedProfileError: Throwable? = null
+
+    /** What `updateCachedProfile` was asked to store, in order. */
+    val cachedProfileUpdates = mutableListOf<UserProfile>()
+
+    /** True when no cache rewrite reached the repository at all. */
+    val cachedProfileWasUpdated: Boolean get() = cachedProfileUpdates.isNotEmpty()
+
+    override suspend fun updateCachedProfile(profile: UserProfile) {
+        cachedProfileUpdates += profile
+        updateCachedProfileError?.let { throw it }
     }
 }
