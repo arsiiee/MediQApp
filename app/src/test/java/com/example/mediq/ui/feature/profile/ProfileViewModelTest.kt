@@ -4,6 +4,7 @@ import com.example.mediq.domain.model.ApiFailure
 import com.example.mediq.domain.model.AuthSession
 import com.example.mediq.domain.model.BackendNotConnectedException
 import com.example.mediq.domain.model.LoadState
+import com.example.mediq.domain.model.UserRole
 import com.example.mediq.fake.FakeAuthRepository
 import com.example.mediq.fake.FakeProfileRepository
 import com.example.mediq.fake.MainDispatcherRule
@@ -17,9 +18,11 @@ import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import java.io.IOException
+import java.time.LocalDate
 
 /**
- * Covers the profile screen's state machine: read the stored session, and sign out.
+ * Covers the profile screen's state machine: read the stored session, save an
+ * edit, and sign out.
  *
  * Two things here are worth more than the obvious ones.
  *
@@ -35,14 +38,23 @@ import java.io.IOException
  * in", which is what the screen can act on, rather than an error banner over a
  * profile the user cannot change.
  *
- * ## What is deliberately *not* covered
+ * ## The edit path
  *
- * `ProfileViewModel`'s constructor takes a `ProfileRepository` and never reads it.
- * `ProfileScreen` calls only `refresh()` and `signOut()`, so no code path in the
- * app reaches `ProfileRepository.updateProfile` — the profile is display-only and
- * the field cannot be edited. Nothing here asserts that, because writing a test
- * to pin a dead constructor parameter would enshrine it as intended behaviour.
- * The repository itself is live and is guarded server-side by `ProfileUpdateTest`.
+ * The form is prefilled from the loaded session, and a save merges the typed
+ * values over that profile — so the fields the form does not carry (id,
+ * username, role) cannot be blanked by a save, and an untouched field keeps its
+ * value rather than arriving empty.
+ *
+ * The state is then rewritten from the **server's** response, not from what was
+ * typed: the server normalises, and its answer is what the profile screen must
+ * show. `FakeAuthRepository.cachedProfileUpdates` is the assertion that the
+ * store `currentSession()` actually reads was rewritten — without that write the
+ * screen would keep showing the old name until the next sign-in, which no
+ * state-only check would catch.
+ *
+ * Validation is pinned as "never reaches the network", not "shows a message":
+ * a field error that still fires a request is a request the server has to
+ * refuse, and the patient waits for it.
  */
 class ProfileViewModelTest {
 
@@ -242,9 +254,9 @@ class ProfileViewModelTest {
 
     @Test
     fun `signing out does not touch the profile repository`() {
-        // Pins the dead-constructor-parameter claim above at the boundary where it
-        // is true. If someone wires an edit form to this ViewModel later, this
-        // fails and points at the test that needs updating deliberately.
+        // Sign-out is an auth action. Editing now exists on this ViewModel, so
+        // this is the boundary that keeps the two apart: a sign-out that wrote a
+        // profile would be an update nobody asked for.
         viewModel.uiState.value
 
         viewModel.signOut { }
@@ -274,4 +286,207 @@ class ProfileViewModelTest {
     private fun loadedName(): String? =
         ((viewModel.uiState.value.session as? LoadState.Success)?.data as? AuthSession)
             ?.profile?.fullName
+
+    // --- Editing --------------------------------------------------------------
+
+    @Test
+    fun `the edit form starts prefilled from the session`() {
+        // A blank form would let a save overwrite fields the patient never saw.
+        authRepository.currentSessionResult = TestFixtures.authSession(
+            profile = TestFixtures.userProfile(fullName = "Maria Santos", email = "maria@example.com"),
+        )
+
+        val edit = viewModel.uiState.value.edit
+
+        assertEquals("Maria Santos", edit.fullName)
+        assertEquals("maria@example.com", edit.email)
+        assertEquals("+639175550142", edit.mobileNumber)
+        assertEquals("1995-06-15", edit.dateOfBirth)
+    }
+
+    @Test
+    fun `saving sends the edited fields, merged over the current profile`() {
+        signedIn()
+
+        viewModel.onEditFullName("Renamed")
+        viewModel.onEditEmail("renamed@example.com")
+        viewModel.onEditAddress("9 New Road")
+        viewModel.saveProfile { }
+
+        val sent = profileRepository.updateRequests.single()
+        assertEquals("Renamed", sent.fullName)
+        assertEquals("renamed@example.com", sent.email)
+        assertEquals("9 New Road", sent.address)
+        assertEquals("a save is an edit, not a new record", "user-1", sent.id)
+        assertEquals("maria.santos", sent.username)
+        assertEquals(UserRole.PATIENT, sent.role)
+        assertEquals(
+            "a field the form never showed must keep its value",
+            "+639175550142",
+            sent.mobileNumber,
+        )
+    }
+
+    @Test
+    fun `whitespace around the typed fields is trimmed before the server sees it`() {
+        signedIn()
+
+        viewModel.onEditFullName("  Renamed  ")
+        viewModel.onEditEmail("  renamed@example.com  ")
+        viewModel.saveProfile { }
+
+        val sent = profileRepository.updateRequests.single()
+        assertEquals("Renamed", sent.fullName)
+        assertEquals("renamed@example.com", sent.email)
+    }
+
+    @Test
+    fun `a blank address is sent as absent, not as an empty string`() {
+        signedIn()
+
+        viewModel.onEditAddress("   ")
+        viewModel.saveProfile { }
+
+        assertNull(profileRepository.updateRequests.single().address)
+    }
+
+    @Test
+    fun `a successful save rewrites the cached session with the server's answer`() {
+        signedIn()
+        // The server normalises. Its response, not the typed value, is what the
+        // profile screen must show afterwards.
+        profileRepository.updateResult = TestFixtures.userProfile(fullName = "Maria Santos-Reyes")
+
+        viewModel.onEditFullName("maria santos-reyes")
+        viewModel.saveProfile { }
+
+        assertEquals(1, authRepository.cachedProfileUpdates.size)
+        assertEquals("Maria Santos-Reyes", authRepository.cachedProfileUpdates.single().fullName)
+        assertEquals(
+            "the screen must render the server's answer",
+            "Maria Santos-Reyes",
+            loadedName(),
+        )
+    }
+
+    @Test
+    fun `a successful save calls the screen's finish callback`() {
+        signedIn()
+        var finished = 0
+
+        viewModel.onEditFullName("Renamed")
+        viewModel.saveProfile { finished++ }
+
+        assertEquals(1, finished)
+    }
+
+    @Test
+    fun `a refused save shows the server's sentence and keeps the form`() {
+        signedIn()
+        profileRepository.updateProfileError = ApiFailure(
+            status = 400,
+            code = "bad_request",
+            message = "That email is already used by another account.",
+        )
+        var finished = 0
+
+        viewModel.onEditFullName("Renamed")
+        viewModel.saveProfile { finished++ }
+
+        val edit = viewModel.uiState.value.edit
+        assertEquals("That email is already used by another account.", edit.saveError)
+        assertEquals("Renamed", edit.fullName)
+        assertFalse("a refused save must not look like a success", edit.isSaving)
+        assertEquals("the screen must not navigate away on a failure", 0, finished)
+    }
+
+    @Test
+    fun `an unreachable backend says the change was not saved`() {
+        signedIn()
+        profileRepository.updateProfileError = IOException("failed to connect to /10.0.2.2:8099")
+
+        viewModel.onEditFullName("Renamed")
+        viewModel.saveProfile { }
+
+        assertEquals(
+            "Couldn't save your changes. Try again in a moment.",
+            viewModel.uiState.value.edit.saveError,
+        )
+    }
+
+    @Test
+    fun `a blank full name never reaches the network`() {
+        signedIn()
+
+        viewModel.onEditFullName("   ")
+        viewModel.saveProfile { }
+
+        assertNotNull(viewModel.uiState.value.edit.fullNameError)
+        assertTrue(profileRepository.updateRequests.isEmpty())
+    }
+
+    @Test
+    fun `a malformed date of birth never reaches the network`() {
+        signedIn()
+
+        viewModel.onEditDateOfBirth("15/06/1995")
+        viewModel.saveProfile { }
+
+        assertNotNull(viewModel.uiState.value.edit.dateOfBirthError)
+        assertTrue(profileRepository.updateRequests.isEmpty())
+    }
+
+    @Test
+    fun `a date of birth in the future never reaches the network`() {
+        signedIn()
+
+        viewModel.onEditDateOfBirth(LocalDate.now().plusDays(1).toString())
+        viewModel.saveProfile { }
+
+        assertNotNull(viewModel.uiState.value.edit.dateOfBirthError)
+        assertTrue(profileRepository.updateRequests.isEmpty())
+    }
+
+    @Test
+    fun `an invalid email and mobile number are refused before the network`() {
+        signedIn()
+
+        viewModel.onEditEmail("not-an-email")
+        viewModel.onEditMobile("123")
+        viewModel.saveProfile { }
+
+        val edit = viewModel.uiState.value.edit
+        assertNotNull(edit.emailError)
+        assertNotNull(edit.mobileError)
+        assertTrue(profileRepository.updateRequests.isEmpty())
+    }
+
+    @Test
+    fun `changing a field clears its own error`() {
+        signedIn()
+        viewModel.onEditFullName("   ")
+        viewModel.saveProfile { }
+        assertNotNull("precondition: the field is showing an error", viewModel.uiState.value.edit.fullNameError)
+
+        viewModel.onEditFullName("Renamed")
+
+        assertNull(viewModel.uiState.value.edit.fullNameError)
+    }
+
+    @Test
+    fun `nobody signed in cannot save`() {
+        // Reachable in principle the moment the screen is deep-linked: a save
+        // with no session has no id to update and must not be attempted.
+        authRepository.currentSessionResult = null
+
+        viewModel.onEditFullName("Renamed")
+        viewModel.saveProfile { }
+
+        assertTrue(profileRepository.updateRequests.isEmpty())
+        assertFalse(authRepository.cachedProfileWasUpdated)
+    }
+
+    private fun signedIn() {
+        authRepository.currentSessionResult = TestFixtures.authSession()
+    }
 }
