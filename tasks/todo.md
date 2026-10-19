@@ -8,6 +8,7 @@
 | v2 — token lifecycle | **Complete** 2026-10-18 | 401 handling, session expiry, corrupt-session recovery, SessionSignal, SessionAuthenticator |
 | v3 — seeded-data screen | **Complete** 2026-10-07 | One temporary screen that verifies the live backend |
 | v4 — doctor specialty filter | **Complete** 2026-10-15 | One chip per `Specialty.entries` plus "All", driven by the real `DoctorQuery.specialty` |
+| v5 — profile edit screen | **In progress** 2026-10-19 | Wire the dead `ProfileRepository.updateProfile` path into a new `EditProfileScreen`; session-cache rewrite; closes the "profile cannot be edited" gap |
 
 **Active plan:** the six-screen UI redesign, spec at `tasks/SPEC-ui-redesign.md`
 with one module spec per step (`tasks/SPEC-ui-*.md`). Modules land one commit
@@ -1900,3 +1901,78 @@ requires.
 - [x] The one-transaction claim proved directly: a throw after the `doctors` insert removes that row, which no public call path can reach because every refusal happens before the insert
 - [x] No schema change was needed — every column the route writes already existed
 - [x] The web half is **not** claimed as done — the create form still lacks the mobile number, date of birth, and practice fields; that is Task 5
+
+---
+
+# v5 � Profile Edit Screen (`ui-profile-edit`)
+
+Plan: `tasks/plan.md` (top section). Spec: `tasks/SPEC-ui-profile-edit.md`
+(approved 2026-10-19: separate screen, DOB as text field).
+
+**One gap this closes:** nothing in `ui/` reaches
+`ProfileRepository.updateProfile`, so the profile is display-only while
+`README.md` lists "Profile read and update" under What works. The server route,
+the API service, and the repository were already live and tested.
+
+## Task 1: `AuthRepository.updateCachedProfile` (domain + data + fakes)
+
+- [x] Acceptance: interface method added (pure Kotlin, no Android imports);
+      `RetrofitAuthRepository` rewrites `TokenStore` with the server's profile
+      and an untouched token/expiry; no-op when nobody is signed in;
+      `EmptyAuthRepository` and `FakeAuthRepository` updated; data-layer tests
+      cover rewrite + no-op.
+- [x] Verify: `.\gradlew.bat :app:testDebugUnitTest --tests "*RetrofitAuthRepositoryTest*"`
+- [x] Files: `domain/repository/AuthRepository.kt`,
+      `data/repository/RetrofitAuthRepository.kt`, `data/api/ApiMappers.kt`,
+      `data/repository/EmptyRepositories.kt`, test fakes,
+      `data/repository/RetrofitAuthRepositoryTest.kt`
+
+## Task 2: `ProfileViewModel` edit behaviour (TDD)
+
+- [x] Acceptance: edit state prefills from the session; save merges edited
+      fields over the current profile, calls the repository once, rewrites the
+      cache with the server response, and surfaces a server refusal's own
+      sentence while keeping the form; each validation rule blocks the network
+      with a per-field error; the class kdoc no longer claims a dead parameter.
+- [x] Verify: RED first, then `.\gradlew.bat :app:testDebugUnitTest --tests "*ProfileViewModelTest*"`
+- [x] Files: `ui/feature/profile/ProfileViewModel.kt`,
+      `ui/feature/profile/ProfileViewModelTest.kt`
+
+## Task 3: Edit screen + route + entry point
+
+- [x] Acceptance: `Edit profile` row in the signed-in branch opens a prefilled
+      form; Save pops back on success with the profile screen showing the new
+      values (shared ViewModel, D1); `MediQBrandTextField` gains
+      `isError`/`supportingText` with defaults unchanged for existing callers.
+- [x] Verify: compile + both check scripts
+- [x] Files: `ui/feature/profile/EditProfileScreen.kt` (new),
+      `ui/navigation/Routes.kt`, `ui/navigation/MediQNavHost.kt`,
+      `ui/feature/profile/ProfileScreen.kt`,
+      `core/designsystem/component/MediQBrandTextField.kt`
+
+## Task 4: Gates + docs
+
+- [x] Acceptance: task-end gate green (boundaries, contrast, compile,
+      `:app` tests with `--rerun-tasks`, `:server:test`); `.mdfiles/AGENTS.md`
+      gap bullet removed and test counts updated; `CONSTRAINTS.md` `:app`
+      floor raised to the measured count.
+- [x] Verify: `.\.mdfiles\check-boundaries.ps1` && `.\.mdfiles\check-contrast.ps1`
+      && `.\gradlew.bat :app:compileDebugKotlin :app:testDebugUnitTest :server:test --console=plain`
+- [x] Files: `.mdfiles/AGENTS.md`, `.mdfiles/CONSTRAINTS.md`,
+      `tasks/SPEC-ui-profile-edit.md`
+
+
+## Checkpoint A: Complete for the four slices (2026-10-19)
+
+- [x] `:app:testDebugUnitTest` green at **255** (was 238 in `AGENTS.md`, 237 measured before this change); `:server:test` green at **106**
+- [x] `check-boundaries.ps1` clean at **58 files** (was 56); `check-contrast.ps1` clean at 31 token pairs, ratchet still 4
+- [x] `:app:compileDebugKotlin` clean, and the 6 pre-existing deprecation warnings are still 6 � no new one from this module
+- [x] Mutation-checked twice: removing the `updateCachedProfile` call fails exactly `a successful save rewrites the cached session with the server's answer`; replacing the merge with the loaded profile fails exactly the two merge tests. Both restored.
+- [x] `.mdfiles/AGENTS.md` closed the "profile cannot be edited" gap, and corrected two stale counts as a side effect (see below)
+- [ ] **Not verified: a device run.** Every check here is JVM-side; the screen has not been opened on `mediq_api36`. The route, the shared ViewModel, and the dropdown are compile-and-unit-test evidence only.
+
+**Two stale numbers were corrected, not moved.** The `:app` floor in
+`CONSTRAINTS.md` read 213 while its own table and `AGENTS.md` read 238, and the
+`:server` floor read 101 while the tree held 106 � the five extra arrived with
+`92e4655` and neither number followed. The floors now read the measured 255 and
+106, with the dates and reasons recorded in the ratchet rows.

@@ -5,6 +5,34 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- **The profile is editable from the app (Plan v5, `ui-profile-edit`): the last
+  dead path in the client is wired.** `ProfileViewModel` took a `ProfileRepository`
+  and never read it, so nothing reached `PUT /profile`; `README.md` listed "Profile
+  read and update" under **What works** and only the update half was missing.
+  `ProfileScreen` gains an `Edit profile` row opening a six-field form
+  (`fullName`, `email`, `mobileNumber`, `dateOfBirth`, `sex`, `address` - the
+  fields the server's `UpdateProfileDto` accepts, minus the ones that are not
+  editable: username, role, password). The form is a route of its own that takes
+  the **same** `ProfileViewModel` as `ProfileScreen` (from `Screen.Profile`'s back
+  stack entry, the trick the register wizard uses), so a save is visible on return
+  with no refresh call and no second copy of the session to fall out of step; the
+  finished signal is a callback, not a flag on shared state that would still be
+  set the next time the form opened. Validation - name non-blank, email
+  blank-or-shaped, mobile `^\+?[0-9]{7,15}$`, date of birth ISO and not in the
+  future - blocks the network rather than spending a round trip on a request the
+  server would only refuse, and a refusal shows the server's own sentence with the
+  form kept. The save merges the typed values over the loaded profile, so id,
+  username and role cannot be blanked by an edit, and both the state and the
+  stored session are rewritten from the **server's** response, because
+  `currentSession()` reads `TokenStore` and not the server - without that write the
+  profile screen would keep showing the old name until the next sign-in.
+  `AuthRepository` gains `updateCachedProfile(profile)`, which rewrites the stored
+  session's profile and leaves the token and its expiry exactly as they were (an
+  edit is not a re-authentication, and defaulting either is how it would silently
+  extend a session past what the server issued); `MediQBrandTextField` gains
+  `isError` and `supportingText`, both defaulting to unchanged, so a six-field form
+  can say *which* field is wrong rather than re-deriving error styling per screen.
+  Unit test suite expanded across `:app` to **255** tests.
 - **Token Lifecycle (Plan v2): Session expiry, corrupt-session recovery, and central 401 handling.**
   `ApiFailure` gains `isAuthFailure` (status == 401) alongside `isNetworkFailure`.
   `SessionSignal` in `domain/model/` provides an architecture-safe seam owned by `AppContainer`

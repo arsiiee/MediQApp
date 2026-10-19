@@ -101,7 +101,7 @@ adb shell am start -n com.example.mediq/.MainActivity
 | **Supabase PostgreSQL** |  Done | Dual-engine support (Postgres in prod, H2 in tests) |
 | **Dark Theme** |  Done | 100% WCAG AA compliant contrast in both light & dark modes |
 | **SMS OTP Dispatch** | ⚠️ Stub | Returns OTP in response body; SMS gateway not connected |
-| **Profile Editing** | ⚠️ Display-only | Server API exists; UI edit screen not yet wired |
+| **Profile Editing** |  Done | Six-field form on its own route, sharing the profile screen's ViewModel; the server row and the cached session are both rewritten from the server's response |
 | **Messages Tab** | ❌ Placeholder | Renders placeholder screen |
 | **Forgot Password** | ❌ Stub | Button click handler is empty |
 

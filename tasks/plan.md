@@ -1,3 +1,65 @@
+# Implementation Plan: `ui-profile-edit` — Edit-profile screen (v5)
+
+> **Status: in progress (2026-10-19).** Spec: `tasks/SPEC-ui-profile-edit.md`
+> (approved with two decisions: **separate screen**, **date of birth as a plain
+> text field**). Closes the "Known gaps" bullet *"The profile cannot be edited
+> from the app"* in `.mdfiles/AGENTS.md`.
+
+## Overview
+
+Wire the one dead path in the app: `ProfileViewModel` takes a `ProfileRepository`
+and never reads it, so nothing reaches `PUT /profile` from the UI. Everything
+below the ViewModel is live and tested (`ProfileUpdateTest` server-side,
+`RetrofitProfileRepository` client-side). This plan adds the edit screen, the
+ViewModel behaviour, and the session-cache write that keeps the profile screen
+from showing stale data after a save.
+
+## Architecture Decisions
+
+**D1 — the edit screen shares the Profile route's ViewModel.**
+`EditProfileScreen` takes its `ProfileViewModel` from
+`navController.getBackStackEntry(Screen.Profile.route)` — the pattern the four
+register screens already use for `RegisterFlow`. One instance, so a successful
+save updates the session state the profile screen renders through, and popping
+back shows the new values with no refresh hack and no second ViewModel.
+
+**D2 — `saveProfile(onSaved: () Unit)`, a callback, not a `saved` flag.**
+Mirrors `signOut(onDone)`. A flag on shared state fires again on re-entry; the
+callback fires once, and `RegisterViewModelTest` already pins the
+"handled navigation event does not fire again" convention this belongs to.
+
+**D3 — the session cache is rewritten from the server's response, not the form.**
+`AuthRepository.updateCachedProfile(profile)` persists the profile the server
+returned (it normalises), keeping token and expiry untouched — an edit is not a
+re-authentication. Without this, `currentSession()` (which reads `TokenStore`,
+not the server) would show the old name/email until next sign-in.
+
+**D4 — validation blocks the network.** fullName non-blank, email blank-or-valid,
+mobile `^\+?[0-9]{7,15}$`, DOB ISO-format and not in the future. Per-field
+errors live in `ProfileEditState`; each field's change clears its own error.
+`MediQBrandTextField` gains `isError`/`supportingText` parameters (default-safe,
+same reason it gained `keyboardActions` in `ui-auth`).
+
+**Known interplay, deliberately not fixed here:** `PUT /profile` is a PATCH in
+disguise (`COALESCE` + `explicitNulls = false`), so clearing the email field
+silently restores the old value — documented debt in `.mdfiles/AGENTS.md`. The
+UI is honest about it because the state is rewritten from the server response.
+
+## Slices (one commit each, gates green per slice)
+
+| # | Slice | Files | Verify |
+|---|---|---|---|
+| 1 | Domain + data: `updateCachedProfile` | `AuthRepository.kt`, `RetrofitAuthRepository.kt`, `ApiMappers.kt` (`UserProfile.toDto`), `EmptyRepositories.kt`, `FakeAuthRepository.kt`, `RetrofitAuthRepositoryTest.kt` | new tests green |
+| 2 | ViewModel: edit state, validation, save | `ProfileViewModel.kt`, `ProfileViewModelTest.kt` (~11 new tests, kdoc rewrite) | RED → GREEN |
+| 3 | UI: screen, route, entry row, component params | `EditProfileScreen.kt` (new), `Routes.kt`, `MediQNavHost.kt`, `ProfileScreen.kt`, `MediQBrandTextField.kt` | compile + gates |
+| 4 | Docs + floors | `.mdfiles/AGENTS.md` (gap bullet out, inventory counts), `CONSTRAINTS.md` (ratchet up), spec decision note | gates |
+
+Baseline: `:app` 238 tests (`AGENTS.md`), `:server` 101. Task-end gate per
+`CONSTRAINTS.md`: boundaries, contrast, compile, both test tasks with
+`--rerun-tasks`.
+
+---
+
 # Implementation Plan: Temporary Seeded-Data Screen (backend verification)
 
 > **Status: complete, 2026-10-07.** The seeded-data screen was proven on a device,

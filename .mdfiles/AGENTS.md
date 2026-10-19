@@ -27,7 +27,7 @@ Verify the app with `:app:compileDebugKotlin` (~2s warm, ~3min cold). Full APK: 
 Note the 6 deprecation warnings it prints — see "Toolchain notes". A `:server:run`
 failure naming an Adoptium 17 JVM is the toolchain, not the daemon.
 
-`:app` unit tests - 238, runnable with `.\gradlew.bat :app:testDebugUnitTest`.
+`:app` unit tests - 255, runnable with `.\gradlew.bat :app:testDebugUnitTest`.
 `MediQBottomBarSemanticsTest` is the first real Compose instrumentation test; run
 `.\gradlew.bat :app:connectedDebugAndroidTest` with `mediq_api36` attached (2 tests).
 Count them with `--rerun-tasks`: the task otherwise reports UP-TO-DATE and the
@@ -44,8 +44,11 @@ its tests.
   absent, and unreadable, all three through Gson because Gson cannot tell
   "not sent" from "renamed" and constructing the DTO in Kotlin would never
   exercise the path that fails).
-- `data/repository/RetrofitAuthRepositoryTest.kt` (6) — validating session recovery,
-  expiry mapping, and signal clearing on sign-out.
+- `data/repository/RetrofitAuthRepositoryTest.kt` (9) — validating session recovery,
+  expiry mapping, and signal clearing on sign-out. Three more pin
+  `updateCachedProfile`: the stored profile is rewritten with the token and the
+  expiry each left exactly as they were, and a call with no stored session writes
+  nothing rather than inventing one.
 - `domain/model/SessionSignalTest.kt` (4) — idempotence, markExpired, and clear.
 - `domain/model/NextClinicSessionTest.kt` (6) — the `Next open` line on the
   doctors list, derived from a doctor's weekly `clinicHours` rather than read per
@@ -97,11 +100,18 @@ its tests.
   untouched. Reverting `visibleSlots` to `isBookable` was verified by mutation —
   it fails the claimed-slot test exactly, which is the behaviour figure 4's
   "Grey = already claimed by another patient" legend needs.
-- `ui/feature/profile/ProfileViewModelTest.kt` (14) — the stored session reaches
+- `ui/feature/profile/ProfileViewModelTest.kt` (29) — the stored session reaches
   the state with its real name and not a hardcoded placeholder, an unconnected
   backend is a `Success(null)` rather than an error, and **sign-out navigates away
   even when the server refuses**, because the alternative is a patient stranded on
-  a signed-in screen. The `runCatching` was verified by mutation.
+  a signed-in screen. The `runCatching` was verified by mutation. The other 15
+  cover the edit form: the fields prefill from the session, a save merges the
+  typed values over the loaded profile so id/username/role cannot be blanked, the
+  state and the cached session are both rewritten from the **server's** answer,
+  a refusal shows the server's own sentence and keeps the form, and each
+  validation rule blocks the network rather than spending a round trip on a
+  request the server would only refuse. The cache rewrite and the merge were both
+  verified by mutation.
 - `ui/feature/home/HomeViewModelTest.kt` (14) — the next appointment is the
   *soonest* one rather than the first the server returned, and the two loads are
   independent so neither can blank the other. `minByOrNull` → `maxByOrNull` was
@@ -171,7 +181,7 @@ harness, and there is no mocking framework — a fake that records what it was a
 for says more about a state machine than a verify-count does. `MainDispatcherRule`
 swaps in an `UnconfinedTestDispatcher` so a launch runs to completion eagerly;
 without that, a test that never awaits its coroutine passes while proving
-nothing. The substantial suite is still `:server:test` (101 tests, see below).
+nothing. The substantial suite is still `:server:test` (106 tests, see below).
 
 ## Two traps in the ViewModel tests
 
@@ -448,6 +458,16 @@ Rules that are easy to break:
   navigation 2.10.1** — it fails to compile, and the fix is
   `navController.getBackStackEntry(Screen.RegisterFlow.route)`, which is why the
   graph has an explicit route rather than a generated one.
+- **`EditProfileScreen` takes the *Profile* entry's `ProfileViewModel`.** It does
+  not create its own; it resolves `navController.getBackStackEntry(Screen.Profile.route)`
+  and passes that as the `viewModelStoreOwner`, the same move the register wizard
+  makes. Two instances would each hold a copy of the session, and the one behind
+  the edit screen would be the stale one — so a save would appear to do nothing on
+  the screen the patient returns to. Sharing the instance means a successful save
+  updates the state `ProfileScreen` renders through, with no refresh call and no
+  result-passing. The finished signal is a callback (`saveProfile { popBackStack() }`),
+  not a flag on the shared state, which would still be set the next time the form
+  opened and would navigate away the instant it appeared.
 - **`registrationId` lives in the `RegisterViewModel` and nowhere else.** It is the
   server's proof that the number was verified, and `/auth/register` cannot succeed
   without it. It is deliberately absent from `RegisterUiState`; `otpVerified` is
@@ -491,6 +511,19 @@ the `ui-auth` module - which is also where `MediQBrandTextField` gained its
 `keyboardActions`, `MediQButton` its `loading`, and `MediQInfoCard` its
 tint-matched border, each because adopting the component without it would have
 dropped a `Done`-to-submit, a spinner, or a measured status pair.
+
+`ProfileScreen` and the `EditProfileScreen` it opens are the sixth adoption
+(`ui-profile-edit`), and where `MediQBrandTextField` gained `isError` and
+`supportingText`. A six-field form has to say *which* field is wrong and why, and
+the alternative — drawing the message below the field at each call site — is how
+two screens end up with two error treatments and one of them silently unmeasured.
+The date-of-birth field keeps its format hint in `supportingText` until the field
+refuses a value, at which point the refusal replaces it rather than stacking.
+Two choices there are deliberate: the edit screen is its own route sharing the
+Profile route's ViewModel (see "Rules that are easy to break"), and the sex field
+is a `readOnly` `OutlinedTextField` with an invisible tap target rather than
+`ExposedDropdownMenuBox`, which is an experimental API for the same three lines
+of behaviour.
 
 `DoctorsScreen` is the third (`ui-doctors`): it draws `MediQBrandAppBar` with the
 result count in its `actions` slot, plus `MediQAvatar` and `MediQDivider`. Three
@@ -634,7 +667,12 @@ they are observations, not planned work, so they are not in `tasks/todo.md`.
 - **`PUT /profile` is a PATCH in disguise, and fields cannot be cleared.**
   `explicitNulls = false` plus `COALESCE` means omission and clearing are the
   same operation, so clearing is impossible — `ifBlank { null }` in the repository
-  silently restores the old value.
+  silently restores the old value. **Reachable from the app since the edit screen
+  shipped (2026-10-19):** a patient who empties the email field and saves gets the
+  old address back, and the screen shows it, because the state is rewritten from
+  the server's response rather than from what was typed. The screen is honest
+  about the result; the field still cannot be cleared. Fixing it needs a
+  `clearable` marker on the wire, not a client change.
 - **`verifyOtp` is untyped on both sides** (`Map<String, String>`), so a missing
   key threw a developer string that reached the UI.
 - **Status codes are overloaded.** Duplicate username and already-cancelled are
@@ -647,16 +685,6 @@ they are observations, not planned work, so they are not in `tasks/todo.md`.
 
 ### Application
 
-- **The profile cannot be edited from the app, and `ProfileRepository` is a dead
-  constructor parameter.** `ProfileViewModel(profileRepository, authRepository)`
-  takes a `ProfileRepository` and never reads it; `ProfileScreen` calls only
-  `refresh()` and `signOut()`. Nothing in `ui/` reaches
-  `ProfileRepository.updateProfile`, so the profile is display-only — yet
-  `README.md` lists "Profile read and update" under **What works**. The repository
-  itself is live and the server route is real; it is the edit form that does not
-  exist. `ProfileViewModelTest` asserts the boundary (`signing out does not touch
-  the profile repository`) rather than pinning the dead parameter as intended
-  behaviour, because a test that enshrined it would make the gap harder to see.
 - **`BookingUiState.canSubmit` reads a global, so it is not part of the state.**
   It is a getter over `BookingSelection.selection`, a mutable JVM singleton, which
   means the value a composable reads is not derivable from the `StateFlow` it
