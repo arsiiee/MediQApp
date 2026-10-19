@@ -29,6 +29,32 @@ class FakeMediQApiService : MediQApiService {
 
     var signOutCalled: Boolean = false
 
+    // --- Messages ----------------------------------------------------------
+    //
+    // Settable per method rather than one shared switch: the interesting tests
+    // need one call to fail while the rest behave, and a single `throwOn` flag
+    // cannot express that.
+
+    var messageThreadsResponse: PagedDto<MessageThreadDto> = PagedDto(emptyList())
+    var openThreadResponse: MessageThreadDto? = null
+    var messageThreadResponse: MessageThreadDto? = null
+    var messagesResponse: PagedDto<MessageDto> = PagedDto(emptyList())
+    var sendMessageResponse: MessageDto? = null
+    var markThreadReadResponse: AckDto = AckDto(true)
+
+    var messageThreadsError: Throwable? = null
+    var openThreadError: Throwable? = null
+    var messageThreadError: Throwable? = null
+    var messagesError: Throwable? = null
+    var sendMessageError: Throwable? = null
+    var markThreadReadError: Throwable? = null
+
+    var messageThreadsCalled: Boolean = false
+    val openThreadRequests = mutableListOf<OpenThreadRequestDto>()
+    val sendRequests = mutableListOf<Pair<String, SendMessageRequestDto>>()
+    val markedReadThreadIds = mutableListOf<String>()
+    val requestedMessageCursors = mutableListOf<String?>()
+
     override suspend fun signIn(body: SignInRequestDto): AuthSessionDto {
         return signInResponse ?: error("signInResponse not set")
     }
@@ -54,4 +80,39 @@ class FakeMediQApiService : MediQApiService {
     override suspend fun markNotificationRead(id: String): AckDto = TODO()
     override suspend fun getProfile(): UserProfileDto = TODO()
     override suspend fun updateProfile(body: UpdateProfileDto): UserProfileDto = TODO()
+
+    override suspend fun getMessageThreads(): PagedDto<MessageThreadDto> {
+        messageThreadsCalled = true
+        messageThreadsError?.let { throw it }
+        return messageThreadsResponse
+    }
+
+    override suspend fun openMessageThread(body: OpenThreadRequestDto): MessageThreadDto {
+        openThreadRequests += body
+        openThreadError?.let { throw it }
+        return openThreadResponse ?: error("openThreadResponse not set")
+    }
+
+    override suspend fun getMessageThread(id: String): MessageThreadDto {
+        messageThreadError?.let { throw it }
+        return messageThreadResponse ?: error("messageThreadResponse not set")
+    }
+
+    override suspend fun getMessages(threadId: String, cursor: String?): PagedDto<MessageDto> {
+        requestedMessageCursors += cursor
+        messagesError?.let { throw it }
+        return messagesResponse
+    }
+
+    override suspend fun sendMessage(threadId: String, body: SendMessageRequestDto): MessageDto {
+        sendRequests += threadId to body
+        sendMessageError?.let { throw it }
+        return sendMessageResponse ?: error("sendMessageResponse not set")
+    }
+
+    override suspend fun markThreadRead(id: String): AckDto {
+        markedReadThreadIds += id
+        markThreadReadError?.let { throw it }
+        return markThreadReadResponse
+    }
 }

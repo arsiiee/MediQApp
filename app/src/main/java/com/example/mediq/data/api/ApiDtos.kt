@@ -82,6 +82,32 @@ data class NotificationDto(
     val relatedAppointmentId: String? = null,
 )
 
+data class MessageThreadDto(
+    val id: String,
+    val scope: String,           // "clinic" | "doctor"
+    val doctorId: String? = null,
+    val doctorName: String? = null,
+    val lastMessageAt: String? = null,
+    val lastMessagePreview: String? = null,
+    val unreadCount: Int = 0,
+    // The server also sends `createdAt`. It is not modelled here: the client
+    // never displays it and the ordering is the server's job, so carrying it
+    // would be a field with no reader.
+)
+
+data class MessageDto(
+    val id: String,
+    val threadId: String,
+    val body: String,
+    val authorRole: String,      // "patient" | "staff"
+    val authorName: String,
+    val createdAt: String,
+    val readAt: String? = null,
+    val relatedAppointmentId: String? = null,
+    /** Decided by the server from the caller's identity, never by the client. */
+    val mine: Boolean = false,
+)
+
 data class UserProfileDto(
     val id: String,
     val username: String,
@@ -165,4 +191,15 @@ data class UpdateProfileDto(
     val dateOfBirth: String? = null,
     val sex: String? = null,
     val address: String? = null,
+)
+
+/**
+ * Omitting `doctorId` means the clinic thread, so one endpoint serves both
+ * scopes and the client never has to build a path for "the clinic".
+ */
+data class OpenThreadRequestDto(val doctorId: String? = null)
+
+data class SendMessageRequestDto(
+    val body: String,
+    val relatedAppointmentId: String? = null,
 )

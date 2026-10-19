@@ -1,3 +1,139 @@
+# Implementation Plan: `ui-messaging` — Patient↔clinic messaging (v6)
+
+> **Status: in progress (2026-10-19).** Spec: `tasks/SPEC-ui-messaging.md`
+> (approved; all four open questions resolved with the recommended answers — see
+> the spec's "Decisions"). Removes the `Messages` stub admitted in `README.md`,
+> `CHANGELOG.md`, and the previous spec.
+>
+> **This is the first module in the repo that adds tables, endpoints, and screens
+> at once.** Order is bottom-up: schema → store → routes → repository → ViewModel
+> → screen.
+
+## Overview
+
+Patients get two kinds of thread: one **clinic** thread per patient, and one
+**doctor** thread per (patient, doctor) pair. Staff reply through the API only.
+Six endpoints under `/messages`, two new tables, two new app screens, and a
+`Message clinic` action on appointment details.
+
+## Architecture Decisions
+
+- **A thread id is derived, not random** — `UUID.nameUUIDFromBytes("$userId|clinic|")`
+  or `"$userId|doctor|$doctorId"`. The primary key is then the uniqueness
+  guarantee, so a double tap cannot create two clinic threads and no
+  `SELECT`-then-`INSERT` race exists. Same mechanism as `slot_claims`.
+- **`related_appointment_id` sits on the message, not the thread.** A thread is
+  patient-scoped or doctor-scoped, never booking-scoped; the appointment a
+  message is about is a property of that message, exactly as
+  `notifications.related_appointment_id` already is. This is how "start from an
+  appointment" and "one clinic thread per patient" coexist.
+- **`last_message_at` / `last_message_preview` are denormalised** and written in
+  the same transaction as the insert, so the thread list needs no per-row
+  subquery. A test pins that they cannot drift.
+- **Unread is computed in the list query** (`SUM(CASE WHEN …)`) rather than
+  stored, which keeps it correct after a mark-read with no counter to maintain.
+- **Authorization answers 404, never 403, for another patient's thread** —
+  matching `AppointmentStore.get`, so a guessed id learns nothing.
+- **`author_role` is `patient`/`staff`, not `UserRole`** — the internal role
+  names never reach a patient.
+- **No staff UI.** Their screens are a second consumer and need their own spec.
+
+## Task List
+
+### Phase 1: Foundation
+
+- [ ] **Task 1 (S)** — Domain: `MessageThread`, `Message`, `MessageScope`, `MessageAuthorRole`, `MessageRepository`, `FakeMessageRepository`, `TestFixtures` entries
+  - Acceptance: pure Kotlin, no Android import; `Message.isMine`/`isUnread` derived where the client needs them; fake records sent bodies and holds a `sendGate`
+  - Verify: `:app:compileDebugKotlin`, `.\.mdfiles\check-boundaries.ps1`, `:app:testDebugUnitTest`
+  - Files: `domain/model/Message.kt` (new), `domain/repository/MessageRepository.kt` (new), `fake/FakeMessageRepository.kt` (new), `fake/TestFixtures.kt`
+- [ ] **Task 2 (M)** — App wire: `MessageThreadDto`, `MessageDto`, `SendMessageRequestDto`, `OpenThreadRequestDto`, mappers, `MediQApiService` methods
+  - Acceptance: field names match the server's; `Instant.parse` on timestamps; scope falls back nowhere (server-owned value, fails loud); a mapper test covers the wire→domain path
+  - Verify: `:app:testDebugUnitTest`
+  - Files: `data/api/ApiDtos.kt`, `data/api/ApiMappers.kt`, `data/api/MediQApiService.kt`, `data/api/ApiMappersTest.kt` or the existing mapper test file
+- [ ] **Task 3 (S)** — `RetrofitMessageRepository` + `EmptyRepositories` + `AppContainer`
+  - Acceptance: list reads absorb an unreachable server into an empty `Paged`; writes propagate; every `api.` call inside `call { }`
+  - Verify: `:app:testDebugUnitTest`, `.\.mdfiles\check-boundaries.ps1`
+  - Files: `data/repository/RetrofitMessageRepository.kt` (new), `data/repository/EmptyRepositories.kt`, `di/AppContainer.kt`, `test/.../RetrofitMessageRepositoryTest.kt`
+- [ ] **Task 4 (M)** — Server schema + `MessageStore`
+  - Acceptance: two tables appended to `schema.sql` with rule comments; derived ids; `openThread` is idempotent on a second call; the denormalised columns update in the insert's transaction; the ordering and unread query run on H2
+  - Verify: `:server:test`
+  - Files: `server/src/main/resources/schema.sql`, `server/.../db/MessageStore.kt` (new), `server/src/test/.../MessageStoreTest.kt` (new)
+- [ ] **Task 5 (M)** — Server routes + DTOs + wiring + seed
+  - Acceptance: six routes under `route("/messages")` inside `authenticate(AUTH_JWT)`; the role matrix of the spec enforced; blank body 400 with a patient-readable sentence; `MessageStore` threaded through `main` → `mediQModule` → `mediQRoutes`; a `MEDIQ_SEED_DEMO`-only demo thread
+  - Verify: `:server:test`, `.\server\scripts\smoke.ps1`
+  - Files: `http/Routes.kt`, `http/Dtos.kt`, `server/.../Main.kt`, `server/.../Seed.kt` (or wherever the demo rows are inserted), `server/src/test/.../MessagesApiTest.kt` (new)
+
+### Checkpoint A: Foundation
+- [ ] `:server:test` green with the new count; `:app:testDebugUnitTest` green
+- [ ] `check-boundaries.ps1` and `check-contrast.ps1` clean
+- [ ] A manual `curl` round trip: open a thread twice → same id; send; list; mark read
+
+### Phase 2: ViewModels
+
+- [ ] **Task 6 (M)** — `MessagesViewModel` + tests
+  - Acceptance: `init` load; refresh; empty vs error; unread counts pass through; open-clinic-thread and new-doctor-thread both reach the repository and do not double-submit
+  - Verify: `:app:testDebugUnitTest`
+  - Files: `ui/feature/messages/MessagesViewModel.kt` (new), `ui/feature/messages/MessagesViewModelTest.kt` (new)
+- [ ] **Task 7 (M)** — `MessageThreadViewModel` + tests
+  - Acceptance: loads the thread and its newest page; `loadEarlier` walks the cursor; `send` clears on success and **restores the draft on failure**; blank/oversized never reaches the network; opening marks read
+  - Verify: `:app:testDebugUnitTest`, plus a mutation check
+  - Files: `ui/feature/messages/MessageThreadViewModel.kt` (new), `ui/feature/messages/MessageThreadViewModelTest.kt` (new)
+
+### Checkpoint B: ViewModels
+- [ ] Both ViewModels `by lazy` in tests (the eager-dispatcher trap)
+- [ ] Mutation check: break the draft restore, confirm exactly the intended test fails, restore
+
+### Phase 3: UI
+
+- [ ] **Task 8 (M)** — `MessagesScreen`: thread list, unread rows, `New message` chooser, empty/error states, pull-to-refresh
+  - Acceptance: renders all three `LoadState`s; the chooser offers the clinic plus doctors; `PullToRefreshBox` verified present in this BOM before the screen is written
+  - Verify: `:app:compileDebugKotlin`, `check-contrast.ps1`
+  - Files: `ui/feature/messages/MessagesScreen.kt`
+- [ ] **Task 9 (M)** — `MessageThreadScreen` + `Screen.MessageThread` route + `MediQNavHost`
+  - Acceptance: messages oldest at the bottom; `Load earlier messages` when a cursor exists; the composer disables while blank or sending; the error banner shows the server's sentence
+  - Verify: `:app:compileDebugKotlin`, `check-contrast.ps1`
+  - Files: `ui/feature/messages/MessageThreadScreen.kt` (new), `ui/navigation/Routes.kt`, `ui/navigation/MediQNavHost.kt`
+- [ ] **Task 10 (S)** — `Message clinic` row on `AppointmentDetailsScreen`, outside the `isActionable` gate, prefilling the composer
+  - Acceptance: present for a cancelled appointment too; opens the clinic thread with the appointment named; carries `relatedAppointmentId`
+  - Verify: `:app:compileDebugKotlin`
+  - Files: `ui/feature/appointments/AppointmentDetailsScreen.kt`
+
+### Checkpoint C: UI
+- [ ] On `mediq_api36`: see both thread kinds, send, mark read, pull to refresh, start from an appointment
+- [ ] Screenshots captured into `screenshots/`
+
+### Phase 4: Documentation and gates
+
+- [ ] **Task 11 (M)** — Floors, inventory, changelog, README, spec decisions
+  - Acceptance: `CONSTRAINTS.md` floors measured with `--rerun-tasks` and recorded with the date and reason; `AGENTS.md` test inventory updated and the Messages gap moved out of "Known gaps"; `CHANGELOG.md` entry; root `README.md` no longer lists Messages as a stub
+  - Verify: all four gates
+  - Files: `.mdfiles/CONSTRAINTS.md`, `.mdfiles/AGENTS.md`, `.mdfiles/CHANGELOG.md`, `README.md`, `tasks/SPEC-ui-messaging.md`
+
+### Checkpoint D: Complete
+- [ ] All eight success criteria in the spec met
+- [ ] All four gates green with the new floors recorded
+- [ ] Device run done, not just JVM-side
+
+## Risks and Mitigations
+
+| Risk | Impact | Mitigation |
+|---|---|---|
+| `PullToRefreshBox` absent from this BOM | Med | Verify the import first (Task 8); fall back to an app-bar refresh action, and say so rather than dropping the behaviour silently |
+| `ORDER BY … DESC NULLS LAST` / `SUM(CASE …)` differs on Postgres | Med | Both are portable; H2 is the only engine the schema has ever run on, so record it as untested-on-Postgres rather than implying otherwise |
+| Derived thread id collides unexpectedly | High | It is the feature's idempotence guarantee; a test creates the same thread twice and asserts one row and one id |
+| Scope creep into a staff UI | Med | Explicitly out; the role matrix is enforced server-side and proven by smoke |
+| Test floors move without being recorded | Low | Floors are updated in Task 11 with measured numbers, the same commit as the tests |
+
+## Open Questions
+
+None. All four from the spec were resolved on 2026-10-19 with the recommended
+answers: an admin may read clinic threads; the appointment is recorded on the
+first message rather than on the thread; a staff reply raises a `message_reply`
+notification for the patient only; and the ERD figure is updated in a separate
+change, not inside a code slice.
+
+---
+
 # Implementation Plan: `ui-profile-edit` — Edit-profile screen (v5)
 
 > **Status: in progress (2026-10-19).** Spec: `tasks/SPEC-ui-profile-edit.md`

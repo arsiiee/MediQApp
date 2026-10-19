@@ -89,6 +89,32 @@ interface MediQApiService {
     @PATCH("notifications/{id}/read")
     suspend fun markNotificationRead(@Path("id") id: String): AckDto
 
+    // ── Messages (Bearer required) ────────────────────────────────────────
+
+    @GET("messages/threads")
+    suspend fun getMessageThreads(): PagedDto<MessageThreadDto>
+
+    @POST("messages/threads")
+    suspend fun openMessageThread(@Body body: OpenThreadRequestDto): MessageThreadDto
+
+    @GET("messages/threads/{id}")
+    suspend fun getMessageThread(@Path("id") id: String): MessageThreadDto
+
+    @GET("messages/threads/{id}/messages")
+    suspend fun getMessages(
+        @Path("id") threadId: String,
+        @Query("cursor") cursor: String? = null,
+    ): PagedDto<MessageDto>
+
+    @POST("messages/threads/{id}/messages")
+    suspend fun sendMessage(
+        @Path("id") threadId: String,
+        @Body body: SendMessageRequestDto,
+    ): MessageDto
+
+    @PATCH("messages/threads/{id}/read")
+    suspend fun markThreadRead(@Path("id") id: String): AckDto
+
     // ── Profile (Bearer required) ─────────────────────────────────────────
 
     @GET("profile")

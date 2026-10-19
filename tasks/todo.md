@@ -1904,7 +1904,7 @@ requires.
 
 ---
 
-# v5 � Profile Edit Screen (`ui-profile-edit`)
+# v5 � Profile Edit Screen (`ui-profile-edit`)
 
 Plan: `tasks/plan.md` (top section). Spec: `tasks/SPEC-ui-profile-edit.md`
 (approved 2026-10-19: separate screen, DOB as text field).
@@ -1966,13 +1966,58 @@ the API service, and the repository were already live and tested.
 
 - [x] `:app:testDebugUnitTest` green at **255** (was 238 in `AGENTS.md`, 237 measured before this change); `:server:test` green at **106**
 - [x] `check-boundaries.ps1` clean at **58 files** (was 56); `check-contrast.ps1` clean at 31 token pairs, ratchet still 4
-- [x] `:app:compileDebugKotlin` clean, and the 6 pre-existing deprecation warnings are still 6 � no new one from this module
+- [x] `:app:compileDebugKotlin` clean, and the 6 pre-existing deprecation warnings are still 6 � no new one from this module
 - [x] Mutation-checked twice: removing the `updateCachedProfile` call fails exactly `a successful save rewrites the cached session with the server's answer`; replacing the merge with the loaded profile fails exactly the two merge tests. Both restored.
 - [x] `.mdfiles/AGENTS.md` closed the "profile cannot be edited" gap, and corrected two stale counts as a side effect (see below)
-- [ ] **Not verified: a device run.** Every check here is JVM-side; the screen has not been opened on `mediq_api36`. The route, the shared ViewModel, and the dropdown are compile-and-unit-test evidence only.
+- [x] **Device run done.** On `mediq_api36` against `:server:run` (H2, seeded): Profile → Edit profile opens, the sex menu works, and a save returns to Profile with the field updated in place (`screenshots/16`–`18`). Force-stopping and relaunching still shows the new value (`screenshots/19`), so the write reached the server and was not only a cache update.
 
 **Two stale numbers were corrected, not moved.** The `:app` floor in
 `CONSTRAINTS.md` read 213 while its own table and `AGENTS.md` read 238, and the
-`:server` floor read 101 while the tree held 106 � the five extra arrived with
+`:server` floor read 101 while the tree held 106 � the five extra arrived with
 `92e4655` and neither number followed. The floors now read the measured 255 and
 106, with the dates and reasons recorded in the ratchet rows.
+---
+
+# ui-messaging — patient↔clinic messaging (v6, 2026-10-19)
+
+Spec: `tasks/SPEC-ui-messaging.md` (approved, all four open questions resolved).
+Plan: `tasks/plan.md` (v6 section at the top). Removes the Messages stub.
+
+## Task list
+
+### Phase 1: Foundation
+- [ ] Task 1 (S) — Domain models, `MessageRepository`, `FakeMessageRepository`, fixtures
+- [ ] Task 2 (M) — App wire: DTOs, mappers, `MediQApiService` methods, mapper test
+- [ ] Task 3 (S) — `RetrofitMessageRepository`, `EmptyRepositories`, `AppContainer`, repo test
+- [ ] Task 4 (M) — `schema.sql` two tables + `MessageStore` + `MessageStoreTest`
+- [ ] Task 5 (M) — `/messages` routes, server DTOs, `Main` wiring, seed, `MessagesApiTest`
+
+### Checkpoint A: Foundation
+- [ ] `:server:test` and `:app:testDebugUnitTest` green at the new counts
+- [ ] `check-boundaries.ps1` + `check-contrast.ps1` clean
+- [ ] `curl` round trip: open a thread twice → one id; send; list; mark read
+
+### Phase 2: ViewModels
+- [ ] Task 6 (M) — `MessagesViewModel` + tests (list, refresh, empty, error, unread, open thread)
+- [ ] Task 7 (M) — `MessageThreadViewModel` + tests (load, load earlier, send, draft restore, mark read)
+
+### Checkpoint B: ViewModels
+- [ ] Both ViewModels built `by lazy` in tests (eager-dispatcher trap)
+- [ ] Mutation check: break the draft restore, confirm exactly that test fails, restore
+
+### Phase 3: UI
+- [ ] Task 8 (M) — `MessagesScreen`: list, unread rows, `New message` chooser, pull-to-refresh
+- [ ] Task 9 (M) — `MessageThreadScreen` + route + NavHost
+- [ ] Task 10 (S) — `Message clinic` row on `AppointmentDetailsScreen` (outside the `isActionable` gate)
+
+### Checkpoint C: UI
+- [ ] Device run on `mediq_api36`: both thread kinds, send, read, refresh, start from an appointment
+- [ ] Screenshots into `screenshots/`
+
+### Phase 4: Documentation and gates
+- [ ] Task 11 (M) — `CONSTRAINTS.md` floors (measured), `AGENTS.md` inventory + gap closure, `CHANGELOG.md`, root `README.md`, spec decisions
+
+### Checkpoint D: Complete
+- [ ] All eight spec success criteria met
+- [ ] All four gates green, new floors recorded
+- [ ] Device run done, not only JVM-side

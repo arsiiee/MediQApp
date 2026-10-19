@@ -6,6 +6,10 @@ import com.example.mediq.domain.model.AppointmentStatus
 import com.example.mediq.domain.model.AvailableDate
 import com.example.mediq.domain.model.ClinicLocation
 import com.example.mediq.domain.model.Doctor
+import com.example.mediq.domain.model.Message
+import com.example.mediq.domain.model.MessageAuthorRole
+import com.example.mediq.domain.model.MessageScope
+import com.example.mediq.domain.model.MessageThread
 import com.example.mediq.domain.model.Money
 import com.example.mediq.domain.model.SlotStatus
 import com.example.mediq.domain.model.Specialty
@@ -118,5 +122,50 @@ object TestFixtures {
         location = ClinicLocation(building = "Main Building", floor = "2F", room = "Clinic 204"),
         fee = Money(70000),
         reasonForVisit = reasonForVisit,
+    )
+
+    /**
+     * Defaults describe the *clinic* thread with an unanswered staff message, so
+     * a test about unread counts varies only `unreadCount`, and a test about
+     * doctor threads names the scope and the doctor.
+     */
+    fun messageThread(
+        id: String = "thread-1",
+        scope: MessageScope = MessageScope.CLINIC,
+        doctorId: String? = null,
+        doctorName: String? = null,
+        lastMessageAt: Instant? = Instant.parse("2026-11-30T02:00:00Z"),
+        lastMessagePreview: String? = "See you then.",
+        unreadCount: Int = 0,
+    ): MessageThread = MessageThread(
+        id = id,
+        scope = scope,
+        doctorId = doctorId,
+        doctorName = doctorName,
+        lastMessageAt = lastMessageAt,
+        lastMessagePreview = lastMessagePreview,
+        unreadCount = unreadCount,
+    )
+
+    fun message(
+        id: String = "message-1",
+        threadId: String = "thread-1",
+        body: String = "Please bring your previous lab results.",
+        authorRole: MessageAuthorRole = MessageAuthorRole.STAFF,
+        authorName: String = "Demo Rivera",
+        createdAt: Instant = Instant.parse("2026-11-30T02:00:00Z"),
+        readAt: Instant? = null,
+        relatedAppointmentId: String? = null,
+        mine: Boolean = false,
+    ): Message = Message(
+        id = id,
+        threadId = threadId,
+        body = body,
+        authorRole = authorRole,
+        authorName = authorName,
+        createdAt = createdAt,
+        readAt = readAt,
+        relatedAppointmentId = relatedAppointmentId,
+        mine = mine,
     )
 }

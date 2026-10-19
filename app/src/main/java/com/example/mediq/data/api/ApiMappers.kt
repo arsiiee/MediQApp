@@ -8,6 +8,10 @@ import com.example.mediq.domain.model.ClinicHours
 import com.example.mediq.domain.model.ClinicLocation
 import com.example.mediq.domain.model.ConsultationLanguage
 import com.example.mediq.domain.model.Doctor
+import com.example.mediq.domain.model.Message
+import com.example.mediq.domain.model.MessageAuthorRole
+import com.example.mediq.domain.model.MessageScope
+import com.example.mediq.domain.model.MessageThread
 import com.example.mediq.domain.model.Money
 import com.example.mediq.domain.model.Notification
 import com.example.mediq.domain.model.NotificationType
@@ -167,6 +171,38 @@ fun NotificationDto.toDomain() = Notification(
     createdAt = Instant.parse(createdAt),
     readAt = readAt?.let { Instant.parse(it) },
     relatedAppointmentId = relatedAppointmentId,
+)
+
+// ─── Messages ─────────────────────────────────────────────────────────────────
+
+fun MessageThreadDto.toDomain() = MessageThread(
+    id = id,
+    // CLINIC is the safe direction to be wrong in: it renders the generic
+    // "clinic" title instead of naming a doctor whose id this build may not
+    // have matched. Unlike UserRole, no UNKNOWN member belongs here — these two
+    // enums are read only by the client and never parsed back into the server.
+    scope = MessageScope.entries.firstOrNull { it.wireValue == scope } ?: MessageScope.CLINIC,
+    doctorId = doctorId,
+    doctorName = doctorName,
+    lastMessageAt = lastMessageAt?.let { Instant.parse(it) },
+    lastMessagePreview = lastMessagePreview,
+    unreadCount = unreadCount,
+)
+
+fun MessageDto.toDomain() = Message(
+    id = id,
+    threadId = threadId,
+    body = body,
+    // STAFF is the safe direction: the message renders with an author name and
+    // can never be mistaken for something the patient wrote. The reverse would
+    // put words in the patient's mouth.
+    authorRole = MessageAuthorRole.entries.firstOrNull { it.wireValue == authorRole }
+        ?: MessageAuthorRole.STAFF,
+    authorName = authorName,
+    createdAt = Instant.parse(createdAt),
+    readAt = readAt?.let { Instant.parse(it) },
+    relatedAppointmentId = relatedAppointmentId,
+    mine = mine,
 )
 
 // ─── Paging ───────────────────────────────────────────────────────────────────
