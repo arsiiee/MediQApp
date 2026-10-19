@@ -1,0 +1,126 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 570" width="1000" height="570" font-family="'Segoe UI', Arial, sans-serif">
+  <defs>
+    <marker id="a2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#334155"/>
+    </marker>
+    <marker id="a2b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#006B3C"/>
+    </marker>
+  </defs>
+  <rect width="1000" height="570" fill="#FFFFFF"/>
+
+  <!-- client -->
+  <rect x="14" y="40" width="256" height="410" rx="10" fill="#F8FAFB" stroke="#0F172A" stroke-width="1.6"/>
+  <rect x="14" y="40" width="256" height="42" rx="10" fill="#006B3C"/>
+  <rect x="14" y="62" width="256" height="20" fill="#006B3C"/>
+  <text x="142" y="60" font-size="14" font-weight="bold" fill="#FFFFFF" text-anchor="middle">Android client &#183; :app</text>
+  <text x="142" y="75" font-size="10" fill="#D7EFE0" text-anchor="middle">Kotlin 2.2 &#183; Jetpack Compose &#183; Material 3</text>
+
+  <rect x="28" y="98" width="228" height="72" rx="7" fill="#FFFFFF" stroke="#94A3B8"/>
+  <text x="40" y="118" font-size="11" font-weight="bold" fill="#0F172A">ui/</text>
+  <text x="40" y="134" font-size="9.5" fill="#475569">15 screens, 10 ViewModels</text>
+  <text x="40" y="148" font-size="9.5" fill="#475569">LoadState&lt;T&gt; = Loading | Success | Error</text>
+  <text x="40" y="162" font-size="9.5" fill="#475569">navigation-compose, Routes.kt</text>
+
+  <rect x="28" y="180" width="228" height="66" rx="7" fill="#FFFFFF" stroke="#006B3C" stroke-width="1.6"/>
+  <text x="40" y="200" font-size="11" font-weight="bold" fill="#006B3C">domain/</text>
+  <text x="40" y="216" font-size="9.5" fill="#475569">Plain Kotlin models + repository</text>
+  <text x="40" y="230" font-size="9.5" fill="#475569">interfaces. No Compose, no Android.</text>
+  <text x="40" y="242" font-size="9" fill="#0F766E">Compiled by :server too (sharedDomain)</text>
+
+  <rect x="28" y="256" width="228" height="80" rx="7" fill="#FFFFFF" stroke="#94A3B8"/>
+  <text x="40" y="276" font-size="11" font-weight="bold" fill="#0F172A">data/</text>
+  <text x="40" y="292" font-size="9.5" fill="#475569">Retrofit 2.11 + OkHttp 4.12 + Gson</text>
+  <text x="40" y="306" font-size="9.5" fill="#475569">AuthInterceptor injects the bearer token</text>
+  <text x="40" y="320" font-size="9.5" fill="#475569">call { } maps HTTP error -&gt; ApiFailure</text>
+  <text x="40" y="332" font-size="9" fill="#64748B">Wire DTOs are separate from domain models</text>
+
+  <rect x="28" y="346" width="228" height="46" rx="7" fill="#FFFFFF" stroke="#94A3B8"/>
+  <text x="40" y="364" font-size="11" font-weight="bold" fill="#0F172A">core/designsystem/</text>
+  <text x="40" y="380" font-size="9.5" fill="#475569">Theme, colour tokens, empty state, nav bar</text>
+
+  <rect x="28" y="402" width="228" height="34" rx="7" fill="#E8F5E9" stroke="#006B3C"/>
+  <text x="142" y="424" font-size="10" fill="#0F5132" text-anchor="middle">di/AppContainer &#183; manual DI, one wiring file</text>
+
+  <!-- server -->
+  <rect x="372" y="40" width="256" height="410" rx="10" fill="#F8FAFB" stroke="#0F172A" stroke-width="1.6"/>
+  <rect x="372" y="40" width="256" height="42" rx="10" fill="#0F5132"/>
+  <rect x="372" y="62" width="256" height="20" fill="#0F5132"/>
+  <text x="500" y="60" font-size="14" font-weight="bold" fill="#FFFFFF" text-anchor="middle">Backend &#183; :server</text>
+  <text x="500" y="75" font-size="10" fill="#CDEBD9" text-anchor="middle">Kotlin 3.1.3 on Netty &#183; kotlinx.serialization</text>
+
+  <rect x="386" y="98" width="228" height="72" rx="7" fill="#FFFFFF" stroke="#94A3B8"/>
+  <text x="398" y="118" font-size="11" font-weight="bold" fill="#0F172A">http/</text>
+  <text x="398" y="134" font-size="9.5" fill="#475569">Routes.kt &#8212; all 19 endpoints</text>
+  <text x="398" y="148" font-size="9.5" fill="#475569">Dtos.kt &#8212; the wire contract</text>
+  <text x="398" y="162" font-size="9.5" fill="#475569">StatusPages &#8212; one ErrorDto shape</text>
+
+  <rect x="386" y="180" width="228" height="80" rx="7" fill="#FFFFFF" stroke="#94A3B8"/>
+  <text x="398" y="200" font-size="11" font-weight="bold" fill="#0F172A">db/</text>
+  <text x="398" y="216" font-size="9.5" fill="#475569">UserStore, DoctorStore, AppointmentStore,</text>
+  <text x="398" y="230" font-size="9.5" fill="#475569">NotificationStore, AuthService</text>
+  <text x="398" y="244" font-size="9.5" fill="#475569">All SQL is hand-written JDBC.</text>
+  <text x="398" y="256" font-size="9" fill="#64748B">One class per aggregate</text>
+
+  <rect x="386" y="270" width="228" height="58" rx="7" fill="#FFFFFF" stroke="#94A3B8"/>
+  <text x="398" y="290" font-size="11" font-weight="bold" fill="#0F172A">auth/</text>
+  <text x="398" y="306" font-size="9.5" fill="#475569">PBKDF2-HMAC-SHA256, 210k iterations</text>
+  <text x="398" y="320" font-size="9.5" fill="#475569">java-jwt 4.5.0, 60-minute TTL</text>
+
+  <rect x="386" y="338" width="228" height="58" rx="7" fill="#FFFFFF" stroke="#94A3B8"/>
+  <text x="398" y="358" font-size="11" font-weight="bold" fill="#0F172A">Db.kt</text>
+  <text x="398" y="374" font-size="9.5" fill="#475569">HikariCP pool, schema.sql bootstrap</text>
+  <text x="398" y="388" font-size="9.5" fill="#475569">tx { } &#8212; one transaction per booking</text>
+
+  <rect x="386" y="406" width="228" height="30" rx="7" fill="#E8F5E9" stroke="#006B3C"/>
+  <text x="500" y="426" font-size="10" fill="#0F5132" text-anchor="middle">All config from environment variables</text>
+
+  <!-- database -->
+  <rect x="730" y="120" width="256" height="250" rx="10" fill="#F8FAFB" stroke="#0F172A" stroke-width="1.6"/>
+  <rect x="730" y="120" width="256" height="42" rx="10" fill="#0F172A"/>
+  <rect x="730" y="142" width="256" height="20" fill="#0F172A"/>
+  <text x="858" y="140" font-size="14" font-weight="bold" fill="#FFFFFF" text-anchor="middle">Database</text>
+  <text x="858" y="155" font-size="10" fill="#CBD5E1" text-anchor="middle">Relational &#183; 10 tables</text>
+
+  <rect x="744" y="178" width="228" height="70" rx="7" fill="#FFFFFF" stroke="#94A3B8"/>
+  <text x="756" y="198" font-size="11" font-weight="bold" fill="#0F172A">PostgreSQL 15</text>
+  <text x="756" y="214" font-size="9.5" fill="#475569">Production target. Wired through</text>
+  <text x="756" y="228" font-size="9.5" fill="#475569">MEDIQ_JDBC_URL.</text>
+  <text x="756" y="242" font-size="9" fill="#64748B">Refused by config guard if H2 in prod</text>
+
+  <rect x="744" y="258" width="228" height="58" rx="7" fill="#FFFFFF" stroke="#94A3B8"/>
+  <text x="756" y="278" font-size="11" font-weight="bold" fill="#0F172A">H2 2.3.232 (in-memory)</text>
+  <text x="756" y="294" font-size="9.5" fill="#475569">Development and test default. Data is</text>
+  <text x="756" y="308" font-size="9.5" fill="#475569">discarded on restart, by design.</text>
+
+  <rect x="744" y="326" width="228" height="32" rx="7" fill="#FFF8E6" stroke="#B25E00"/>
+  <text x="858" y="347" font-size="9.5" fill="#7A4A00" text-anchor="middle">schema.sql is the single source of truth</text>
+
+  <!-- arrows -->
+  <g stroke="#334155" stroke-width="1.8" fill="none">
+    <path d="M270,150 H330" marker-end="url(#a2)"/>
+    <path d="M330,290 H370" marker-end="url(#a2)"/>
+    <path d="M628,200 H728" marker-end="url(#a2)"/>
+    <path d="M858,370 V400" marker-end="url(#a2)"/>
+  </g>
+  <path d="M330,290 H340 V150" fill="none" stroke="#006B3C" stroke-width="1.6" stroke-dasharray="5 3" marker-end="url(#a2b)"/>
+
+  <text x="300" y="140" font-size="10" font-weight="bold" fill="#334155" text-anchor="middle">HTTPS</text>
+  <text x="300" y="154" font-size="9" fill="#475569" text-anchor="middle">JSON</text>
+  <text x="300" y="316" font-size="9" fill="#006B3C" text-anchor="middle">responses</text>
+  <text x="678" y="190" font-size="10" font-weight="bold" fill="#334155" text-anchor="middle">JDBC</text>
+  <text x="678" y="204" font-size="9" fill="#475569" text-anchor="middle">pooled</text>
+  <text x="858" y="392" font-size="9" fill="#475569" text-anchor="middle">schema.sql applied at boot</text>
+
+  <!-- cross-cutting -->
+  <rect x="14" y="470" width="972" height="76" rx="10" fill="#0F172A"/>
+  <text x="30" y="494" font-size="12" font-weight="bold" fill="#FFFFFF">Enforced on every push and pull request (.github/workflows/ci.yml)</text>
+  <g font-size="10" fill="#CBD5E1">
+    <text x="30" y="516">gates &#183; check-boundaries.ps1 (architecture rules)</text>
+    <text x="30" y="532">gates &#183; check-contrast.ps1 (WCAG AA colour pairs)</text>
+    <text x="360" y="516">android &#183; :app:lintDebug, :app:testDebugUnitTest (174), :app:assembleDebug</text>
+    <text x="360" y="532">server &#183; :server:test (59, incl. 12-way booking concurrency)</text>
+    <text x="820" y="516">~10 s for the gates,</text>
+    <text x="820" y="532">run in parallel with the build</text>
+  </g>
+</svg>

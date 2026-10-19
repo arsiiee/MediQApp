@@ -1,0 +1,260 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1300 1000" width="1300" height="1000" font-family="'Segoe UI', Arial, sans-serif">
+  <defs>
+    <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#334155"/>
+    </marker>
+    <marker id="arG" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#0F766E"/>
+    </marker>
+  </defs>
+  <rect width="1300" height="1000" fill="#FFFFFF"/>
+
+  <g font-family="Consolas, 'Courier New', monospace" font-size="11" fill="#111827">
+
+    <!-- ================= users ================= -->
+    <rect x="30" y="40" width="320" height="235" rx="6" fill="#FFFFFF" stroke="#0F172A" stroke-width="1.4"/>
+    <rect x="30" y="40" width="320" height="26" rx="6" fill="#006B3C"/>
+    <rect x="30" y="56" width="320" height="10" fill="#006B3C"/>
+    <text x="42" y="58" font-family="'Segoe UI', Arial" font-size="13" font-weight="bold" fill="#FFFFFF">users</text>
+    <g>
+      <rect x="31" y="67" width="318" height="17" fill="#F1F6F3"/>
+      <rect x="31" y="101" width="318" height="17" fill="#F1F6F3"/>
+      <rect x="31" y="135" width="318" height="17" fill="#F1F6F3"/>
+      <rect x="31" y="169" width="318" height="17" fill="#F1F6F3"/>
+      <rect x="31" y="203" width="318" height="17" fill="#F1F6F3"/>
+      <rect x="31" y="237" width="318" height="17" fill="#F1F6F3"/>
+      <text x="42" y="79"><tspan font-weight="bold" fill="#B00020">id</tspan>  VARCHAR(36)  PK</text>
+      <text x="42" y="96">username  VARCHAR(64)  UQ</text>
+      <text x="42" y="113">password_hash  VARCHAR(512)</text>
+      <text x="42" y="130">full_name  VARCHAR(160)</text>
+      <text x="42" y="147">email  VARCHAR(254)</text>
+      <text x="42" y="164">mobile_number  VARCHAR(20)  UQ</text>
+      <text x="42" y="181">date_of_birth  DATE</text>
+      <text x="42" y="198">sex  VARCHAR(24)</text>
+      <text x="42" y="215">address  VARCHAR(400)</text>
+      <text x="42" y="232">role  VARCHAR(24)</text>
+      <text x="42" y="249" font-weight="bold" fill="#0B5394">doctor_id  VARCHAR(36)  FK</text>
+      <text x="42" y="266">created_at  TIMESTAMPTZ</text>
+    </g>
+
+    <!-- ================= sessions ================= -->
+    <rect x="30" y="310" width="320" height="113" rx="6" fill="#FFFFFF" stroke="#0F172A" stroke-width="1.4"/>
+    <rect x="30" y="310" width="320" height="26" rx="6" fill="#006B3C"/>
+    <rect x="30" y="326" width="320" height="10" fill="#006B3C"/>
+    <text x="42" y="328" font-family="'Segoe UI', Arial" font-size="13" font-weight="bold" fill="#FFFFFF">sessions</text>
+    <rect x="31" y="337" width="318" height="17" fill="#F1F6F3"/>
+    <rect x="31" y="371" width="318" height="17" fill="#F1F6F3"/>
+    <text x="42" y="349"><tspan font-weight="bold" fill="#B00020">id</tspan>  VARCHAR(36)  PK</text>
+    <text x="42" y="366" font-weight="bold" fill="#0B5394">user_id  VARCHAR(36)  FK</text>
+    <text x="42" y="383">created_at  TIMESTAMPTZ</text>
+    <text x="42" y="400">expires_at  TIMESTAMPTZ</text>
+    <text x="42" y="417">revoked_at  TIMESTAMPTZ</text>
+
+    <!-- ================= otp_codes ================= -->
+    <rect x="30" y="475" width="320" height="150" rx="6" fill="#FFFFFF" stroke="#0F172A" stroke-width="1.4"/>
+    <rect x="30" y="475" width="320" height="26" rx="6" fill="#006B3C"/>
+    <rect x="30" y="491" width="320" height="10" fill="#006B3C"/>
+    <text x="42" y="493" font-family="'Segoe UI', Arial" font-size="13" font-weight="bold" fill="#FFFFFF">otp_codes</text>
+    <rect x="31" y="502" width="318" height="17" fill="#F1F6F3"/>
+    <rect x="31" y="536" width="318" height="17" fill="#F1F6F3"/>
+    <rect x="31" y="570" width="318" height="17" fill="#F1F6F3"/>
+    <rect x="31" y="604" width="318" height="17" fill="#F1F6F3"/>
+    <text x="42" y="514"><tspan font-weight="bold" fill="#B00020">id</tspan>  VARCHAR(36)  PK</text>
+    <text x="42" y="531">mobile_number  VARCHAR(20)</text>
+    <text x="42" y="548">code_hash  VARCHAR(512)</text>
+    <text x="42" y="565">attempt_count  INT  DEFAULT 0</text>
+    <text x="42" y="582">expires_at  TIMESTAMPTZ</text>
+    <text x="42" y="599">consumed_at  TIMESTAMPTZ</text>
+    <text x="42" y="616">created_at  TIMESTAMPTZ</text>
+
+    <!-- ================= notifications ================= -->
+    <rect x="30" y="660" width="320" height="165" rx="6" fill="#FFFFFF" stroke="#0F172A" stroke-width="1.4"/>
+    <rect x="30" y="660" width="320" height="26" rx="6" fill="#006B3C"/>
+    <rect x="30" y="676" width="320" height="10" fill="#006B3C"/>
+    <text x="42" y="678" font-family="'Segoe UI', Arial" font-size="13" font-weight="bold" fill="#FFFFFF">notifications</text>
+    <rect x="31" y="687" width="318" height="17" fill="#F1F6F3"/>
+    <rect x="31" y="721" width="318" height="17" fill="#F1F6F3"/>
+    <rect x="31" y="755" width="318" height="17" fill="#F1F6F3"/>
+    <rect x="31" y="789" width="318" height="17" fill="#F1F6F3"/>
+    <text x="42" y="699"><tspan font-weight="bold" fill="#B00020">id</tspan>  VARCHAR(36)  PK</text>
+    <text x="42" y="716" font-weight="bold" fill="#0B5394">user_id  VARCHAR(36)  FK</text>
+    <text x="42" y="733">type  VARCHAR(40)</text>
+    <text x="42" y="750">title  VARCHAR(160)</text>
+    <text x="42" y="767">body  VARCHAR(1000)</text>
+    <text x="42" y="784">created_at  TIMESTAMPTZ</text>
+    <text x="42" y="801">read_at  TIMESTAMPTZ</text>
+    <text x="42" y="818">related_appointment_id</text>
+
+    <!-- ================= appointments ================= -->
+    <rect x="520" y="170" width="330" height="250" rx="6" fill="#FFFFFF" stroke="#0F172A" stroke-width="1.4"/>
+    <rect x="520" y="170" width="330" height="26" rx="6" fill="#006B3C"/>
+    <rect x="520" y="186" width="330" height="10" fill="#006B3C"/>
+    <text x="532" y="188" font-family="'Segoe UI', Arial" font-size="13" font-weight="bold" fill="#FFFFFF">appointments</text>
+    <rect x="521" y="197" width="328" height="17" fill="#F1F6F3"/>
+    <rect x="521" y="231" width="328" height="17" fill="#F1F6F3"/>
+    <rect x="521" y="265" width="328" height="17" fill="#F1F6F3"/>
+    <rect x="521" y="299" width="328" height="17" fill="#F1F6F3"/>
+    <rect x="521" y="333" width="328" height="17" fill="#F1F6F3"/>
+    <rect x="521" y="367" width="328" height="17" fill="#F1F6F3"/>
+    <text x="532" y="209"><tspan font-weight="bold" fill="#B00020">id</tspan>  VARCHAR(36)  PK</text>
+    <text x="532" y="226" font-weight="bold" fill="#0B5394">user_id  VARCHAR(36)  FK</text>
+    <text x="532" y="243" font-weight="bold" fill="#0B5394">doctor_id  VARCHAR(36)  FK</text>
+    <text x="532" y="260" font-weight="bold" fill="#0B5394">slot_id  VARCHAR(36)  FK</text>
+    <text x="532" y="277">starts_at  TIMESTAMPTZ</text>
+    <text x="532" y="294">ends_at  TIMESTAMPTZ</text>
+    <text x="532" y="311">status  VARCHAR(32)  CHK</text>
+    <text x="532" y="328">reason_for_visit  VARCHAR(1000)</text>
+    <text x="532" y="345">confirmed_by_patient  BOOLEAN</text>
+    <text x="532" y="362">requested_slot_id  VARCHAR(36)</text>
+    <text x="532" y="379">reschedule_note  VARCHAR(1000)</text>
+    <text x="532" y="396">created_at  TIMESTAMPTZ</text>
+    <text x="532" y="413">updated_at  TIMESTAMPTZ</text>
+
+    <!-- ================= note ================= -->
+    <rect x="520" y="480" width="330" height="252" rx="6" fill="#F7FBF8" stroke="#0F766E" stroke-width="1.2" stroke-dasharray="5 3"/>
+    <text x="534" y="504" font-family="'Segoe UI', Arial" font-size="12" font-weight="bold" fill="#0F766E">Design notes</text>
+    <text x="534" y="528" font-family="'Segoe UI', Arial" font-size="10.5" fill="#134E4A">All timestamps are TIMESTAMP WITH TIME ZONE,</text>
+    <text x="534" y="543" font-family="'Segoe UI', Arial" font-size="10.5" fill="#134E4A">stored in UTC. Asia/Manila is applied on</text>
+    <text x="534" y="558" font-family="'Segoe UI', Arial" font-size="10.5" fill="#134E4A">display only, by the client.</text>
+    <text x="534" y="585" font-family="'Segoe UI', Arial" font-size="10.5" fill="#134E4A">Money is BIGINT centavos, never a float</text>
+    <text x="534" y="600" font-family="'Segoe UI', Arial" font-size="10.5" fill="#134E4A">and never a pre-formatted string.</text>
+    <text x="534" y="627" font-family="'Segoe UI', Arial" font-size="10.5" fill="#134E4A">reason_for_visit is returned by</text>
+    <text x="534" y="642" font-family="'Segoe UI', Arial" font-size="10.5" fill="#134E4A">GET /appointments/{id} only — it is health</text>
+    <text x="534" y="657" font-family="'Segoe UI', Arial" font-size="10.5" fill="#134E4A">information, not list data.</text>
+    <text x="534" y="684" font-family="'Segoe UI', Arial" font-size="10.5" fill="#134E4A">Two columns carry no foreign key, so the row</text>
+    <text x="534" y="699" font-family="'Segoe UI', Arial" font-size="10.5" fill="#134E4A">they point at can be deleted without rejecting</text>
+    <text x="534" y="714" font-family="'Segoe UI', Arial" font-size="10.5" fill="#134E4A">anything: related_appointment_id, requested_slot_id</text>
+
+    <!-- ================= specialties ================= -->
+    <rect x="940" y="40" width="330" height="65" rx="6" fill="#FFFFFF" stroke="#0F172A" stroke-width="1.4"/>
+    <rect x="940" y="40" width="330" height="26" rx="6" fill="#006B3C"/>
+    <rect x="940" y="56" width="330" height="10" fill="#006B3C"/>
+    <text x="952" y="58" font-family="'Segoe UI', Arial" font-size="13" font-weight="bold" fill="#FFFFFF">specialties</text>
+    <rect x="941" y="67" width="328" height="17" fill="#F1F6F3"/>
+    <text x="952" y="79"><tspan font-weight="bold" fill="#B00020">id</tspan>  VARCHAR(24)  PK</text>
+    <text x="952" y="96">display_name  VARCHAR(80)</text>
+
+    <!-- ================= doctors ================= -->
+    <rect x="940" y="135" width="330" height="235" rx="6" fill="#FFFFFF" stroke="#0F172A" stroke-width="1.4"/>
+    <rect x="940" y="135" width="330" height="26" rx="6" fill="#006B3C"/>
+    <rect x="940" y="151" width="330" height="10" fill="#006B3C"/>
+    <text x="952" y="153" font-family="'Segoe UI', Arial" font-size="13" font-weight="bold" fill="#FFFFFF">doctors</text>
+    <rect x="941" y="162" width="328" height="17" fill="#F1F6F3"/>
+    <rect x="941" y="196" width="328" height="17" fill="#F1F6F3"/>
+    <rect x="941" y="230" width="328" height="17" fill="#F1F6F3"/>
+    <rect x="941" y="264" width="328" height="17" fill="#F1F6F3"/>
+    <rect x="941" y="298" width="328" height="17" fill="#F1F6F3"/>
+    <rect x="941" y="332" width="328" height="17" fill="#F1F6F3"/>
+    <text x="952" y="174"><tspan font-weight="bold" fill="#B00020">id</tspan>  VARCHAR(36)  PK</text>
+    <text x="952" y="191">full_name  VARCHAR(160)</text>
+    <text x="952" y="208" font-weight="bold" fill="#0B5394">specialty_id  VARCHAR(24)  FK</text>
+    <text x="952" y="225">years_experience  INT</text>
+    <text x="952" y="242">fee_centavos  BIGINT  CHK &gt;= 0</text>
+    <text x="952" y="259">license_number  VARCHAR(64)</text>
+    <text x="952" y="276">bio  VARCHAR(2000)</text>
+    <text x="952" y="293">building  VARCHAR(120)</text>
+    <text x="952" y="310">floor  VARCHAR(40)</text>
+    <text x="952" y="327">room  VARCHAR(40)</text>
+    <text x="952" y="344">languages  VARCHAR(120)</text>
+    <text x="952" y="361">created_at  TIMESTAMPTZ</text>
+
+    <!-- ================= clinic_hours ================= -->
+    <rect x="940" y="400" width="330" height="115" rx="6" fill="#FFFFFF" stroke="#0F172A" stroke-width="1.4"/>
+    <rect x="940" y="400" width="330" height="26" rx="6" fill="#006B3C"/>
+    <rect x="940" y="416" width="330" height="10" fill="#006B3C"/>
+    <text x="952" y="418" font-family="'Segoe UI', Arial" font-size="13" font-weight="bold" fill="#FFFFFF">clinic_hours</text>
+    <rect x="941" y="427" width="328" height="17" fill="#F1F6F3"/>
+    <rect x="941" y="461" width="328" height="17" fill="#F1F6F3"/>
+    <rect x="941" y="495" width="328" height="17" fill="#F1F6F3"/>
+    <text x="952" y="439"><tspan font-weight="bold" fill="#B00020">id</tspan>  VARCHAR(36)  PK</text>
+    <text x="952" y="456" font-weight="bold" fill="#0B5394">doctor_id  VARCHAR(36)  FK</text>
+    <text x="952" y="473">day_of_week  INT  CHK 1..7</text>
+    <text x="952" y="490">opens_at  TIME</text>
+    <text x="952" y="507">closes_at  TIME</text>
+
+    <!-- ================= slots ================= -->
+    <rect x="940" y="545" width="330" height="115" rx="6" fill="#FFFFFF" stroke="#0F172A" stroke-width="1.4"/>
+    <rect x="940" y="545" width="330" height="26" rx="6" fill="#006B3C"/>
+    <rect x="940" y="561" width="330" height="10" fill="#006B3C"/>
+    <text x="952" y="563" font-family="'Segoe UI', Arial" font-size="13" font-weight="bold" fill="#FFFFFF">slots</text>
+    <rect x="941" y="572" width="328" height="17" fill="#F1F6F3"/>
+    <rect x="941" y="606" width="328" height="17" fill="#F1F6F3"/>
+    <rect x="941" y="640" width="328" height="17" fill="#F1F6F3"/>
+    <text x="952" y="584"><tspan font-weight="bold" fill="#B00020">id</tspan>  VARCHAR(36)  PK</text>
+    <text x="952" y="601" font-weight="bold" fill="#0B5394">doctor_id  VARCHAR(36)  FK</text>
+    <text x="952" y="618">starts_at  TIMESTAMPTZ</text>
+    <text x="952" y="635">ends_at  TIMESTAMPTZ</text>
+    <text x="952" y="652">status  'available' | 'blocked'</text>
+
+    <!-- ================= slot_claims ================= -->
+    <rect x="940" y="695" width="330" height="85" rx="6" fill="#FFF8E6" stroke="#B25E00" stroke-width="1.8"/>
+    <rect x="940" y="695" width="330" height="26" rx="6" fill="#B25E00"/>
+    <rect x="940" y="711" width="330" height="10" fill="#B25E00"/>
+    <text x="952" y="713" font-family="'Segoe UI', Arial" font-size="13" font-weight="bold" fill="#FFFFFF">slot_claims  (double-booking guard)</text>
+    <rect x="941" y="722" width="328" height="17" fill="#FEF6E7"/>
+    <text x="952" y="734"><tspan font-weight="bold" fill="#B00020">slot_id</tspan>  VARCHAR(36)  PK + FK</text>
+    <text x="952" y="751" font-weight="bold" fill="#0B5394">appointment_id  VARCHAR(36)  FK</text>
+    <text x="952" y="768">claimed_at  TIMESTAMPTZ</text>
+
+    <!-- ================= relationships ================= -->
+    <g stroke="#334155" stroke-width="1.5" fill="none" marker-end="url(#ar)">
+      <path d="M350,375 H380 V200 H352"/>
+      <path d="M350,190 H518"/>
+      <path d="M350,745 H440 V230 H352"/>
+      <path d="M938,250 H852"/>
+      <path d="M940,740 H880 V380 H852"/>
+      <path d="M850,330 H900 V600 H938"/>
+      <path d="M1050,660 V693"/>
+    </g>
+    <g stroke="#0F766E" stroke-width="1.4" fill="none" stroke-dasharray="5 3" marker-end="url(#arG)">
+      <path d="M350,545 H405 V250 H352"/>
+      <path d="M1105,105 V133"/>
+      <path d="M1105,370 V398"/>
+      <path d="M1105,515 V543"/>
+      <path d="M700,422 V440 H470 V700 H352"/>
+    </g>
+
+    <!-- labels -->
+    <g font-family="'Segoe UI', Arial" font-size="10" font-weight="bold" fill="#334155">
+      <text x="386" y="300">sessions.user_id</text>
+      <text x="386" y="180">users.id</text>
+      <text x="392" y="222">otp_codes.mobile_number</text>
+      <text x="452" y="722">notifications.user_id</text>
+      <text x="856" y="242">doctors.id</text>
+      <text x="858" y="374">appointments.id</text>
+      <text x="858" y="324">slots.id</text>
+      <text x="1060" y="681">slots.id</text>
+      <text x="1112" y="124">specialties.id</text>
+      <text x="1112" y="389">doctors.id</text>
+      <text x="1112" y="534">clinic_hours</text>
+    </g>
+    <text x="477" y="570" transform="rotate(-90,477,570)" text-anchor="middle"
+          font-family="'Segoe UI', Arial" font-size="9.5" fill="#0F766E">related_appointment_id &#8212; soft reference, no foreign key</text>
+
+    <!-- legend -->
+    <rect x="520" y="750" width="330" height="196" rx="6" fill="#FFFFFF" stroke="#94A3B8" stroke-width="1"/>
+    <text x="534" y="772" font-family="'Segoe UI', Arial" font-size="12" font-weight="bold" fill="#0F172A">Legend</text>
+    <text x="534" y="793" font-size="10.5" font-weight="bold" fill="#B00020">PK</text>
+    <text x="558" y="793" font-size="10.5" fill="#334155">primary key</text>
+    <text x="700" y="793" font-size="10.5" font-weight="bold" fill="#0B5394">FK</text>
+    <text x="724" y="793" font-size="10.5" fill="#334155">foreign key</text>
+    <text x="534" y="811" font-size="10.5" fill="#64748B">UQ</text>
+    <text x="558" y="811" font-size="10.5" fill="#334155">unique constraint</text>
+    <text x="700" y="811" font-size="10.5" fill="#64748B">CHK</text>
+    <text x="730" y="811" font-size="10.5" fill="#334155">check constraint</text>
+    <line x1="534" y1="831" x2="560" y2="831" stroke="#334155" stroke-width="1.5"/>
+    <text x="568" y="835" font-size="10.5" fill="#334155">enforced relationship</text>
+    <line x1="700" y1="831" x2="726" y2="831" stroke="#0F766E" stroke-width="1.4" stroke-dasharray="5 3"/>
+    <text x="734" y="835" font-size="10.5" fill="#334155">logical / derived</text>
+    <text x="534" y="863" font-size="10" fill="#0F766E">Booking an appointment INSERTs one row into</text>
+    <text x="534" y="877" font-size="10" fill="#0F766E">slot_claims. That primary key is the whole</text>
+    <text x="534" y="891" font-size="10" fill="#0F766E">double-booking guarantee: the second insert for</text>
+    <text x="534" y="905" font-size="10" fill="#0F766E">one slot is refused by the constraint, not by a</text>
+    <text x="534" y="919" font-size="10" fill="#0F766E">hopeful check made earlier in the request.</text>
+
+    <text x="880" y="890" font-family="'Segoe UI', Arial" font-size="10.5" fill="#475569">Ten tables. Defined once, in</text>
+    <text x="880" y="904" font-family="'Segoe UI', Arial" font-size="10.5" fill="#475569">server/src/main/resources/schema.sql,</text>
+    <text x="880" y="918" font-family="'Segoe UI', Arial" font-size="10.5" fill="#475569">which is the only place the data shape</text>
+    <text x="880" y="932" font-family="'Segoe UI', Arial" font-size="10.5" fill="#475569">exists.</text>
+  </g>
+</svg>

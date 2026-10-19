@@ -1,0 +1,1015 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>MediQ — Final Project</title>
+<style>
+  @page { size: A4 portrait; margin: 18mm 15mm 16mm 15mm; }
+
+  html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  /* Every glyph in the document is black. Only fills, rules and borders carry
+     colour: the section rules, the callout tints, the zebra rows and the
+     colour-swatch squares in 7.2, which exist to depict a colour rather than
+     to be read as text. The SVG figures keep their own colours by decision. */
+  body {
+    font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    font-size: 10.2pt; line-height: 1.5; color: #000000; margin: 0;
+  }
+
+  /* ---------- cover ---------- */
+  .cover { page-break-after: always; padding-top: 8mm; }
+  .cover-rule { height: 8px; background: #006B3C; margin-bottom: 14mm; }
+  .cover h1 { font-size: 30pt; line-height: 1.15; color: #000; margin: 0 0 4mm 0; font-weight: 700; }
+  .cover h2 { font-size: 13pt; color: #000; font-weight: 600; margin: 0 0 2mm 0; }
+  .cover .sub { font-size: 11pt; color: #000; margin: 0 0 16mm 0; font-weight: 400; }
+  .cover .meta { border-top: 2px solid #006B3C; padding-top: 6mm; }
+  .cover table { width: 100%; border-collapse: collapse; }
+  .cover td { padding: 2.2mm 0; vertical-align: top; font-size: 10.5pt; }
+  .cover td.k { width: 42mm; color: #000; font-weight: 600; font-size: 9.5pt; text-transform: uppercase; letter-spacing: .4px; }
+  .cover ol { margin: 0; padding-left: 7mm; }
+  .cover ol li { margin-bottom: 1.6mm; font-size: 10.5pt; }
+  .cover .foot { margin-top: 18mm; font-size: 9pt; color: #000; border-top: 1px solid #D1D5DB; padding-top: 4mm; }
+
+  /* ---------- headings ---------- */
+  h2.sec {
+    font-size: 15pt; color: #000; margin: 0 0 4mm 0; padding-bottom: 2mm;
+    border-bottom: 2.5px solid #006B3C; page-break-after: avoid;
+  }
+  h2.sec .num { color: #000; margin-right: 3mm; }
+  h3 { font-size: 11.5pt; color: #000; margin: 7mm 0 2.5mm 0; page-break-after: avoid; }
+  h4 { font-size: 10.4pt; color: #000; margin: 5mm 0 2mm 0; page-break-after: avoid; }
+  p { margin: 0 0 3mm 0; text-align: justify; }
+  ul, ol { margin: 0 0 3mm 0; padding-left: 6mm; }
+  li { margin-bottom: 1.4mm; }
+  .sec { page-break-before: always; }
+  .nobreak { page-break-inside: avoid; }
+
+  /* ---------- toc ---------- */
+  .toc { page-break-after: always; }
+  .toc table { width: 100%; border-collapse: collapse; }
+  .toc td { padding: 2.4mm 0; border-bottom: 1px dotted #D1D5DB; font-size: 10.5pt; }
+  .toc td.n { width: 12mm; color: #000; font-weight: 700; }
+  .toc td.p { width: 14mm; text-align: right; color: #000; font-variant-numeric: tabular-nums; }
+
+  /* ---------- tables ---------- */
+  table.data { width: 100%; border-collapse: collapse; margin: 3mm 0 5mm 0; font-size: 8.8pt; }
+  table.data th {
+    background: #EDEDED; color: #000; text-align: left; padding: 2mm 2.2mm;
+    font-weight: 700; font-size: 8.6pt; border: 1px solid #000;
+  }
+  table.data td { padding: 1.8mm 2.2mm; border: 1px solid #D8DEE4; vertical-align: top; }
+  table.data tr:nth-child(even) td { background: #F4F8F6; }
+  table.data tr { page-break-inside: avoid; }
+  table.data th { page-break-after: avoid; }
+  table.data td.c { text-align: center; }
+  table.data code { font-size: 8.2pt; }
+
+  /* ---------- misc ---------- */
+  code, .mono { font-family: Consolas, "Courier New", monospace; font-size: 8.8pt; color: #000; }
+  pre {
+    background: #F3F4F6; border-left: 3px solid #006B3C; padding: 2.5mm 3mm;
+    font-family: Consolas, "Courier New", monospace; font-size: 8.2pt; line-height: 1.45;
+    white-space: pre-wrap; margin: 3mm 0 4mm 0; color: #000;
+  }
+  .callout {
+    background: #E8F5E9; border-left: 4px solid #006B3C; padding: 3mm 3.5mm;
+    margin: 3mm 0 4mm 0; page-break-inside: avoid; color: #000;
+  }
+  .callout.warn { background: #FFF8E6; border-left-color: #B25E00; }
+  .callout.note { background: #F3F6F9; border-left-color: #4B5563; }
+  .callout .ct { font-weight: 700; color: #000; display: block; margin-bottom: 1.4mm; }
+  .callout p { margin-bottom: 1.6mm; }
+  .callout p:last-child { margin-bottom: 0; }
+
+  figure { margin: 4mm 0; page-break-inside: avoid; text-align: center; }
+  figure img { width: 100%; }
+  figure.fig-half { display: inline-block; width: 44%; vertical-align: top; margin: 1mm 0.6% 2mm 0.6%; }
+  figure.fig-half img { width: 100%; border: 1px solid #E5E7EB; }
+  figcaption { font-size: 8.4pt; color: #000; margin-top: 1.6mm; text-align: left; }
+  /* Each pair of screens plus its note is one block: a screen must never end up
+     on a page without the paragraph that explains it. line-height:0 removes the
+     descender gap an inline-block adds to its line box, which is otherwise
+     enough to push the note onto a page of its own. */
+  .figgroup { page-break-inside: avoid; line-height: 0; margin-bottom: 4mm; }
+  .figgroup .callout { line-height: 1.5; }
+
+  /* A swatch depicts a colour; it is not text. */
+  .sw { display: inline-block; width: 4.2mm; height: 4.2mm; border-radius: 1mm; vertical-align: -0.6mm; margin-right: 1.4mm; border: 1px solid #9CA3AF; }
+
+  /* Status pills keep three distinguishable tints; the label inside is black. */
+  .chip { display: inline-block; padding: .3mm 1.8mm; border-radius: 2mm; font-size: 7.8pt; font-weight: 700; color: #000; border: 1px solid #000; }
+  .ok  { background: #E4F1E5; }
+  .par { background: #FBEEDA; }
+  .pln { background: #EDEDED; }
+
+  /* Running footer is stamped onto the PDF by build.py, not by CSS:
+     Chromium does not support @page margin boxes, and position:fixed does not
+     repeat reliably across print pages. */
+</style>
+</head>
+<body>
+
+<!-- Cover -->
+<div class="cover">
+  <div class="cover-rule"></div>
+  <h1>MediQ</h1>
+  <h2>A Clinic Appointment System for Philippine Primary Care</h2>
+  <p class="sub">An Android client and a Ktor backend that publish a doctor's real
+  availability, let a patient book it, and stop two patients from holding the same slot.</p>
+
+  <div class="meta">
+    <table>
+      <tr><td class="k">Course</td><td><strong>Integrative Programming and Technologies 1</strong>, Final Project</td></tr>
+      <tr><td class="k">Submitted by</td><td>
+        <ol>
+          <li>APUT, KISSIE ANN C.</li>
+          <li>CABALDE, CHRISTIAN CARL C.</li>
+          <li>DIMASUHID, ADRIAN PAUL D.</li>
+          <li>GARILLOS, AMBER AINSLEY A.</li>
+          <li>MANDAHINOG, JHAN LHOYD S.</li>
+          <li>SALCEDO, ARWEYNE ZOE A.</li>
+        </ol>
+      </td></tr>
+      <tr><td class="k">System</td><td>Kotlin · Jetpack Compose (Material 3) · Ktor · Retrofit · PostgreSQL</td></tr>
+      <tr><td class="k">Build</td><td><span class="mono">:app</span> Android client, <span class="mono">:server</span> JVM backend; 110 Kotlin files, 19 HTTP endpoints, 10 tables</td></tr>
+      <tr><td class="k">Evidence</td><td>233 automated tests (174 client, 59 server) plus two PowerShell gates that run on every push</td></tr>
+      <tr><td class="k">Date</td><td>October 2026</td></tr>
+    </table>
+  </div>
+
+  <div class="foot">
+    Sections&nbsp;6.2 and&nbsp;6.4 record what is implemented, what is partial and what is
+    still planned.
+  </div>
+</div>
+
+<!-- ============================ TOC ============================ -->
+<div class="toc">
+  <h2 class="sec" id="toc" style="border-bottom-width:2.5px;">Contents</h2>
+  <table>
+    <tr><td class="n">1</td><td>Project Title</td><td class="p">Cover</td></tr>
+    <tr><td class="n">2</td><td>Group Members</td><td class="p">Cover</td></tr>
+    <tr><td class="n">3</td><td>Introduction and Problem Statement</td><td class="p" data-k="s3">3</td></tr>
+    <tr><td class="n">4</td><td>Objectives of the Project</td><td class="p" data-k="s4">5</td></tr>
+    <tr><td class="n">5</td><td>Target Users</td><td class="p" data-k="s5">6</td></tr>
+    <tr><td class="n">6</td><td>System Features and Functionalities</td><td class="p" data-k="s6">8</td></tr>
+    <tr><td class="n">7</td><td>User Interface Designs</td><td class="p" data-k="s7">15</td></tr>
+    <tr><td class="n">8</td><td>Database Design</td><td class="p" data-k="s8">21</td></tr>
+    <tr><td class="n">9</td><td>API Integrations and Their Purpose</td><td class="p" data-k="s9">25</td></tr>
+    <tr><td class="n">10</td><td>Expected Benefits and Impact</td><td class="p" data-k="s10">29</td></tr>
+    <tr><td class="n">11</td><td>Conclusion</td><td class="p" data-k="s11">32</td></tr>
+    <tr><td class="n">A</td><td>Appendix A: System Architecture and Technology Stack</td><td class="p" data-k="sa">33</td></tr>
+    <tr><td class="n">B</td><td>Appendix B: Running and Verifying the System</td><td class="p" data-k="sb">35</td></tr>
+    <tr><td class="n">C</td><td>Appendix C: Source Code Map</td><td class="p" data-k="sc">36</td></tr>
+    <tr><td class="n">–</td><td>References</td><td class="p" data-k="sr">37</td></tr>
+  </table>
+</div>
+
+<!-- ============================ 3. INTRODUCTION ============================ -->
+<div class="sec" id="s3">
+<h2 class="sec"><span class="num">3</span>Introduction and Problem Statement</h2>
+
+<h3>3.1 The situation</h3>
+<p>A neighbourhood clinic in the Philippines schedules roughly eighty to two hundred
+consultations a day. The tool it actually uses to decide who sees which doctor, and when,
+is a paper logbook on the front desk, supplemented by a telephone. That works, and it has
+worked for decades, because a person sits behind it all day. It stops working at the two
+moments the clinic is closed and at the moment two people want the same thing.</p>
+
+<p>Booking a visit therefore costs a patient a trip. To find out whether the doctor is free
+on Thursday, a patient either travels to the clinic to stand at the counter or opens the
+telephone to a line that is busy between the hours most working people are free. Clinic
+hours and consultation fees are not published anywhere the patient can reach before they
+leave the house. The consequence is a queue of people physically present at the clinic to
+reserve a place in a queue that will happen later anyway.</p>
+
+<h3>3.2 The specific failures</h3>
+<table class="data">
+  <thead><tr><th style="width:26mm">Failure</th><th style="width:62mm">What actually happens</th><th>Consequence for the patient</th></tr></thead>
+  <tbody>
+    <tr><td><strong>No visibility before arrival</strong></td><td>Availability lives in one book, in one building. There is no read-only copy anywhere else.</td><td>A patient cannot tell "the doctor is free at 09:30" from "the front desk is free at 09:30".</td></tr>
+    <tr><td><strong>Booking is unavailable outside office hours</strong></td><td>The only channel is a call answered by a person who is not there at night.</td><td>A patient who works a day job cannot book without taking leave.</td></tr>
+    <tr><td><strong>Double booking</strong></td><td>Two staff read the same free row, or one row is filled twice by hand. Nothing in the paper process rejects the second write.</td><td>One patient arrives to a full slot. The clinic resolves it at that patient's expense, and the record now disagrees with reality.</td></tr>
+    <tr><td><strong>Cancellations are invisible</strong></td><td>A cancelled slot is not announced. The next caller fills it.</td><td>Slots stay empty while patients believe they are taken, and vice versa.</td></tr>
+    <tr><td><strong>The visit leaves no record with the patient</strong></td><td>There is no artifact the patient controls: no date, no doctor's room, no fee, no note of why they went.</td><td>A patient cannot show up correctly, cannot check a fee, and cannot reconstruct their own history.</td></tr>
+    <tr><td><strong>Nothing is measurable</strong></td><td>No record of how many calls, how many no-shows, which times are never booked.</td><td>The clinic cannot plan staffing or find the hours it should open more capacity.</td></tr>
+  </tbody>
+</table>
+
+<h3>3.3 The hard part, stated precisely</h3>
+<p>Six of the seven failures above are a records problem, and any database would solve
+them. The seventh, double booking, is not. It is the reason this project is worth building
+carefully.</p>
+<p>A booking is a <em>contended write</em> on a resource that many people see at once. The
+obvious implementation is: read the slot, see that it is free, write the appointment. That
+implementation is wrong in a way that testing by hand will never reveal. Between the read
+and the write there is a window; two requests can both read <em>free</em> and both proceed.
+The window is milliseconds wide, which is exactly why it survives a demonstration and then
+fails once in production, in front of a patient, on the busiest morning of the week.</p>
+
+<div class="callout">
+  <span class="ct">The design decision this project is built around</span>
+  <p>Do not check availability and then write it. Reserve the slot with a single
+  <em>insert</em> into a table whose primary key is the slot id. The database has no window,
+  so two simultaneous bookings cannot both succeed: one of them is refused by the
+  constraint. Section&nbsp;8.4 works this through.</p>
+</div>
+
+<h3>3.4 Scope, and what is deliberately outside it</h3>
+<p>The system in this document is a <strong>patient-facing mobile application and a REST
+backend</strong>. It covers the whole journey from registration to cancelling a visit.
+Out of scope for the first release:</p>
+<ul>
+  <li><strong>Payments.</strong> Consultation fees are displayed and recorded, not collected.
+      A payment gateway introduces a second, regulated system and would not make any of the
+      seven failures above go away.</li>
+  <li><strong>A clinic staff console.</strong> The database models the roles and the licence
+      numbers a console would need, but no console is built. The patient application is the
+      deliverable.</li>
+  <li><strong>Clinical records.</strong> MediQ schedules a visit. It does not hold diagnoses,
+      prescriptions or lab results, and the reason-for-visit field is a scheduling note, not a
+      medical record.</li>
+  <li><strong>Emergency care.</strong> A booking application is the wrong tool in an emergency.
+      The application says so and points to the national emergency hotline rather than
+      offering a queue position.</li>
+</ul>
+</div>
+
+<!-- ============================ 4. OBJECTIVES ============================ -->
+<div class="sec" id="s4">
+<h2 class="sec"><span class="num">4</span>Objectives of the Project</h2>
+
+<p>Each objective is written so that it can be <em>shown</em> rather than asserted. The
+right-hand column names the artefact or the command that demonstrates it.</p>
+
+<table class="data">
+  <thead><tr><th style="width:9mm">#</th><th style="width:78mm">Objective</th><th>How completion is demonstrated</th></tr></thead>
+  <tbody>
+    <tr><td class="c"><strong>O1</strong></td>
+        <td><strong>Let a patient register and verify their own mobile number without contacting the clinic</strong>, then sign in immediately afterwards.</td>
+        <td>Four-screen wizard driven by one shared ViewModel. <span class="mono">RegisterViewModelTest</span> (22 tests) covers every validation branch and both failure paths of each step. <span class="mono">AuthServiceTest</span> (24) covers the server side.</td></tr>
+    <tr><td class="c"><strong>O2</strong></td>
+        <td><strong>Let a patient find a doctor and see that doctor's real, current availability before travelling to the clinic</strong>, including fee, licence number, room and weekly hours.</td>
+        <td><span class="mono">GET /doctors</span> with search, specialty and building filters, plus <span class="mono">/availability</span> and <span class="mono">/slots</span>, all generated by the server from <span class="mono">clinic_hours</span>. <span class="mono">DoctorSearchTest</span> (9) pins exactly what search matches.</td></tr>
+    <tr><td class="c"><strong>O3</strong></td>
+        <td><strong>Guarantee that one bookable time slot can be held by exactly one patient</strong>, even when two patients tap the same slot in the same instant.</td>
+        <td><span class="mono">slot_claims</span> has a primary key on the slot id. <span class="mono">BookingConcurrencyTest</span> fires 12 simultaneous bookings at one slot and asserts exactly one winner and exactly one row in each table. A green board on that row would prove nothing, so the row is marked only by this test.</td></tr>
+    <tr><td class="c"><strong>O4</strong></td>
+        <td><strong>Let a patient see, cancel or request a move for a visit</strong>, and return the time slot to the pool when a visit is cancelled.</td>
+        <td><span class="mono">DELETE /appointments/{id}</span> deletes the claim row inside the same transaction that sets the status, so the slot is bookable again while the appointment is kept for history. <span class="mono">AppointmentLifecycleTest</span> (13) and <span class="mono">AppointmentDetailsViewModelTest</span> (27) cover it.</td></tr>
+    <tr><td class="c"><strong>O5</strong></td>
+        <td><strong>Make the interface readable in both light and dark mode</strong>, verified by measurement rather than by inspection, and honest about what it does not yet cover.</td>
+        <td><span class="mono">check-contrast.ps1</span> parses the real colour tokens out of the source and computes the WCAG 2.1 relative-luminance ratio for 24 token pairs and 6 status chips. It fails on any pair below its threshold and is a CI gate.</td></tr>
+    <tr><td class="c"><strong>O6</strong></td>
+        <td><strong>Establish a baseline in which every rule the team writes down is also executed by a command</strong>, so a rule cannot rot into documentation that nobody checks.</td>
+        <td>Two PowerShell gates plus a CI job, with ratchet values that may not move backwards. The motivation is measured, not theoretical: three separate defects shipped with a fully green build precisely because their rules were prose only (Appendix&nbsp;B.3).</td></tr>
+  </tbody>
+</table>
+
+<div class="callout note">
+  <span class="ct">A note on how these were chosen</span>
+  <p>O3 and O6 are the two objectives that did not come from a feature list. O3 is the
+  failure in Section&nbsp;3.3. O6 came from three occasions when a green build in this
+  project proved nothing, each with the same cause. Both are in the final system because
+  they were the hardest parts.</p>
+</div>
+</div>
+
+<!-- ============================ 5. TARGET USERS ============================ -->
+<div class="sec" id="s5">
+<h2 class="sec"><span class="num">5</span>Target Users</h2>
+
+<h3>5.1 Primary user: the patient</h3>
+<table class="data">
+  <thead><tr><th style="width:32mm">Attribute</th><th>Description</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Who</strong></td><td>A resident of an urban or peri-urban Philippine district, 18&ndash;60, who owns an Android phone and visits a primary-care clinic between one and four times a year.</td></tr>
+    <tr><td><strong>Frequency of need</strong></td><td>Low. This is the central design constraint. A user who opens the application four times a year must not have to learn it, and must not have to create an account that costs more effort than the benefit.</td></tr>
+    <tr><td><strong>Device reality</strong></td><td><span class="mono">minSdk 24</span> (Android 7.0), so the application runs on handsets that are several years old and cheap. Core library desugaring is enabled because the domain models use <span class="mono">java.time</span>, which is native only from API 26.</td></tr>
+    <tr><td><strong>Connectivity</strong></td><td>Frequently poor, on mobile data, sometimes absent. Reads degrade to an empty result with an explanation; writes are never silently retried, because a silently retried booking is a double booking.</td></tr>
+    <tr><td><strong>Digital confidence</strong></td><td>Wide. Booking a ride and sending money are ordinary, so the same expectations apply here: no jargon, no unexplained errors, and an interface that is legible for older eyes.</td></tr>
+    <tr><td><strong>Primary need</strong></td><td>Certainty: is this doctor free on Thursday at 9:30, where do I go, and how much will it cost? Answered before leaving the house.</td></tr>
+  </tbody>
+</table>
+
+<h3>5.2 Secondary user: the clinic front desk</h3>
+<p>Today's user of the paper logbook. Version one of MediQ gives this person no new screen, so
+the benefit is indirect. The claim table becomes the single record of who holds which slot, so
+two staff members reading the same slot can no longer disagree, and a cancelled slot returns
+to the pool automatically. A staff console that reads and writes the same tables is defined
+future work (Section&nbsp;10).</p>
+
+<h3>5.3 Tertiary user: the clinic administrator (future)</h3>
+<p>Onboards doctors and their licences, sets weekly hours and fees, and blocks a slot for a
+meeting. Every column this role needs is already in the schema
+(<span class="mono">doctors.license_number</span>, <span class="mono">clinic_hours</span>,
+<span class="mono">doctors.fee_centavos</span>), but no screen exposes them. Roles are modelled
+(<span class="mono">users.role</span>, carried in the JWT), which is what makes the console
+possible without a migration.</p>
+
+<h3>5.4 Users the system does not serve, on purpose</h3>
+<ul>
+  <li><strong>A patient with no smartphone.</strong> The telephone channel must stay open.
+      Removing it would make the system worse for exactly the people with the least access
+      to alternatives.</li>
+  <li><strong>A patient in an emergency.</strong> MediQ is not an emergency service and must
+      not appear to offer one. Emergency copy points to the national emergency hotline.</li>
+  <li><strong>A patient below the age of consent.</strong> Registration requires a date of
+      birth and the server rejects a registration without one; the intended minimum is a
+      guardian creating the account.</li>
+</ul>
+
+<div class="callout">
+  <span class="ct">Designing for the primary user shaped three technical choices</span>
+  <p>A user who opens the application four times a year pays a four-step registration rarely
+  enough that doing it properly (verified number, then credentials) costs less than skipping it.
+  A user on poor connectivity gets an empty list that says why rather than an error, because
+  "we could not reach the clinic" is a worse first experience than an empty result with an
+  explanation. Error text is written by the server, for a patient, in one sentence, and the client
+  is forbidden from surfacing a framework exception's own message.</p>
+</div>
+</div>
+
+<!-- ============================ 6. FEATURES ============================ -->
+<div class="sec" id="s6">
+<h2 class="sec"><span class="num">6</span>System Features and Functionalities</h2>
+
+<h3>6.1 How the system is put together</h3>
+<figure>
+  <img src="assets/architecture.svg" alt="Three-tier architecture: Android client, Ktor backend, relational database">
+</figure>
+
+<p>Two Gradle modules. <span class="mono">:app</span> is the Android client;
+<span class="mono">:server</span> is the backend. The server compiles the client's
+<span class="mono">domain/</span> directory as an extra source set, so both sides share the
+domain model and keep separate wire formats. Refactoring a model therefore cannot silently break
+the API contract.</p>
+
+<table class="data">
+  <thead><tr><th style="width:34mm">Layer</th><th style="width:52mm">Technology</th><th>Responsibility and the rule that keeps it honest</th></tr></thead>
+  <tbody>
+    <tr><td>Presentation</td><td>Jetpack Compose, Material 3, navigation-compose 2.10.1</td><td>15 screens, 10 ViewModels. Every ViewModel exposes <span class="mono">LoadState&lt;T&gt;</span> and every screen branches on all three cases, so a screen cannot render a spinner forever by forgetting a state.</td></tr>
+    <tr><td>Domain</td><td>Plain Kotlin</td><td>Models and repository interfaces. <strong>No Compose, no Android imports.</strong> That rule keeps the schema portable to the server. The compiler catches a breach, but only after a build.</td></tr>
+    <tr><td>Data (client)</td><td>Retrofit 2.11.0, OkHttp 4.12.0, Gson 2.11.0</td><td>The only layer that knows the network exists. Every <span class="mono">api.</span> call must sit inside the <span class="mono">call { }</span> wrapper, which maps an HTTP error body into <span class="mono">ApiFailure</span>.</td></tr>
+    <tr><td>HTTP</td><td>Ktor 3.1.3 on Netty, kotlinx.serialization</td><td>All 19 endpoints in one file so the whole surface can be read at once. One <span class="mono">ErrorDto(error, message)</span> shape for every non-2xx response.</td></tr>
+    <tr><td>Data (server)</td><td>Hand-written JDBC, HikariCP 6.3.0</td><td>One store class per aggregate, all SQL in Kotlin, no ORM. <span class="mono">tx { }</span> gives one transaction per booking.</td></tr>
+    <tr><td>Storage</td><td>PostgreSQL 15 (target); H2 2.3.232 in-memory (development)</td><td>Ten tables, defined once in <span class="mono">schema.sql</span>. A production guard refuses to boot on the in-memory URL or the development signing key.</td></tr>
+    <tr><td>Security</td><td>java-jwt 4.5.0, PBKDF2-HMAC-SHA256 at 210,000 iterations</td><td>Server-side session plus a bearer token, so signing out kills the token immediately instead of leaving it usable until it expires.</td></tr>
+  </tbody>
+</table>
+
+<h4>Architectural rules that are checked, not merely written down</h4>
+<table class="data">
+  <thead><tr><th style="width:52mm">Rule</th><th style="width:26mm">Command</th><th>Why it matters here</th></tr></thead>
+  <tbody>
+    <tr><td><span class="mono">ui-imports-data</span> = 0</td><td rowspan="5" class="c"><span class="mono">.\.mdfiles\<br>check-boundaries.ps1</span></td><td>Screens and ViewModels must not reach past the repository layer. The import compiles fine, so the compiler cannot catch this, and seven ViewModels did exactly this until the script found them.</td></tr>
+    <tr><td><span class="mono">domain-imports-android</span> = 0</td><td>Keeps the domain portable to the server module.</td></tr>
+    <tr><td><span class="mono">api-call-not-wrapped</span> = 0</td><td>An unwrapped call is how the <span class="mono">"HTTP 401 "</span> bug returns, with the raw framework message reaching a patient.</td></tr>
+    <tr><td><span class="mono">secret-field-no-keyboard-options</span> = 0</td><td>A masked field must disable autocorrect and use a password key type. Android was rewriting credentials as they were typed; a correct password reached the server as a different string.</td></tr>
+    <tr><td><span class="mono">secret-field-not-password-keytype</span> = 0</td><td>As above, for the OTP field specifically.</td></tr>
+  </tbody>
+</table>
+
+<h3>6.2 Functional requirements</h3>
+<p><span class="chip ok">IMPLEMENTED</span> verified working end to end ·
+<span class="chip par">PARTIAL</span> the server side is complete, the client side is not ·
+<span class="chip pln">PLANNED</span> identified, not built</p>
+
+<table class="data">
+  <thead><tr><th style="width:10mm">ID</th><th style="width:56mm">Requirement</th><th style="width:48mm">Endpoints</th><th style="width:20mm">Status</th><th>Note</th></tr></thead>
+  <tbody>
+    <tr><td class="c"><strong>F01</strong></td><td>Register an account by verifying a mobile number with a one-time code, then setting a username and password</td><td><span class="mono">POST /auth/otp/request</span><br><span class="mono">POST /auth/otp/verify</span><br><span class="mono">POST /auth/register</span></td><td class="c"><span class="chip ok">IMPL</span></td><td>Five wrong codes lock the number. The code is currently returned in the response body because no SMS gateway is integrated (Section&nbsp;9.3).</td></tr>
+    <tr><td class="c"><strong>F02</strong></td><td>Sign in and sign out with a session that is revocable server-side</td><td><span class="mono">POST /auth/sign-in</span><br><span class="mono">POST /auth/sign-out</span></td><td class="c"><span class="chip ok">IMPL</span></td><td>Registration returns a session, so a new account can sign in immediately.</td></tr>
+    <tr><td class="c"><strong>F03</strong></td><td>Browse and search doctors by name or specialty, filtered by building</td><td><span class="mono">GET /doctors</span></td><td class="c"><span class="chip ok">IMPL</span></td><td>Search matches name, specialty display name and specialty wire value. Typed input is debounced 300&nbsp;ms; a specialty chip is not.</td></tr>
+    <tr><td class="c"><strong>F04</strong></td><td>Read a doctor's profile: specialty, experience, fee, licence number, location, weekly hours, languages, biography</td><td><span class="mono">GET /doctors/{id}</span></td><td class="c"><span class="chip ok">IMPL</span></td><td>Licence number is stored and displayed deliberately: invented licence numbers get mistaken for real ones, so no fabricated doctor exists anywhere in the client.</td></tr>
+    <tr><td class="c"><strong>F05</strong></td><td>See which dates in a month have open slots</td><td><span class="mono">GET /doctors/{id}/availability?month=YYYY-MM</span></td><td class="c"><span class="chip ok">IMPL</span></td><td>Accepts either <span class="mono">YYYY-MM</span> or a full date; an unparseable value is an error rather than a silent fallback to the current month.</td></tr>
+    <tr><td class="c"><strong>F06</strong></td><td>See the open time slots for one date</td><td><span class="mono">GET /doctors/{id}/slots?date=YYYY-MM-DD</span></td><td class="c"><span class="chip ok">IMPL</span></td><td>Slots are materialised rows generated from <span class="mono">clinic_hours</span>, not computed per read.</td></tr>
+    <tr><td class="c"><strong>F07</strong></td><td>Book a slot, with an optional reason for visit and an explicit patient confirmation</td><td><span class="mono">POST /appointments</span></td><td class="c"><span class="chip ok">IMPL</span></td><td>One transaction covers the claim, the appointment and the notification. A refusal is HTTP 409 with the server's own sentence.</td></tr>
+    <tr><td class="c"><strong>F08</strong></td><td>List one's own appointments, filtered to upcoming or past</td><td><span class="mono">GET /appointments?filter=</span></td><td class="c"><span class="chip par">PARTIAL</span></td><td>The server paginates with a cursor and a maximum page size; the client does not follow the cursor, so a patient with more than 20 appointments sees 20 with no indication.</td></tr>
+    <tr><td class="c"><strong>F09</strong></td><td>Read one appointment in full, including the reason for visit</td><td><span class="mono">GET /appointments/{id}</span></td><td class="c"><span class="chip ok">IMPL</span></td><td>The only endpoint that returns the reason. A scrolling list is the wrong place to hand out health information.</td></tr>
+    <tr><td class="c"><strong>F10</strong></td><td>Cancel an appointment, which returns the slot to the pool</td><td><span class="mono">DELETE /appointments/{id}</span></td><td class="c"><span class="chip ok">IMPL</span></td><td>Deletes the claim row and keeps the appointment for history. Not idempotent: a retry after a lost response reports failure for an action that succeeded.</td></tr>
+    <tr><td class="c"><strong>F11</strong></td><td>Request a move to another open slot, with an optional note</td><td><span class="mono">POST /appointments/{id}/reschedule-request</span></td><td class="c"><span class="chip par">PARTIAL</span></td><td>Works, but the picker opens on the current month with no month stepper, so a visit next month cannot be moved earlier.</td></tr>
+    <tr><td class="c"><strong>F12</strong></td><td>Read and update one's own profile</td><td><span class="mono">GET /profile</span><br><span class="mono">PUT /profile</span></td><td class="c"><span class="chip par">PARTIAL</span></td><td>Both server routes and the client repository are complete and tested; no screen calls the update, so the profile is display-only. Fields also cannot be cleared, because omission and clearing are the same operation.</td></tr>
+    <tr><td class="c"><strong>F13</strong></td><td>Read notifications and mark one as read</td><td><span class="mono">GET /notifications</span><br><span class="mono">PATCH /notifications/{id}/read</span></td><td class="c"><span class="chip ok">IMPL</span></td><td>Written in the same transaction as the booking that caused them.</td></tr>
+    <tr><td class="c"><strong>F14</strong></td><td>A legible light and dark theme</td><td>— (client)</td><td class="c"><span class="chip ok">IMPL</span></td><td>24 token pairs and 6 status chips measured against WCAG AA by script on every change.</td></tr>
+    <tr><td class="c"><strong>F15</strong></td><td>A backend liveness probe</td><td><span class="mono">GET /health</span></td><td class="c"><span class="chip ok">IMPL</span></td><td>Unauthenticated; used by deployment and by the smoke script.</td></tr>
+    <tr><td class="c"><strong>F16</strong></td><td>Password reset, and messaging with clinic staff</td><td>—</td><td class="c"><span class="chip pln">PLANNED</span></td><td>Both are currently a button and a stub screen.</td></tr>
+  </tbody>
+</table>
+
+<h3>6.3 Non-functional requirements</h3>
+<table class="data">
+  <thead><tr><th style="width:10mm">ID</th><th style="width:48mm">Requirement</th><th style="width:52mm">Acceptance measure</th><th>Status</th></tr></thead>
+  <tbody>
+    <tr><td class="c"><strong>N1</strong></td><td>No double booking under concurrency</td><td>12 simultaneous bookings at one slot &rarr; exactly 1 success, exactly 1 row in <span class="mono">slot_claims</span> and exactly 1 in <span class="mono">appointments</span></td><td class="c"><span class="chip ok">MET</span></td></tr>
+    <tr><td class="c"><strong>N2</strong></td><td>No password or credential is ever stored or logged in the clear</td><td>PBKDF2-HMAC-SHA256, 210k iterations, iteration count stored beside the hash so it can be raised. Masked fields disable autocorrect and use a password key type.</td><td class="c"><span class="chip ok">MET</span></td></tr>
+    <tr><td class="c"><strong>N3</strong></td><td>Signing out revokes the token immediately</td><td>The session row is read on every authenticated request; the smoke script signs out and then proves the in-flight token is rejected</td><td class="c"><span class="chip ok">MET</span></td></tr>
+    <tr><td class="c"><strong>N4</strong></td><td>Every colour pair meets WCAG 2.1 AA</td><td>Computed from the tokens actually in the source, not from a copy kept by the checker</td><td class="c"><span class="chip ok">MET</span></td></tr>
+    <tr><td class="c"><strong>N5</strong></td><td>No layer reaches past the one below it</td><td>Five boundary counters, all zero, enforced in CI</td><td class="c"><span class="chip ok">MET</span></td></tr>
+    <tr><td class="c"><strong>N6</strong></td><td>A test floor that may not fall</td><td>59 server tests and 174 client tests, enforced in <span class="mono">CONSTRAINTS.md</span> with a command per rule</td><td class="c"><span class="chip ok">MET</span></td></tr>
+    <tr><td class="c"><strong>N7</strong></td><td>Degrade rather than alarm when the network is absent</td><td>A network failure on a list read becomes an empty state. Only a genuinely unreachable server may do so; an HTTP 500 must not render as "you have no appointments"</td><td class="c"><span class="chip ok">MET</span></td></tr>
+    <tr><td class="c"><strong>N8</strong></td><td>List-read latency under a clinic's own load</td><td>Target: 95th percentile below 300&nbsp;ms on the clinic LAN</td><td class="c"><span class="chip par">PARTIAL</span></td></tr>
+    <tr><td class="c"><strong>N9</strong></td><td>Touch targets and content descriptions on every interactive element</td><td>48&nbsp;dp minimum targets; reviewed per screen, not yet automated</td><td class="c"><span class="chip par">PARTIAL</span></td></tr>
+    <tr><td class="c"><strong>N10</strong></td><td>No fabricated data anywhere in the client</td><td>Zero hardcoded doctors, fees, licences or hours; demo rows are labelled <span class="mono">DEMO-PRC-000n</span> and seeded only when explicitly asked</td><td class="c"><span class="chip ok">MET</span></td></tr>
+  </tbody>
+</table>
+
+<h3>6.4 What is deliberately not finished</h3>
+<div class="callout warn">
+  <span class="ct">Before a real patient uses this</span>
+  <ul style="margin-bottom:0">
+    <li><strong>The one-time code is returned in the HTTP response body</strong>, because no SMS
+      gateway is wired up. That is acceptable for a demonstration and unacceptable in
+      production; the flag that controls it must be set to <span class="mono">false</span>.</li>
+    <li><strong>The session token is stored in plaintext preferences.</strong> It is inside the
+      application's private storage, which is tolerable in development and not in production;
+      <span class="mono">EncryptedSharedPreferences</span> or the Android Keystore must
+      replace it.</li>
+    <li><strong>The development signing key is printed in a source file.</strong> A
+      configuration guard refuses to boot in production mode with that key or the in-memory
+      database URL. That guard is the only thing between the repository and a shipped
+      signing key.</li>
+    <li><strong>Booking is not idempotent.</strong> Book, lose the response, tap again, and
+      the patient is told the time was taken for a slot they already hold.</li>
+    <li><strong>Token expiry mid-session is unhandled.</strong> After the 60-minute lifetime
+      every request fails with no route back to sign-in.</li>
+  </ul>
+</div>
+</div>
+
+<!-- ============================ 7. UI ============================ -->
+<div class="sec" id="s7">
+<h2 class="sec"><span class="num">7</span>User Interface Designs</h2>
+
+<h3>7.1 Principles</h3>
+<table class="data">
+  <thead><tr><th style="width:9mm">#</th><th style="width:46mm">Principle</th><th>What it means in this application</th></tr></thead>
+  <tbody>
+    <tr><td class="c">1</td><td><strong>Never show a framework message</strong></td><td>Every error sentence is written by the server, for a patient. The client is forbidden from surfacing <span class="mono">exception.message</span> from Retrofit, Gson or OkHttp. An unwrapped call once showed a patient the literal text <span class="mono">"HTTP 401 "</span>, and another bug told a patient to "try again" about a booking that could never succeed.</td></tr>
+    <tr><td class="c">2</td><td><strong>Offer only what the server will accept</strong></td><td>Cancel and reschedule are gated on one rule, whether the status permits a change, read from the status itself rather than re-decided in the view. A cancelled or completed visit shows no action at all.</td></tr>
+    <tr><td class="c">3</td><td><strong>Every list has three honest states</strong></td><td>Loading, empty and failed are drawn differently, and the empty state names the reason. Forgetting a state is a compile-time omission the compiler will not catch but a reviewer can, which is what stops a screen spinning forever.</td></tr>
+    <tr><td class="c">4</td><td><strong>Contrast is measured</strong></td><td>No colour token is trusted. Ratios are computed from the tokens in the source and a value that stops passing fails the build.</td></tr>
+    <tr><td class="c">5</td><td><strong>No fabricated anything</strong></td><td>No invented doctor, fee, licence or hour appears in the client. An empty backend produces an empty screen, not a plausible one.</td></tr>
+  </tbody>
+</table>
+
+<h3>7.2 Design system</h3>
+<h4>Colour roles</h4>
+<p>The brand green has to stay dark in <em>both</em> schemes, because a filled button takes
+its label from <span class="mono">onPrimary</span>. Making it light in dark mode would put
+white-on-pale-green labels on every button at 1.79:1. Three roles the Material slots have no
+place for live in an extended palette, leaving <span class="mono">primary</span> alone.</p>
+
+<table class="data">
+  <thead><tr><th style="width:26mm">Token</th><th style="width:20mm">Value</th><th style="width:34mm">Role</th><th style="width:30mm">Measured ratio</th><th>Note</th></tr></thead>
+  <tbody>
+    <tr><td><span class="sw" style="background:#006B3C"></span><span class="mono">MediQGreen</span></td><td><span class="mono">#006B3C</span></td><td>Filled brand surface</td><td><strong>6.63:1</strong> with <span class="mono">onBrand</span></td><td>Brand surface in both schemes</td></tr>
+    <tr><td><span class="sw" style="background:#004D2C"></span><span class="mono">MediQDarkGreen</span></td><td><span class="mono">#004D2C</span></td><td>Deep brand surface, dark container</td><td><strong>10.01:1</strong> with <span class="mono">onBrand</span></td><td>Tinted dark container</td></tr>
+    <tr><td><span class="sw" style="background:#6FD696"></span><span class="mono">MediQAccentDark</span></td><td><span class="mono">#6FD696</span></td><td>Accent on a dark surface</td><td><strong>10.47:1</strong> on <span class="mono">#121212</span></td><td>Cannot be the same green as the light-mode accent</td></tr>
+    <tr><td><span class="sw" style="background:#5F5F5F"></span><span class="mono">MediQTextSecondary</span></td><td><span class="mono">#5F5F5F</span></td><td>Secondary text, light</td><td><strong>6.39:1</strong> on white</td><td>Metadata, captions, helper copy</td></tr>
+    <tr><td><span class="sw" style="background:#8A8A8A"></span><span class="mono">MediQOutline</span></td><td><span class="mono">#8A8A8A</span></td><td>1&nbsp;dp outlines, light</td><td><strong>3.45:1</strong> on white</td><td>Exactly the WCAG 1.4.11 floor for non-text</td></tr>
+    <tr><td><span class="sw" style="background:#B00020"></span><span class="mono">MediQError</span></td><td><span class="mono">#B00020</span></td><td>Error text, light</td><td><strong>7.33:1</strong> on white</td><td></td></tr>
+    <tr><td><span class="sw" style="background:#2E7D32"></span><span class="mono">MediQSuccess</span></td><td><span class="mono">#2E7D32</span></td><td>Confirmed status chip</td><td><strong>5.13:1</strong> on white</td><td>Was <span class="mono">#388E3C</span> at 4.12:1, which failed AA</td></tr>
+    <tr><td><span class="sw" style="background:#B25E00"></span><span class="mono">MediQWarning</span></td><td><span class="mono">#B25E00</span></td><td>Pending status chip</td><td><strong>4.67:1</strong> on white</td><td>Was <span class="mono">#FBC02D</span> at 1.66:1, unreadable</td></tr>
+  </tbody>
+</table>
+
+<h4>Type scale and components</h4>
+<p>Material 3's type scale, restricted to the five roles the application actually uses:
+title large for the doctor name and the confirmation heading, title small for section
+headers, body large for the primary reading line, body medium for content, and label small
+for status chips and metadata. Components are the Material 3 set:
+<span class="mono">OutlinedTextField</span> with an explicit keyboard type for every masked
+field, <span class="mono">FilterChip</span> for specialties, a date strip and a slot grid for
+availability, status chips for appointment state, and a single
+<span class="mono">EmptyState</span> shared by every list.</p>
+
+<h3>7.3 Screens</h3>
+
+<div class="figgroup">
+<figure class="fig-half">
+  <img src="assets/ui-01-signin.svg" alt="Sign in screen">
+</figure>
+<figure class="fig-half">
+  <img src="assets/ui-02-register-otp.svg" alt="Registration OTP verification screen">
+</figure>
+<div class="callout note">
+  <span class="ct">Figures 1&ndash;2: getting in</span>
+  <p>Both screens exist to keep one promise: <strong>the interface never speaks in a
+  developer's language.</strong> The sign-in failure sentence is written by the server and
+  travels as a typed error; the same sentence covers an unknown username and a wrong
+  password, so neither can be probed. The masked field sets a password key type and turns
+  autocorrect off. That second part is not cosmetic, because Android's autocorrect once
+  rewrote characters inside it and a correct password reached the server as a different
+  string.</p>
+  <p>Registration is four screens sharing one ViewModel, because the name and number typed
+  in step one are still required in step three. The code returned by step two is the only
+  proof the number was verified. It is held in the ViewModel and not in the navigable state,
+  so a process death between steps is detectable and the user is sent back instead of
+  submitting a request the server can only refuse.</p>
+</div>
+</div>
+
+<div class="figgroup">
+<figure class="fig-half">
+  <img src="assets/ui-03-doctors.svg" alt="Browse doctors screen with search and filters">
+</figure>
+<figure class="fig-half">
+  <img src="assets/ui-04-doctor-slots.svg" alt="Doctor details with date strip and slot picker">
+</figure>
+<div class="callout note">
+  <span class="ct">Figures 3&ndash;4: finding and choosing</span>
+  <p>Search matches the doctor's name, the specialty's display name and its wire value, so
+  a patient typing "dermatology" finds dermatologists. Typed input is debounced
+  300&nbsp;ms so a six-letter word produces one request rather than six; choosing a specialty
+  chip is not debounced, because it happens once and should feel immediate.</p>
+  <p>Nothing about the doctor on this screen is typed into the application. The fee, the
+  room, the weekly hours and the open slots are all read from the server, and the slots shown
+  greyed-out are slots whose claim row already exists. Blocked by the clinic and claimed by
+  another patient are drawn differently, because a patient who cannot tell the two concludes
+  the system is broken.</p>
+</div>
+</div>
+
+<div class="figgroup">
+<figure class="fig-half">
+  <img src="assets/ui-05-booking.svg" alt="Booking confirmation screen">
+</figure>
+<figure class="fig-half">
+  <img src="assets/ui-06-appointment.svg" alt="Appointment detail with cancel and reschedule">
+</figure>
+<div class="callout note">
+  <span class="ct">Figures 5&ndash;6: the transaction, and undoing it</span>
+  <p>The confirmation screen states plainly what the tap is about to do, because the thing
+  it does is atomic: the slot reservation, the appointment and the notification are written
+  in one transaction, so there is no state in which a slot is held for an appointment the
+  patient never received.</p>
+  <p>The detail screen is the mirror image. Cancel and reschedule are not drawn from a
+  separate permission table; both read one rule, whether the appointment's status permits a
+  change, so the interface cannot offer an action the server would refuse.
+  Cancelling frees the slot immediately for another patient, which is why it is presented as
+  an ordinary action.</p>
+</div>
+</div>
+
+<h3>7.4 Screen inventory</h3>
+<table class="data">
+  <thead><tr><th style="width:38mm">Area</th><th style="width:56mm">Screens</th><th>Behaviour worth naming</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Authentication</strong></td><td>Splash, Sign in, Register details, Register verify, Register login, Register success</td><td>The four register screens share one ViewModel scoped to the registration navigation graph, because the name and number typed in step one are still needed in step three.</td></tr>
+    <tr><td><strong>Discovery</strong></td><td>Doctors, Doctor details</td><td>Search is debounced 300&nbsp;ms; a specialty chip is applied immediately. Both list and detail states are drawn.</td></tr>
+    <tr><td><strong>Booking</strong></td><td>Booking selection, Booking confirmation</td><td>The chosen slot is a real object held by the view model, not a route string, so a process death cannot leave the confirmation screen holding an id for a slot that no longer exists.</td></tr>
+    <tr><td><strong>Appointments</strong></td><td>Appointments list, Appointment detail</td><td>Upcoming and history are separate filters. Action buttons are gated on status; the picker for a reschedule is not even opened for a status that cannot change.</td></tr>
+    <tr><td><strong>Account</strong></td><td>Profile, Notifications, Messages (stub)</td><td>Signing out leaves the app even if the server refuses, because the alternative is a patient stranded on a signed-in screen.</td></tr>
+    <tr><td><strong>Development only</strong></td><td>Seeded-data check</td><td>Reachable only by long-pressing the splash wordmark; reads the live doctors endpoint and hardcodes nothing, so a stopped server produces an empty screen rather than a convincing fake. Removal is a proven seven-touchpoint change.</td></tr>
+  </tbody>
+</table>
+</div>
+
+<!-- ============================ 8. DATABASE ============================ -->
+<div class="sec" id="s8">
+<h2 class="sec"><span class="num">8</span>Database Design</h2>
+
+<h3>8.1 Entity relationship diagram</h3>
+<figure>
+  <img src="assets/erd.svg" alt="Entity relationship diagram for the MediQ schema">
+  <figcaption>Ten tables. Defined once, in <span class="mono">server/src/main/resources/schema.sql</span>, which is the only place the data shape exists.</figcaption>
+</figure>
+
+<h3>8.2 Tables</h3>
+<table class="data">
+  <thead><tr><th style="width:26mm">Table</th><th style="width:56mm">Purpose</th><th style="width:38mm">Key columns</th><th>Constraints that carry meaning</th></tr></thead>
+  <tbody>
+    <tr><td><strong>users</strong></td><td>Every account, patient or staff</td><td><span class="mono">username</span>, <span class="mono">mobile_number</span>, <span class="mono">password_hash</span>, <span class="mono">role</span>, <span class="mono">doctor_id</span></td><td>Both identifiers unique. The password column is a PBKDF2 hash and never a password.</td></tr>
+    <tr><td><strong>sessions</strong></td><td>Makes sign-out immediate</td><td><span class="mono">id</span>, <span class="mono">user_id</span>, <span class="mono">expires_at</span>, <span class="mono">revoked_at</span></td><td>FK to users; indexed on <span class="mono">user_id</span>. A bare token cannot be revoked before it expires.</td></tr>
+    <tr><td><strong>otp_codes</strong></td><td>One-time codes for registration</td><td><span class="mono">mobile_number</span>, <span class="mono">code_hash</span>, <span class="mono">attempt_count</span>, <span class="mono">consumed_at</span></td><td><span class="mono">consumed_at</span> is what stops a captured code being replayed to register somebody else's number. Indexed on the number.</td></tr>
+    <tr><td><strong>specialties</strong></td><td>Reference list</td><td><span class="mono">id</span>, <span class="mono">display_name</span></td><td>Kept as a table rather than an enum so the list can change without a migration.</td></tr>
+    <tr><td><strong>doctors</strong></td><td>The bookable resource</td><td><span class="mono">specialty_id</span> (FK), <span class="mono">fee_centavos</span>, <span class="mono">license_number</span>, <span class="mono">building/floor/room</span></td><td>Fee must be non-negative. Licence number is stored and shown on purpose.</td></tr>
+    <tr><td><strong>clinic_hours</strong></td><td>Recurring weekly sessions</td><td><span class="mono">doctor_id</span> (FK), <span class="mono">day_of_week</span>, <span class="mono">opens_at</span>, <span class="mono">closes_at</span></td><td>Day constrained to 1&ndash;7. The source every bookable slot is generated from.</td></tr>
+    <tr><td><strong>slots</strong></td><td>Concrete bookable windows</td><td><span class="mono">doctor_id</span> (FK), <span class="mono">starts_at</span>, <span class="mono">ends_at</span>, <span class="mono">status</span></td><td>Check constraints on status and on window order. Indexed on <span class="mono">(doctor_id, starts_at)</span>, which is the query the app actually runs.</td></tr>
+    <tr><td><strong>slot_claims</strong></td><td><strong>The double-booking guarantee</strong></td><td><span class="mono">slot_id</span> (PK + FK), <span class="mono">appointment_id</span> (FK)</td><td><strong>One row per slot, enforced by the primary key.</strong> Cancelling deletes the row, which frees the slot.</td></tr>
+    <tr><td><strong>appointments</strong></td><td>The booked visit</td><td><span class="mono">user_id</span>, <span class="mono">doctor_id</span>, <span class="mono">slot_id</span> (FKs), <span class="mono">status</span>, <span class="mono">reason_for_visit</span></td><td>Status constrained to the five legal values. Indexed on <span class="mono">(user_id, starts_at)</span> and <span class="mono">(doctor_id, starts_at)</span>.</td></tr>
+    <tr><td><strong>notifications</strong></td><td>In-app messages</td><td><span class="mono">user_id</span> (FK), <span class="mono">type</span>, <span class="mono">read_at</span></td><td>Indexed on <span class="mono">(user_id, created_at DESC)</span>, the order the list is read in.</td></tr>
+  </tbody>
+</table>
+
+<h3>8.3 Normalisation and deliberate exceptions</h3>
+<p>The model is in third normal form. Patient identity, doctor identity, availability and
+the booking are four separate concerns held in four tables, so a doctor's fee changes in one
+place and cannot disagree with itself across a thousand historical appointments. The fee is
+copied onto an appointment at booking time as a historical fact, not as a live reference.</p>
+<p>Two deliberate exceptions, both of them visible in the diagram:</p>
+<ul>
+  <li><span class="mono">appointments.doctor_id</span> and <span class="mono">appointments.slot_id</span>
+  both point at rows that also contain the same information. A slot already knows its
+  doctor. The duplicate is kept so that an appointment cannot be re-pointed at a different
+  slot after the fact, and so that the query serving a patient's list needs no join.</li>
+  <li><span class="mono">notifications.related_appointment_id</span> and
+  <span class="mono">appointments.requested_slot_id</span> carry no foreign key. A notification
+  must survive the deletion of what it referred to, and a reschedule request must be
+  recordable before the slot it asks for is reserved.</li>
+</ul>
+
+<h3>8.4 How double booking is prevented</h3>
+<p>A booking is a contended write, so the schema has to settle it without an application-level
+check. It does so with one primary key.</p>
+
+<pre>-- The whole protection is one primary key.
+CREATE TABLE slot_claims (
+    slot_id         VARCHAR(36) PRIMARY KEY,   -- one row per slot, no exceptions
+    appointment_id  VARCHAR(36) NOT NULL,
+    claimed_at      TIMESTAMP WITH TIME ZONE NOT NULL,
+    FOREIGN KEY (appointment_id) REFERENCES appointments (id)
+);
+
+-- Booking, inside db.tx { }:
+INSERT INTO slot_claims (slot_id, appointment_id, claimed_at)
+VALUES (?, ?, ?);          -- succeeds, or fails on the primary key -&gt; HTTP 409</pre>
+
+<p>Two patients tap the same 9:30 slot in the same instant. Two inserts are attempted and the
+database accepts one and rejects the other, because there is no check for a race to pass.</p>
+
+<table class="data">
+  <thead><tr><th style="width:56mm">Design choice</th><th>Consequence</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Reserve by insert, not by check-then-write</strong></td><td>Correct under any level of concurrency. A check-then-write leaves a window between the read and the write, and two requests can pass the same check.</td></tr>
+    <tr><td><strong>Slots are rows, not computed</strong></td><td>There must be a row to collide with. Slots are generated from <span class="mono">clinic_hours</span> in 30-minute windows.</td></tr>
+    <tr><td><strong>Slot ids are derived, not random</strong></td><td><span class="mono">UUID.nameUUIDFromBytes("$doctorId|$startsAt")</span> makes regenerating a date idempotent under concurrency. A random UUID would create duplicates the second two requests ran.</td></tr>
+    <tr><td><strong>Cancelling deletes the claim</strong></td><td>The slot returns to the pool immediately. The appointment row is kept for history, so the slot cannot be freed by updating a status alone.</td></tr>
+    <tr><td><strong>One transaction covers claim, appointment and notification</strong></td><td>A notification failure cannot leave a slot marked taken for an appointment the patient never received.</td></tr>
+    <tr><td><strong>The test is the evidence</strong></td><td><span class="mono">BookingConcurrencyTest</span> fires 12 simultaneous bookings at one slot and asserts one winner and one row in each table. Delete that test, or make it sequential, and the protection is unverified.</td></tr>
+  </tbody>
+</table>
+
+<h3>8.5 Conventions carried by the schema</h3>
+<table class="data">
+  <thead><tr><th style="width:34mm">Convention</th><th>Rule and the reason for it</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Time</strong></td><td>Every timestamp is <span class="mono">TIMESTAMP WITH TIME ZONE</span> and stored in UTC. The clinic zone (<span class="mono">Asia/Manila</span>) is applied on display by the client. The device's own time zone is never used, because a patient in another country must still see the clinic's local time.</td></tr>
+    <tr><td><strong>Money</strong></td><td><span class="mono">BIGINT</span> centavos. Never a float, never pesos as an integer, never a pre-formatted string. The peso sign is added at the last moment, in the interface.</td></tr>
+    <tr><td><strong>Identifiers</strong></td><td>Opaque strings, so nothing in the client can depend on the ordering or the shape of an id.</td></tr>
+    <tr><td><strong>Status</strong></td><td>A checked column with named values, never a free integer. The wire form is a string and unrecognised values resolve to an explicit <span class="mono">UNKNOWN</span> rather than to a positional guess.</td></tr>
+    <tr><td><strong>Schema changes</strong></td><td>The file is applied at boot and is written entirely as <span class="mono">CREATE TABLE IF NOT EXISTS</span>. That is safe on an existing database and is <em>not</em> a migration tool. A migration tool is required before the first column is renamed once real data exists.</td></tr>
+  </tbody>
+</table>
+</div>
+
+<!-- ============================ 9. API ============================ -->
+<div class="sec" id="s9">
+<h2 class="sec"><span class="num">9</span>API Integrations and Their Purpose</h2>
+
+<h3>9.1 The MediQ REST API</h3>
+<p><strong>The MediQ Backend API</strong> is a REST/JSON service built on Ktor that is the only
+component connected to the MediQ database, and the only data source for both the Android
+client and the web interface. It is specified to own six capability areas — identity and
+sessions, doctor and schedule retrieval, appointment booking and management, messaging,
+notifications, and account management — behind one versioned base path
+(<span class="mono">/v1</span>) and one published OpenAPI contract generated from
+<span class="mono">server/http/Dtos.kt</span>. Neither the version prefix nor the OpenAPI
+document exists yet; both are requirements of the definition rather than descriptions of
+the build, and the reason for each is a second client arriving.</p>
+<p>What follows is the surface that is <em>implemented</em>: 19 of the endpoints the
+definition calls for, all defined in one file so the whole surface can be read at once.
+JSON over HTTPS, bearer-token authentication, cursor pagination, and one error shape for
+every non-2xx response. The part of the specified surface that is not built is listed after
+the table.</p>
+
+<h4>Why REST and JSON, and not something else</h4>
+<table class="data">
+  <thead><tr><th style="width:34mm">Alternative</th><th>Why it was not chosen</th></tr></thead>
+  <tbody>
+    <tr><td><strong>GraphQL</strong></td><td>The application's data is a small, highly regular set of aggregates that change together: a doctor always arrives with its hours, fee and location. That is the situation REST's resource model handles naturally. A single round trip per screen is not a problem at this scale, and the flexibility of GraphQL would mostly be used to re-introduce the coupling it exists to remove.</td></tr>
+    <tr><td><strong>gRPC / Protocol Buffers</strong></td><td>Strongly typed and fast, and the wrong trade here. It would require generated stubs and a proxy on both sides, for a client and server owned by the same team, to save bandwidth on payloads that are a few kilobytes. Field names in a hand-written JSON contract are readable, which matters when a contract is a deliverable.</td></tr>
+    <tr><td><strong>WebSockets or SSE</strong></td><td>Availability changes on the scale of a clinic day, not a second. Polling on screen entry is the right cost, and it avoids holding a connection open on a mobile network that may not be there.</td></tr>
+    <tr><td><strong>Plain stateless tokens</strong></td><td>Rejected for a specific reason. A bare token cannot be revoked before it expires, so "sign out" would only hide the interface while the token kept working. The server keeps a session row and checks it on every authenticated request, which costs one extra read per request.</td></tr>
+  </tbody>
+</table>
+
+<h4>The implemented endpoints</h4>
+<table class="data">
+  <thead><tr><th style="width:18mm">Method</th><th style="width:50mm">Path</th><th style="width:12mm">Auth</th><th>Purpose</th></tr></thead>
+  <tbody>
+    <tr><td>GET</td><td class="mono">/health</td><td class="c">no</td><td>Liveness probe; unauthenticated so a load balancer or the smoke script can call it</td></tr>
+    <tr><td>POST</td><td class="mono">/auth/sign-in</td><td class="c">no</td><td>Verify credentials, open a session, return a token and the profile</td></tr>
+    <tr><td>POST</td><td class="mono">/auth/sign-out</td><td class="c">yes</td><td>Revoke the session, so the token stops working immediately</td></tr>
+    <tr><td>POST</td><td class="mono">/auth/otp/request</td><td class="c">no</td><td>Issue a one-time code for a mobile number</td></tr>
+    <tr><td>POST</td><td class="mono">/auth/otp/verify</td><td class="c">no</td><td>Check the code; returns the registration id that step four requires</td></tr>
+    <tr><td>POST</td><td class="mono">/auth/register</td><td class="c">no</td><td>Create the account from a verified registration id; returns a session</td></tr>
+    <tr><td>GET</td><td class="mono">/doctors</td><td class="c">no</td><td>Browse and search. Filters: <span class="mono">search</span>, <span class="mono">specialty</span>, <span class="mono">building</span>, <span class="mono">limit</span>, <span class="mono">cursor</span></td></tr>
+    <tr><td>GET</td><td class="mono">/doctors/{doctorId}</td><td class="c">no</td><td>One doctor with location, hours, fee, licence and biography</td></tr>
+    <tr><td>GET</td><td class="mono">/doctors/{doctorId}/availability</td><td class="c">no</td><td>Which dates in a month have open slots, and how many</td></tr>
+    <tr><td>GET</td><td class="mono">/doctors/{doctorId}/slots</td><td class="c">no</td><td>The open slots for one date</td></tr>
+    <tr><td>GET</td><td class="mono">/appointments</td><td class="c">yes</td><td>The caller's own appointments, filtered upcoming or past</td></tr>
+    <tr><td>GET</td><td class="mono">/appointments/{id}</td><td class="c">yes</td><td>One appointment. The only endpoint that returns the reason for visit</td></tr>
+    <tr><td>POST</td><td class="mono">/appointments</td><td class="c">yes</td><td>Book a slot. Returns 409 if it was claimed first</td></tr>
+    <tr><td>DELETE</td><td class="mono">/appointments/{id}</td><td class="c">yes</td><td>Cancel, freeing the slot</td></tr>
+    <tr><td>POST</td><td class="mono">/appointments/{id}/reschedule-request</td><td class="c">yes</td><td>Ask to move to another open slot</td></tr>
+    <tr><td>GET</td><td class="mono">/notifications</td><td class="c">yes</td><td>The caller's notifications, newest first</td></tr>
+    <tr><td>PATCH</td><td class="mono">/notifications/{id}/read</td><td class="c">yes</td><td>Mark one as read</td></tr>
+    <tr><td>GET</td><td class="mono">/profile</td><td class="c">yes</td><td>The caller's profile. No user id in the path or query</td></tr>
+    <tr><td>PUT</td><td class="mono">/profile</td><td class="c">yes</td><td>Update the caller's own profile. No user id anywhere, so there is no request a client could alter to edit somebody else's record</td></tr>
+  </tbody>
+</table>
+
+<h4>The specified surface, and how much of it exists</h4>
+<table class="data">
+  <thead><tr><th style="width:34mm">Capability</th><th style="width:58mm">Specified endpoints</th><th style="width:16mm">Status</th><th>Note</th></tr></thead>
+  <tbody>
+    <tr><td>Identity and sessions</td><td class="mono">/auth/sign-in, sign-out, otp/request, otp/verify, register</td><td class="c"><span class="chip ok">BUILT</span></td><td>A server-side session row plus a JWT, so sign-out revokes the token immediately instead of leaving it valid until expiry.</td></tr>
+    <tr><td>Doctors and schedules</td><td class="mono">/doctors, /doctors/{id}, /doctors/{id}/availability, /doctors/{id}/slots</td><td class="c"><span class="chip ok">BUILT</span></td><td>Availability is generated from <span class="mono">clinic_hours</span> per read, not seeded, so it cannot drift from the hours.</td></tr>
+    <tr><td>Appointments</td><td class="mono">/appointments, /{id}, POST, DELETE /{id}, POST /{id}/reschedule-request</td><td class="c"><span class="chip ok">BUILT</span></td><td>The one gap against the specification is the <span class="mono">Idempotency-Key</span> header: the definition requires it on this endpoint and the server ignores it.</td></tr>
+    <tr><td>Notifications</td><td class="mono">/notifications, PATCH /notifications/{id}/read</td><td class="c"><span class="chip ok">BUILT</span></td><td>Written inside the booking transaction, so a failed notification cannot leave a slot claimed for a booking the patient never saw.</td></tr>
+    <tr><td>Account management</td><td class="mono">/auth/password/forgot, /reset, /change, PATCH /profile, DELETE /profile</td><td class="c"><span class="chip par">PART</span></td><td>Only <span class="mono">GET</span> and <span class="mono">PUT /profile</span> exist. There is no password change or reset, no account deletion, and <span class="mono">PUT</span> cannot clear a field — omission and clearing are the same request, so "remove my address" is impossible.</td></tr>
+    <tr><td>Messaging</td><td class="mono">/conversations, POST /conversations, /{id}/messages, POST /{id}/messages, PATCH /{id}/read</td><td class="c"><span class="chip pln">PLANNED</span></td><td>No server route exists. The client's Messages screen renders the word "Messages". Listed as F16 in section 6.</td></tr>
+    <tr><td>Cross-cutting</td><td class="mono">/v1 prefix, CORS, OpenAPI contract, cookie or bearer transport for the web client</td><td class="c"><span class="chip pln">PLANNED</span></td><td>All four become requirements only once a second client exists. Today the Android client hand-copies the wire DTOs into <span class="mono">app/.../data/api/ApiDtos.kt</span>, which is the drift the OpenAPI document is meant to replace.</td></tr>
+  </tbody>
+</table>
+
+<h4>The two contract decisions that mattered</h4>
+<table class="data">
+  <thead><tr><th style="width:42mm">Decision</th><th>Reasoning</th></tr></thead>
+  <tbody>
+    <tr><td><strong>One error shape</strong><br><span class="mono">ErrorDto(error, message)</span></td><td>Every non-2xx response carries a code and a sentence written for a patient to read. An unknown username and a wrong password return the <em>same</em> message and take the same time, because a dummy hash path runs in the miss case, so neither can be probed. The client maps it into a typed failure and is forbidden from showing a framework message instead. This mapping was missing for most of the project's life and the whole test suite stayed green throughout it.</td></tr>
+    <tr><td><strong>Separate wire DTOs</strong></td><td>The wire format is mapped explicitly from the domain model rather than serialised straight off it. A domain model can be refactored, with a field replaced or a class split, without silently breaking every installed client. Enum values are explicit strings, never the Kotlin constant name, so renaming a constant does not rename the contract.</td></tr>
+  </tbody>
+</table>
+
+<h3>9.2 Third-party integrations</h3>
+<p>The internal API above answers half of "which APIs does this integrate". The other half is
+the external services the system depends on, listed below with their real status. Nothing
+planned is presented as finished.</p>
+
+<table class="data">
+  <thead><tr><th style="width:36mm">Service</th><th style="width:46mm">Purpose</th><th style="width:20mm">Status</th><th>Integration point and what must be done</th></tr></thead>
+  <tbody>
+    <tr><td><strong>SMS gateway</strong><br><span class="mono">PH provider</span></td><td>Deliver the one-time code so the patient can verify a number they actually own</td><td class="c"><span class="chip par">NOT WIRED</span></td><td>A Philippine gateway (Semaphore, Infobip or Twilio) drops in at <span class="mono">AuthService.requestOtp</span>, which returns the code to the caller while the flag is set. Integrate one there and set <span class="mono">returnCodeToCaller = false</span>. Highest priority item before any real patient.</td></tr>
+    <tr><td><strong>Push notifications</strong><br><span class="mono">Firebase Cloud Messaging</span></td><td>Remind the patient 24 hours before a visit, the single highest-value feature still missing</td><td class="c"><span class="chip pln">PLANNED</span></td><td>Version one writes notifications to the <span class="mono">notifications</span> table inside the booking transaction and the app reads them. FCM adds delivery when the app is closed; the data model already carries the appointment reference it needs.</td></tr>
+    <tr><td><strong>Maps &amp; places</strong><br><span class="mono">Google Maps URL intents</span></td><td>"Get directions" to the building, floor and room, which is the last mile of a clinic visit</td><td class="c"><span class="chip pln">PLANNED</span></td><td>No dependency required: the client already holds <span class="mono">building</span>, <span class="mono">floor</span> and <span class="mono">room</span>. An intent with a composed address is sufficient.</td></tr>
+    <tr><td><strong>Licence verification</strong></td><td>Validate a doctor's PRC licence number at onboarding so the application never displays an unverifiable doctor</td><td class="c"><span class="chip pln">PLANNED</span></td><td>An administrator-side read against the regulator's service, cached with the doctor row. The column exists today; nothing calls it.</td></tr>
+    <tr><td><strong>Payments</strong></td><td>Collect the consultation fee in-app</td><td class="c"><span class="chip pln">OUT OF SCOPE</span></td><td>Deliberately excluded. A payment gateway is a regulated subsystem and would not address any of the failures in Section&nbsp;3.2.</td></tr>
+    <tr><td><strong>Deployment &amp; monitoring</strong></td><td>Host the backend, watch it</td><td class="c"><span class="chip par">PARTIAL</span></td><td>Every setting is an environment variable read at startup, including the database URL, so the deployment target is a configuration change. A production guard refuses to boot on the development signing key or the in-memory database.</td></tr>
+  </tbody>
+</table>
+
+<h3>9.3 One booking, end to end</h3>
+<p>One booking, followed through all of it.</p>
+<table class="data">
+  <thead><tr><th style="width:10mm">Step</th><th style="width:52mm">Call</th><th>What happens, and why</th></tr></thead>
+  <tbody>
+    <tr><td class="c">1</td><td class="mono">GET /doctors?search=</td><td>The patient types. The client waits 300&nbsp;ms, then one request. The server matches name, specialty display name and specialty wire value.</td></tr>
+    <tr><td class="c">2</td><td class="mono">GET /doctors/{id}/availability</td><td>Which dates in the month have any open slot, and how many. Generated from <span class="mono">clinic_hours</span>.</td></tr>
+    <tr><td class="c">3</td><td class="mono">GET /doctors/{id}/slots?date=</td><td>The concrete windows for that date. A slot already claimed is not returned as bookable.</td></tr>
+    <tr><td class="c">4</td><td class="mono">POST /appointments</td><td>One transaction: insert into <span class="mono">slot_claims</span>, insert the appointment, insert the notification. Committed together or not at all.</td></tr>
+    <tr><td class="c">5a</td><td class="mono">201 / 200</td><td>The appointment is returned with the reason for visit, and the interface confirms it.</td></tr>
+    <tr><td class="c">5b</td><td class="mono">409 Conflict</td><td>Somebody else claimed the slot first. The client's typed failure carries the server's sentence, and the interface says the time was taken and offers the next date. It never says "try again" for a booking that cannot succeed.</td></tr>
+    <tr><td class="c">6</td><td class="mono">GET /notifications</td><td>The patient sees the confirmation without having asked for it, because step 4 wrote it.</td></tr>
+  </tbody>
+</table>
+</div>
+
+<!-- ============================ 10. BENEFITS ============================ -->
+<div class="sec" id="s10">
+<h2 class="sec"><span class="num">10</span>Expected Benefits and Impact</h2>
+
+<div class="callout note">
+  <span class="ct">What kind of claim these are</span>
+  <p>The technical outcomes below are already demonstrated. They were verified against a
+  running server on a physical device, and the tests that prove them are in the repository.
+  The clinic-level outcomes are <em>projections</em>. MediQ has not yet run in a clinic with
+  real patients, so no adoption, time-saved or no-show figure below has been measured. The
+  metrics table names what would have to be counted to know whether the projections hold.</p>
+</div>
+
+<h3>10.1 For the patient</h3>
+<table class="data">
+  <thead><tr><th style="width:44mm">Benefit</th><th>Mechanism, and what makes it real rather than aspirational</th></tr></thead>
+  <tbody>
+    <tr><td><strong>No trip to find out</strong></td><td>Availability is readable before leaving the house. This is the first failure in
+Section&nbsp;3.2, and it goes away because the <span class="mono">/availability</span> and
+<span class="mono">/slots</span> endpoints are generated from the clinic's own hours.</td></tr>
+    <tr><td><strong>Booking outside office hours</strong></td><td>A verified self-service account replaces the telephone queue as the primary channel. The patient channel stays open, so nobody who depends on it is worse off.</td></tr>
+    <tr><td><strong>No being turned away</strong></td><td>The primary key on the claim table means the interface never shows a slot as bookable to two people. Before this, the cost of the race was borne entirely by whoever lost it.</td></tr>
+    <tr><td><strong>A record the patient holds</strong></td><td>Date, time, doctor, room, fee and reason are in the patient's hand, on the patient's device, after the visit.</td></tr>
+    <tr><td><strong>Fewer cancelled slots wasted</strong></td><td>Cancelling returns the slot to the pool immediately, so it is bookable by anyone else rather than disappearing with the cancellation.</td></tr>
+    <tr><td><strong>Legible for older eyes and in sunlight</strong></td><td>Contrast is measured, not judged. This matters for a patient group that includes people whose eyesight is not what it was.</td></tr>
+  </tbody>
+</table>
+
+<h3>10.2 For the clinic</h3>
+<ul>
+  <li><strong>One source of truth for a slot.</strong> The claim table is authoritative, so two members of staff reading it cannot disagree.</li>
+  <li><strong>Fewer front-desk interruptions.</strong> Every self-service booking is one less call.</li>
+  <li><strong>Demand becomes measurable.</strong> Slot-level data answers which hours are never booked and which are always full, which is the input to a staffing decision now made by impression.</li>
+  <li><strong>Privacy enforced by the contract.</strong> The reason for visit is returned by exactly one endpoint. Widening that is a visible change to the contract rather than a silent leak through a list.</li>
+</ul>
+
+<h3>10.3 For the team, and for the course</h3>
+<p>Two outcomes here were not on the original plan.</p>
+<ul>
+  <li><strong>A working instance of the failure mode the course examines.</strong> Three separate defects in this project shipped with a fully green build, a fully green test suite, and a manual test that passed. All three shared one cause: a rule that had been written down and never checked. Recognising that pattern is the transferable result.</li>
+  <li><strong>A test that can fail.</strong> Each of the 174 client tests was mutation-checked, which means the code was deliberately broken and the suite was required to fail. A test that has never failed proves nothing.</li>
+</ul>
+
+<h3>10.4 Metrics that would prove or disprove this</h3>
+<table class="data">
+  <thead><tr><th style="width:56mm">Metric</th><th style="width:38mm">Baseline</th><th style="width:38mm">Target</th><th>How it is measured</th></tr></thead>
+  <tbody>
+    <tr><td>Double bookings per 1,000 bookings</td><td>Not measured (paper process)</td><td>0</td><td>Count of claim-table conflicts rejected; already 0 by construction, and proven by the concurrency test</td></tr>
+    <tr><td>Bookings made outside clinic hours</td><td>0 (cannot currently happen)</td><td>&gt; 20% of bookings</td><td>Booking timestamp against the clinic's opening hours</td></tr>
+    <tr><td>No-show rate</td><td>Not measured</td><td>−20% relative</td><td>Completed versus booked per doctor per week. The baseline has to be collected before the system is introduced, or the claim is not testable.</td></tr>
+    <tr><td>Time to answer "is this doctor free on Thursday?"</td><td>A phone call, or a trip</td><td>&lt; 30 seconds</td><td>Timed task with first-time users</td></tr>
+    <tr><td>Median slot utilisation</td><td>Not measured</td><td>Above a clinic-defined floor</td><td>Claimed slots over generated slots, per doctor per day</td></tr>
+    <tr><td>95th-percentile list-read latency</td><td>Not instrumented</td><td>&lt; 300 ms</td><td>Server-side timing; needs instrumentation that does not exist yet (N8)</td></tr>
+  </tbody>
+</table>
+
+<h3>10.5 Risks to the benefit</h3>
+<table class="data">
+  <thead><tr><th style="width:44mm">Risk</th><th>Mitigation</th></tr></thead>
+  <tbody>
+    <tr><td>A patient books and never arrives, because booking became free</td><td>The no-show metric above exists precisely so this is caught. Appointment reminders (Section&nbsp;9.2) are the direct mitigation and are the highest-value missing feature.</td></tr>
+    <tr><td>The clinic's hours change and the application still shows stale availability</td><td>Slots are generated from <span class="mono">clinic_hours</span> rather than stored independently, so there is one place to change. No administrator console exists yet, so hours are changed by a database write, which is a real gap.</td></tr>
+    <tr><td>Real patient data is entered before the security items in Section&nbsp;6.4 are closed</td><td>The three items are named explicitly and each has a single flag or call site to change.</td></tr>
+  </tbody>
+</table>
+</div>
+
+<!-- ============================ 11. CONCLUSION ============================ -->
+<div class="sec" id="s11">
+<h2 class="sec"><span class="num">11</span>Conclusion</h2>
+
+<p>MediQ was built to remove a specific, observable failure: a patient in the Philippines who
+cannot find out whether a doctor is free without physically going to the clinic to ask. That
+failure turned out to be mostly a records problem, and the system that fixes it is an Android
+client over a REST backend over ten relational tables: 110 Kotlin files, 19 endpoints, 15
+screens, 233 automated tests. What follows separates what is finished from what is not,
+because the difference is easy to blur.</p>
+
+<p><strong>What exists and is verified.</strong> Registration with a verified mobile number;
+sign-in and sign-out with a token that dies on request; doctor search with filters; real
+availability generated from a doctor's own clinic hours; booking that cannot double-book even
+under twelve simultaneous requests; a full appointment lifecycle including cancellation that
+returns the slot to the pool; notifications; and a theme whose contrast is computed rather
+than believed. Every one of these was exercised against a running server on a physical phone,
+asserted in a test alone.</p>
+
+<p><strong>What does not exist.</strong> An SMS gateway, so the one-time code currently comes
+back in the response body. Encrypted token storage. A month stepper on the reschedule picker.
+An edit form for the profile, although the endpoint behind it is finished. Client-side
+pagination, although the server has implemented it. Any staff-facing screen. Payment.</p>
+
+<p>Three defects got through this codebase with a green build, a green test suite and a manual
+test that passed:
+patients were shown the literal string <span class="mono">"HTTP 401 "</span> instead of the
+sentence written for them; seven ViewModels reached into the data layer against an explicit
+rule; and Android's autocorrect was silently rewriting passwords inside a masked field, so a
+correct password reached the server as a different string and produced an error identical to a
+wrong one. All three had the same cause, a rule stated in prose and never checked. The two
+scripts and the CI job exist to stop that recurring, and a written rule is worth nothing until
+a command produces a verdict about it.</p>
+
+<p>The next three pieces of work are unambiguous: wire the SMS gateway and close the flag;
+move the token into encrypted storage; and add the reminder notification, which is the
+highest-value feature still missing and the one the no-show metric depends on. After those, an
+administrator console is the priority, because a system whose clinic hours can only be changed
+by writing to a database is not yet a system a clinic can run.</p>
+</div>
+
+<!-- ============================ APPENDIX A ============================ -->
+<div class="sec" id="sa">
+<h2 class="sec">Appendix A: System Architecture and Technology Stack</h2>
+
+<h3>A.1 Technology</h3>
+<table class="data">
+  <thead><tr><th style="width:44mm">Concern</th><th style="width:60mm">Choice</th><th>Note</th></tr></thead>
+  <tbody>
+    <tr><td>Language</td><td>Kotlin 2.2.10</td><td>One language across client, server and shared domain</td></tr>
+    <tr><td>Build</td><td>Gradle 9.8.0, AGP 9.3.3, version catalogue</td><td>Two modules, configuration cache on</td></tr>
+    <tr><td>UI</td><td>Jetpack Compose, BOM 2026.02.01, Material 3</td><td></td></tr>
+    <tr><td>Navigation</td><td>navigation-compose 2.10.1</td><td>Typed route object; imperative navigation</td></tr>
+    <tr><td>Architecture</td><td>MVVM, manual dependency injection</td><td>One <span class="mono">AppContainer</span> file holds every wiring decision</td></tr>
+    <tr><td>SDK</td><td>minSdk 24, target and compile 37, Java 11</td><td>Core library desugaring on, because the domain uses <span class="mono">java.time</span></td></tr>
+    <tr><td>Client networking</td><td>Retrofit 2.11.0, OkHttp 4.12.0, Gson 2.11.0</td><td></td></tr>
+    <tr><td>Server</td><td>Ktor 3.1.3 on Netty, kotlinx.serialization</td><td></td></tr>
+    <tr><td>Database</td><td>H2 2.3.232 (development), HikariCP 6.3.0, hand-written JDBC</td><td>PostgreSQL 15 is the production target</td></tr>
+    <tr><td>Authentication</td><td>java-jwt 4.5.0, PBKDF2-HMAC-SHA256 at 210,000 iterations</td><td>Iteration count stored beside the hash so it can be raised</td></tr>
+    <tr><td>Logging</td><td>Logback 1.5.18</td><td>Unrecognised server errors are logged in full and answered generically, so table names and stack traces never reach a phone</td></tr>
+  </tbody>
+</table>
+
+<h3>A.2 Absent on purpose</h3>
+<p>No dependency was added that the project did not need: no Hilt or Dagger (the wiring is one
+file and a
+dependency would have hidden it), no ORM or annotation processor (the SQL is short and the
+transaction boundary is the point), no migration tool yet, no encryption library yet, no SMS
+provider yet.</p>
+
+<h3>A.3 Repository layout</h3>
+<pre>app/src/main/java/com/example/mediq/
+  domain/model/       plain Kotlin models; no Compose, no Android
+  domain/repository/  interfaces only
+  data/api/           Retrofit service, wire DTOs, mappers, token store,
+                      the call { } wrapper that maps HTTP error -> ApiFailure
+  data/repository/    one Retrofit repository per aggregate
+  di/AppContainer     the single place wiring is edited
+  ui/feature/&lt;area&gt;/     screen + ViewModel pairs
+  ui/navigation/      typed routes and the nav host
+  core/designsystem/  theme, colour tokens, empty state, bottom bar
+
+server/src/main/kotlin/com/example/mediq/server/
+  Db.kt               Hikari pool, schema bootstrap, tx { }, configuration
+  db/*Store.kt        SQL, one class per aggregate
+  db/AuthService.kt   sign-in, one-time codes, registration
+  http/Routes.kt      every endpoint, in one file
+  http/Dtos.kt        the wire contract, separate from the domain
+  auth/               PBKDF2 password hashing, JWT issuing and verification
+  schema.sql          the only definition of the data shape</pre>
+</div>
+
+<!-- ============================ APPENDIX B ============================ -->
+<div class="sec" id="sb">
+<h2 class="sec">Appendix B: Running and Verifying the System</h2>
+
+<h3>B.1 Running it</h3>
+<pre>$env:MEDIQ_SEED_DEMO="true"     # demo doctors, labelled DEMO-PRC-000n
+$env:MEDIQ_PORT="8099"
+.\gradlew.bat :server:run --console=plain
+
+.\gradlew.bat :app:installDebug
+adb shell am start -n com.example.mediq/.MainActivity</pre>
+<p>Demo credentials exist only when <span class="mono">MEDIQ_SEED_DEMO=true</span>:
+<span class="mono">demo_patient</span> / <span class="mono">demo12345</span>. That flag must
+never be set against a database holding real patients.</p>
+
+<h3>B.2 The verification gate</h3>
+<pre>.\.mdfiles\check-boundaries.ps1        # architecture boundaries, under 5 s
+.\.mdfiles\check-contrast.ps1          # WCAG contrast and ratchets, under 5 s
+.\gradlew.bat :app:compileDebugKotlin :app:testDebugUnitTest :server:test
+.\server\scripts\smoke.ps1 -Base http://127.0.0.1:8099    # 19 checks over real HTTP</pre>
+<p>Both scripts also run in continuous integration as a
+<span class="mono">gates</span> job, in parallel with the build jobs and taking about ten
+seconds. They need no JVM and no Android SDK.</p>
+
+<h3>B.3 Three measured failures the gates now catch</h3>
+<table class="data">
+  <thead><tr><th style="width:8mm">#</th><th style="width:56mm">What shipped</th><th>Why the build and the tests were green anyway</th></tr></thead>
+  <tbody>
+    <tr><td class="c">1</td><td>Patients saw <span class="mono">"HTTP 401 "</span> instead of the sentence written for them, and a booking refusal told them to "try again" about a booking that could never succeed</td><td>The error contract was published by the server and never read by the client. The mapping was missing for most of the project's life; the whole suite passed throughout.</td></tr>
+    <tr><td class="c">2</td><td>Seven ViewModels imported an exception from the data layer, against an explicit written rule</td><td>The compiler cannot catch this, because the import compiles fine. Found by the first run of the boundary script and fixed the same day.</td></tr>
+    <tr><td class="c">3</td><td>Not one of the ten text fields set keyboard options, so Android's autocorrect rewrote characters inside masked fields. A correct password reached the server as a different string and returned an error indistinguishable from a wrong password</td><td>Invisible in review, invisible to the compiler, invisible to the entire test suite, and it shipped in the most safety-critical place in the application.</td></tr>
+    <tr><td class="c">4</td><td>The two scripts were described as enforced while running only when somebody remembered to type them, so a violation merged green</td><td>The same lesson one level up: a rule with no command producing its verdict is a rule nobody is checking.</td></tr>
+  </tbody>
+</table>
+</div>
+
+<!-- ============================ APPENDIX C ============================ -->
+<div class="sec" id="sc">
+<h2 class="sec">Appendix C: Source Code Map</h2>
+
+<table class="data">
+  <thead><tr><th style="width:56mm">Requirement</th><th>Where it is implemented</th></tr></thead>
+  <tbody>
+    <tr><td>F01 Registration with a verified number</td><td><span class="mono">ui/feature/auth/register/</span> (4 screens + 1 ViewModel) · <span class="mono">server/db/AuthService.kt</span></td></tr>
+    <tr><td>F02 Sign-in and revocable sign-out</td><td><span class="mono">ui/feature/auth/signin/</span> · <span class="mono">server/auth/Tokens.kt</span> · <span class="mono">configureAuth</span> in <span class="mono">Routes.kt</span></td></tr>
+    <tr><td>F03 &amp; F04 Doctors, search, profile</td><td><span class="mono">ui/feature/doctors/</span> · <span class="mono">server/db/DoctorStore.kt</span></td></tr>
+    <tr><td>F05 &amp; F06 Availability and slots</td><td><span class="mono">DoctorStore.availableDates</span> / <span class="mono">DoctorStore.slots</span> · <span class="mono">server/src/test/…/AvailableDatesTest.kt</span></td></tr>
+    <tr><td>F07 Booking without double booking</td><td><span class="mono">server/db/AppointmentStore.book</span> · <span class="mono">slot_claims</span> in <span class="mono">schema.sql</span> · <span class="mono">BookingConcurrencyTest.kt</span></td></tr>
+    <tr><td>F08 &amp; F09 Appointments list and detail</td><td><span class="mono">ui/feature/appointments/</span> · <span class="mono">server/db/AppointmentStore.kt</span> · <span class="mono">AppointmentLifecycleTest.kt</span></td></tr>
+    <tr><td>F10 Cancellation</td><td><span class="mono">AppointmentStore.cancel</span>, which deletes the claim row inside the transaction</td></tr>
+    <tr><td>F11 Reschedule request</td><td><span class="mono">AppointmentStore.requestReschedule</span> · <span class="mono">ui/feature/booking/SlotPicker.kt</span></td></tr>
+    <tr><td>F12 Profile</td><td><span class="mono">server/db/UserStore.kt</span> · <span class="mono">ui/feature/profile/</span>; no screen reaches the update call</td></tr>
+    <tr><td>F13 Notifications</td><td><span class="mono">server/db/NotificationStore.kt</span> · <span class="mono">ui/feature/notifications/</span></td></tr>
+    <tr><td>F14 Theme and contrast</td><td><span class="mono">core/designsystem/theme/Color.kt</span> (ratios written beside each value) · <span class="mono">.mdfiles/check-contrast.ps1</span></td></tr>
+    <tr><td>N1 Concurrency guarantee</td><td><span class="mono">server/src/test/…/BookingConcurrencyTest.kt</span></td></tr>
+    <tr><td>N3 Immediate revocation</td><td><span class="mono">configureAuth</span> reads the session row on every request · <span class="mono">server/scripts/smoke.ps1</span></td></tr>
+    <tr><td>N5 Architecture boundaries</td><td><span class="mono">.mdfiles/check-boundaries.ps1</span> · <span class="mono">.github/workflows/ci.yml</span></td></tr>
+    <tr><td>N10 No fabricated data</td><td><span class="mono">EmptyRepositories.kt</span> · <span class="mono">server/DemoData.kt</span> (opt-in, labelled)</td></tr>
+  </tbody>
+</table>
+</div>
+
+<!-- ============================ REFERENCES ============================ -->
+<div class="sec" id="sr">
+<h2 class="sec">References</h2>
+<ol style="font-size:9.4pt">
+  <li>OWASP Foundation. <em>OWASP Password Storage Cheat Sheet.</em> OWASP Cheat Sheet Series. Accessed October 2026.</li>
+  <li>OWASP Foundation. <em>Application Security Verification Standard (ASVS).</em> Version 4.0.3.</li>
+  <li>OWASP Foundation. <em>Mobile Application Security Verification Standard (MASVS).</em></li>
+  <li>W3C. <em>Web Content Accessibility Guidelines (WCAG) 2.1.</em> W3C Recommendation, 5 June 2018. §1.4.3 (contrast, minimum) and §1.4.11 (non-text contrast).</li>
+  <li>Fielding, R. T. <em>Architectural Styles and the Design of Network-based Software Architectures.</em> Doctoral dissertation, University of California, Irvine, 2000. — The origin of the REST constraints.</li>
+  <li>Richardson, L., &amp; Amundsen, M. <em>RESTful Web APIs.</em> O'Reilly Media, 2013.</li>
+  <li>Android Developers. <em>Guide to app architecture.</em> Android Developers documentation. — Layers, state holders, unidirectional data flow.</li>
+  <li>Android Developers. <em>Jetpack Compose documentation and architecture recommendations.</em></li>
+  <li>JetBrains. <em>Ktor framework documentation</em> — routing, authentication, content negotiation, status pages.</li>
+  <li>Square. <em>Retrofit</em> and <em>OkHttp</em> documentation. — Type-safe HTTP interfaces for the JVM and Android.</li>
+  <li>IETF. <em>RFC 8018: PKCS #5 v2.1 Password-Based Cryptography Specification.</em> IETF, 2017. — PBKDF2.</li>
+  <li>NIST. <em>NIST Special Publication 800-63B: Digital Identity Guidelines — Authentication and Lifecycle Management.</em></li>
+  <li>Republic Act No. 10173. <em>Data Privacy Act of 2012.</em> Republic of the Philippines. — Consent, lawful basis, and the safeguards a health-adjacent system requires.</li>
+  <li>The PostgreSQL Global Development Group. <em>PostgreSQL Documentation</em> — constraints, transactions, isolation levels.</li>
+  <li>Redgate. <em>Flyway documentation</em> — versioned database migrations, identified in Section&nbsp;8.5 as required before the first column change.</li>
+  <li>Ktor, Compose and Ktor server test output for this project: <span class="mono">README.md</span>, <span class="mono">.mdfiles/CONSTRAINTS.md</span>, <span class="mono">.mdfiles/CHANGELOG.md</span> in the project repository.</li>
+</ol>
+</div>
+
+</body>
+</html>
