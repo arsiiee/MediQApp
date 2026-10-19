@@ -28,6 +28,12 @@ import com.example.mediq.core.designsystem.theme.LocalMediQColors
  * typed. [keyboardActions] is here for the same reason in reverse: a caller that
  * submits a form from the keyboard's `Done` key must be able to say so, or
  * adopting this field would quietly drop that behaviour.
+ *
+ * [isError] and [supportingText] are here for the same reason again: a form that
+ * validates per field needs to say *which* field and *why*, and a component that
+ * drew only a label would push each screen into re-deriving the error styling —
+ * or worse, into showing the error somewhere the field is not. Both default to
+ * "unchanged", so every caller that predates them renders exactly as before.
  */
 @Composable
 fun MediQBrandTextField(
@@ -43,6 +49,8 @@ fun MediQBrandTextField(
     keyboardActions: KeyboardActions = KeyboardActions.Default,
     singleLine: Boolean = true,
     enabled: Boolean = true,
+    isError: Boolean = false,
+    supportingText: String? = null,
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
         Text(
@@ -72,6 +80,12 @@ fun MediQBrandTextField(
             keyboardActions = keyboardActions,
             singleLine = singleLine,
             enabled = enabled,
+            isError = isError,
+            supportingText = if (supportingText != null) {
+                { Text(supportingText) }
+            } else {
+                null
+            },
         )
     }
 }

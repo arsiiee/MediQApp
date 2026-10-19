@@ -34,6 +34,7 @@ import com.example.mediq.ui.feature.doctors.DoctorsScreen
 import com.example.mediq.ui.feature.home.HomeScreen
 import com.example.mediq.ui.feature.messages.MessagesScreen
 import com.example.mediq.ui.feature.notifications.NotificationsScreen
+import com.example.mediq.ui.feature.profile.EditProfileScreen
 import com.example.mediq.ui.feature.profile.ProfileScreen
 
 /**
@@ -148,6 +149,9 @@ fun MediQNavHost(navController: NavHostController) {
             AppointmentDetailsScreen(navController, appointmentId)
         }
         composable(Screen.Notifications.route) { NotificationsScreen(navController) }
+
+        // Shares the Profile route's ProfileViewModel — see EditProfileScreen.
+        composable(Screen.EditProfile.route) { EditProfileScreen(navController) }
 
         // TEMPORARY. The only route with no entry point a patient can find —
         // it is reached by long-pressing the splash wordmark, never from the

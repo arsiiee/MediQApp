@@ -41,6 +41,17 @@ sealed class Screen(val route: String) {
     object Notifications : Screen("notifications")
 
     /**
+     * Editing the signed-in user's own profile.
+     *
+     * A destination of its own rather than an inline mode on `ProfileScreen`:
+     * the form is six fields and a save, and as its own route it takes the same
+     * `ProfileViewModel` as `ProfileScreen` (from `Screen.Profile`'s back stack
+     * entry), so a save is visible on return with no refresh call and no second
+     * ViewModel to keep in step.
+     */
+    object EditProfile : Screen("edit_profile")
+
+    /**
      * TEMPORARY. Opens the seeded-data screen — a backend check, not a feature.
      *
      * Reachable only by long-pressing the splash wordmark, and deliberately not

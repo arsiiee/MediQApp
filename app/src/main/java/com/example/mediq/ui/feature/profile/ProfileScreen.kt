@@ -17,6 +17,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.outlined.AccountCircle
 import androidx.compose.material.icons.outlined.Cake
+import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Email
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.PersonOutline
@@ -118,6 +119,12 @@ fun ProfileScreen(navController: NavController) {
                             value = session.profile.sex.displayName,
                         )
                     }
+                    Spacer(modifier = Modifier.height(12.dp))
+                    ProfileOption(
+                        icon    = Icons.Outlined.Edit,
+                        title   = "Edit profile",
+                        onClick = { navController.navigate(Screen.EditProfile.route) }
+                    )
                 }
             }
         }
