@@ -64,7 +64,8 @@ Integrate all four surfaces (Android app, Web frontend, Hono API, Ktor server) i
 - [ ] Task 5.1: Run Ktor + Hono + Web FE + Android emulator simultaneously; verify all flows
 - [ ] Task 5.2: Add CI pipeline: Ktor tests, Web FE tests, Android tests, OpenAPI spec validation
 - [ ] Task 5.3: Document local dev setup (docker-compose for Supabase, Ktor, Hono, web)
-- [ ] Task 5.4: Production deploy checklist (env vars, TLS, Supabase connection pooling, monitoring)
+- [x] Task 5.4: Production deploy checklist (env vars, TLS, Supabase connection pooling, monitoring)
+- [x] Task 5.5: Render.com deployment config (`render.yaml`, `docs/render-deploy.md`) for Ktor backend on `backend/server` branch
 
 ## Checkpoints
 
