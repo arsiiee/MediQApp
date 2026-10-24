@@ -11,11 +11,19 @@ object Database {
 
     fun createDataSource(config: ApplicationConfig): HikariDataSource {
         val hikariConfig = HikariConfig()
+        // HOCON config (application.conf) takes precedence; environment variables
+        // (DB_URL, DB_USER, DB_PASSWORD, DB_DRIVER) override for production/Supabase.
         hikariConfig.jdbcUrl = config.propertyOrNull("db.url")?.getString()
+            ?: System.getenv("DB_URL")
             ?: "jdbc:h2:mem:mediq;DB_CLOSE_DELAY=-1;MODE=PostgreSQL"
-        hikariConfig.username = config.propertyOrNull("db.user")?.getString() ?: "sa"
-        hikariConfig.password = config.propertyOrNull("db.password")?.getString() ?: ""
+        hikariConfig.username = config.propertyOrNull("db.user")?.getString()
+            ?: System.getenv("DB_USER")
+            ?: "sa"
+        hikariConfig.password = config.propertyOrNull("db.password")?.getString()
+            ?: System.getenv("DB_PASSWORD")
+            ?: ""
         hikariConfig.driverClassName = config.propertyOrNull("db.driver")?.getString()
+            ?: System.getenv("DB_DRIVER")
             ?: "org.h2.Driver"
         hikariConfig.maximumPoolSize = config.propertyOrNull("db.pool.size")?.getString()?.toIntOrNull() ?: 10
         hikariConfig.minimumIdle = config.propertyOrNull("db.pool.minIdle")?.getString()?.toIntOrNull() ?: 2

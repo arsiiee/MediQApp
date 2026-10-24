@@ -164,3 +164,26 @@ Response: MessageThread[]
 
 ### GET /health
 Response: { status: "ok" }
+
+---
+
+## Web API Implementation Status (`mediqweb/mediqapp-api/`)
+
+The Hono web API is a minimal surface. Current state:
+
+| Contract Section | Endpoints | Implemented in Hono web API? |
+|---|---|---|
+| Authentication | sign-in, register, request-otp, verify-otp, refresh | No |
+| User Profile | GET/PATCH /profile | GET only |
+| Doctors | list/get/schedule/availability/appointments/outcome | No |
+| Specializations | CRUD | No |
+| Appointments | list/create/get | No |
+| Messages | conversations/messages/read | No |
+| Notifications | list/read/read-all | No |
+| Admin | accounts/doctors/status | No |
+| Secretary | appointments/confirm/cancel/patients/messages | No |
+| Health | /health | Yes |
+
+Implemented routes in `mediqweb/mediqapp-api/src/index.ts`: `GET /health`, `GET /profile` only. Supabase middleware (`src/supabase.ts`) is wired globally but only `/profile` consumes `c.var.supabaseContext`.
+
+The Ktor server (`server/`) implements the full contract per `http/Routes.kt` and is the canonical API for the Android app (base `http://127.0.0.1:8099`). The web frontend has no HTTP client wired (`provideHttpClient()` absent from `app.config.ts`), no route guards, and mocked auth/session layers — see `docs/system-current-condition.md` section 2.

@@ -2,6 +2,15 @@ package com.example.mediq.server
 
 import com.example.mediq.domain.model.ApiFailure
 import com.example.mediq.http.configureRoutes
+import com.example.mediq.server.jdbc.DatabaseSeeder
+import com.example.mediq.server.jdbc.JdbcAdminRepository
+import com.example.mediq.server.jdbc.JdbcAppointmentRepository
+import com.example.mediq.server.jdbc.JdbcAuthRepository
+import com.example.mediq.server.jdbc.JdbcDoctorRepository
+import com.example.mediq.server.jdbc.JdbcMessageRepository
+import com.example.mediq.server.jdbc.JdbcNotificationRepository
+import com.example.mediq.server.jdbc.JdbcProfileRepository
+import com.example.mediq.server.jdbc.JdbcSpecializationRepository
 import com.example.mediq.security.JwtClaims
 import com.example.mediq.security.JwtProvider
 import com.example.mediq.security.PasswordHash
@@ -58,15 +67,18 @@ fun Application.configureApplication() {
     val dataSource = Database.createDataSource(environment.config)
     Database.runMigrations(dataSource)
 
-    // Repository implementations (using in-memory for now, replace with Postgres)
-    val appointmentRepository = InMemoryAppointmentRepository()
-    val authRepository = InMemoryAuthRepository(passwordHash)
-    val doctorRepository = InMemoryDoctorRepository()
-    val messageRepository = InMemoryMessageRepository()
-    val notificationRepository = InMemoryNotificationRepository()
-    val profileRepository = InMemoryProfileRepository()
-    val specializationRepository = InMemorySpecializationRepository()
-    val adminRepository = InMemoryAdminRepository(authRepository, doctorRepository)
+    // Repository implementations (JDBC-backed; configure db.url/db.user/db.password for PostgreSQL)
+    val appointmentRepository = JdbcAppointmentRepository(dataSource)
+    val authRepository = JdbcAuthRepository(dataSource, passwordHash)
+    val doctorRepository = JdbcDoctorRepository(dataSource)
+    val messageRepository = JdbcMessageRepository(dataSource)
+    val notificationRepository = JdbcNotificationRepository(dataSource)
+    val profileRepository = JdbcProfileRepository(dataSource)
+    val specializationRepository = JdbcSpecializationRepository(dataSource)
+    val adminRepository = JdbcAdminRepository(dataSource, passwordHash)
+
+    // Seed demo data on first run (no-op once tables are populated)
+    DatabaseSeeder(dataSource, passwordHash).seedIfEmpty()
 
     // Services
     val authService = AuthService(authRepository, jwtProvider, passwordHash)

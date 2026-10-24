@@ -4,40 +4,49 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.example.mediq.ui.components.MediQBackHeader
 import com.example.mediq.ui.navigation.Screen
 import com.example.mediq.ui.theme.MediQScaffoldBackground
+import com.example.mediq.ui.viewmodel.MessagesViewModel
 
 /**
  * Messages list.
  *
  * Job: reach the secretary. Primary action: open a conversation.
  *
- * [state] defaults to the mock source. Replacing it with a repository changes
- * this one call site.
+ * State is loaded from the server via [MessagesViewModel].
  */
 @Composable
 fun MessagesScreen(
     navController: NavController,
-    state: MessagesUiState = MessagesSamples.content
+    viewModel: MessagesViewModel = viewModel()
 ) {
+    val uiState = viewModel.uiState.collectAsState().value
     var readIds by rememberSaveable { mutableStateOf(emptySet<String>()) }
-    val resolvedState = if (state is MessagesUiState.Content) {
-        MessagesUiState.Content(
-            conversations = state.conversations.map { conv ->
+
+    LaunchedEffect(viewModel) {
+        viewModel.loadConversations()
+    }
+
+    val resolvedState = when (uiState) {
+        is MessagesUiState.Content -> MessagesUiState.Content(
+            conversations = uiState.conversations.map { conv ->
                 if (conv.id in readIds) conv.copy(unreadCount = 0) else conv
             }
         )
-    } else {
-        state
+        else -> uiState
     }
+
     MessagesContent(
         state = resolvedState,
         actions = MessagesActions(

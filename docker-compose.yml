@@ -24,12 +24,12 @@ services:
     ports:
       - "8099:8099"
     environment:
-      DB_URL: jdbc:postgresql://postgres:5432/mediq
-      DB_USER: mediq
-      DB_PASSWORD: mediq_dev_password
-      DB_DRIVER: org.postgresql.Driver
-      JWT_SECRET: mediq-dev-secret-change-in-production
-      CORS_ORIGINS: http://localhost:4200,http://localhost:3000
+      - DB_URL=jdbc:postgresql://postgres:5432/mediq
+      - DB_USER=mediq
+      - DB_PASSWORD=mediq_dev_password
+      - DB_DRIVER=org.postgresql.Driver
+      - JWT_SECRET=mediq-dev-secret-change-in-production
+      - CORS_ORIGINS=http://localhost:4200,http://localhost:3000
     depends_on:
       postgres:
         condition: service_healthy
@@ -46,8 +46,10 @@ services:
     ports:
       - "3000:3000"
     environment:
-      PORT: 3000
-      KTOR_URL: http://ktor-server:8099
+      - PORT=3000
+      - KTOR_BASE_URL=http://ktor-server:8099
+      - SUPABASE_URL=https://wdoyhtjpjhmhsegdllvd.supabase.co
+      - SUPABASE_PUBLISHABLE_KEY=REDACTED_SUPABASE_KEY
     depends_on:
       ktor-server:
         condition: service_healthy
@@ -66,8 +68,8 @@ services:
     depends_on:
       - hono-bff
     environment:
-      API_BASE_URL: http://localhost:8099
-      BFF_BASE_URL: http://localhost:3000
+      - API_BASE_URL=http://localhost:8099
+      - BFF_BASE_URL=http://localhost:3000
 
 volumes:
   postgres_data:

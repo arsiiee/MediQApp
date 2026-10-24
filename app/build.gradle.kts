@@ -36,6 +36,17 @@ android {
     buildFeatures {
         compose = true
     }
+    sourceSets {
+        getByName("main") {
+            kotlin.srcDir("$buildDir/generated/source/openapi/main/kotlin")
+        }
+    }
+}
+
+// Configuration used to fetch the OpenAPI Generator CLI for Task 0.2 codegen.
+val codegenConfig = configurations.create("codegen") {
+    isCanBeConsumed = false
+    isCanBeResolved = true
 }
 
 dependencies {
@@ -71,4 +82,33 @@ dependencies {
 
     debugImplementation(libs.androidx.compose.ui.test.manifest)
     debugImplementation(libs.androidx.compose.ui.tooling)
+    add("codegen", "org.openapitools:openapi-generator-cli:7.14.0")
+}
+
+// --- Task 0.2: Kotlin client codegen from the Ktor OpenAPI spec ----------
+// Generates a Retrofit 2 + kotlinx.serialization Kotlin client into a package
+// that does not collide with the hand-written `data.api`/`data.model` sources.
+tasks.register<JavaExec>("generateKotlinClient") {
+    description = "Generates the Kotlin Retrofit client from the Ktor OpenAPI spec"
+    group = "codegen"
+    val cp: FileCollection = codegenConfig
+    classpath = cp
+    mainClass.set("org.openapitools.codegen.OpenAPIGenerator")
+    args = listOf(
+        "generate",
+        "-i", "$rootDir/server/src/main/resources/openapi/documentation.yaml",
+        "-g", "kotlin",
+        "-o", "$buildDir/generated/source/openapi/main",
+        "--api-package", "com.example.mediq.data.api.generated.api",
+        "--model-package", "com.example.mediq.data.api.generated.model",
+        "--package-name", "com.example.mediq.data.api.generated",
+        "--library", "jvm-retrofit2",
+        "--additional-properties", "serializationLibrary=kotlinx_serialization",
+        "--skip-validate-spec",
+    )
+    outputs.dir("$buildDir/generated/source/openapi/main/kotlin")
+}
+
+tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
+    dependsOn("generateKotlinClient")
 }

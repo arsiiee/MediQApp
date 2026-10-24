@@ -1,6 +1,7 @@
 package com.example.mediq.http
 
 import com.example.mediq.domain.model.*
+import com.example.mediq.mcp.mcpServer
 import com.example.mediq.security.JwtClaims
 import com.example.mediq.security.JwtProvider
 import com.example.mediq.service.*
@@ -25,6 +26,8 @@ fun Routing.configureRoutes(
     profileService: ProfileService,
     jwtProvider: JwtProvider,
 ) {
+    mcpServer()
+
     // Public routes
     route("auth") {
         post("sign-in") {
@@ -559,7 +562,11 @@ fun Routing.configureRoutes(
 
             get("messages") {
                 if (!call.requireRole(UserRole.SECRETARY, UserRole.ADMIN)) return@get
-                call.respond(emptyList<MessageThread>())
+                val claims = call.authentication.principal<JwtClaims>()!!
+                messageService.findConversationsForSecretary(claims.userId).fold(
+                    onSuccess = { call.respond(it) },
+                    onError = { call.respond(HttpStatusCode.InternalServerError, it) },
+                )
             }
         }
     }
