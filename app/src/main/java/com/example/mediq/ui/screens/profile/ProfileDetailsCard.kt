@@ -28,7 +28,8 @@ import com.example.mediq.ui.theme.MediQBorder
 import com.example.mediq.ui.theme.MediQError
 import com.example.mediq.ui.theme.MediQErrorBorder
 import com.example.mediq.ui.theme.MediQGreen
-import com.example.mediq.ui.theme.MediQLightGreen
+import com.example.mediq.ui.theme.MediQHeaderControl
+import com.example.mediq.ui.theme.MediQOnBrand
 import com.example.mediq.ui.theme.MediQSize
 import com.example.mediq.ui.theme.MediQSpacing
 import com.example.mediq.ui.theme.MediQTextPrimary
@@ -44,46 +45,46 @@ internal fun ProfileHeader(
         modifier = modifier
             .fillMaxWidth()
             .height(MediQSize.headerBar)
-            .background(com.example.mediq.ui.theme.MediQGreen)
-    )
+            .background(MediQGreen)
+    ) {
+        Column(modifier = Modifier.padding(horizontal = MediQSpacing.gutter)) {
+            Spacer(Modifier.height(MediQSpacing.md))
 
-    Column(modifier = Modifier.padding(horizontal = MediQSpacing.gutter)) {
-        Spacer(Modifier.height(MediQSpacing.md))
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(MediQSize.avatar)
-                    .clip(CircleShape)
-                    .background(MediQLightGreen),
-                contentAlignment = Alignment.Center
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = profile.initials,
-                    style = MaterialTheme.typography.titleLarge,
-                    color = com.example.mediq.ui.theme.MediQGreen
-                )
-            }
+                Box(
+                    modifier = Modifier
+                        .size(MediQSize.avatar)
+                        .clip(CircleShape)
+                        .background(MediQHeaderControl),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = profile.initials,
+                        style = MaterialTheme.typography.titleLarge,
+                        color = MediQOnBrand
+                    )
+                }
 
-            Spacer(Modifier.width(MediQSpacing.lg))
+                Spacer(Modifier.width(MediQSpacing.lg))
 
-            Column {
-                Text(
-                    text = profile.fullName,
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MediQTextPrimary
-                )
+                Column {
+                    Text(
+                        text = profile.fullName,
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MediQTextPrimary
+                    )
 
-                Spacer(Modifier.height(MediQSpacing.xxs))
+                    Spacer(Modifier.height(MediQSpacing.xxs))
 
-                Text(
-                    text = profile.email,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MediQTextSecondary
-                )
+                    Text(
+                        text = profile.email,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MediQTextSecondary
+                    )
+                }
             }
         }
     }

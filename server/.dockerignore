@@ -1,0 +1,14 @@
+build/
+.gradle/
+out/
+*.iml
+*.class
+*.log
+.git/
+.github/
+.idea/
+.vscode/
+*.md
+docker-compose.yml
+Dockerfile
+.dockerignore

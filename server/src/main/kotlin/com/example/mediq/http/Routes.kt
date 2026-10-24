@@ -425,6 +425,21 @@ fun Routing.configureRoutes(
                 val conversationId = call.parameters["id"]!!
                 val claims = call.authentication.principal<JwtClaims>()!!
                 val body = call.receive<String>()
+
+                // Only a participant of the conversation may post into it.
+                val thread = messageService.findConversation(conversationId).getOrNull()
+                if (thread == null) return@post call.respond(HttpStatusCode.NotFound)
+
+                val allowed = when (claims.role) {
+                    UserRole.PATIENT.serialName -> thread.patientId == claims.userId
+                    UserRole.DOCTOR.serialName -> thread.doctorId == claims.userId
+                    UserRole.SECRETARY.serialName -> {
+                        authService.findById(claims.userId).getOrNull()?.assignedDoctorId == thread.doctorId
+                    }
+                    else -> false
+                }
+                if (!allowed) return@post call.respond(HttpStatusCode.Forbidden)
+
                 val message = Message(
                     id = java.util.UUID.randomUUID().toString(),
                     conversationId = conversationId,

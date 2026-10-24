@@ -40,7 +40,9 @@ import kotlin.time.Duration.Companion.minutes
 
 fun main(args: Array<String>) {
     // The application module is wired in directly so the server is configured exactly once.
-    val port = System.getProperty("ktor.deployment.port")?.toIntOrNull()
+    val port = System.getenv("PORT")?.toIntOrNull()
+        ?: System.getenv("MEDIQ_PORT")?.toIntOrNull()
+        ?: System.getProperty("ktor.deployment.port")?.toIntOrNull()
         ?: 8099
     embeddedServer(Netty, port = port, host = "0.0.0.0") {
         configureApplication()

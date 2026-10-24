@@ -89,7 +89,10 @@ fun SecretaryChatContent(
             is ChatUiState.Content -> {
                 ChatHeader(secretaryName = state.secretaryName, onBack = actions.onBack)
                 ChatNotice()
-                ChatMessageList(messages = state.messages)
+                ChatMessageList(
+                    messages = state.messages,
+                    modifier = Modifier.weight(1f)
+                )
                 ChatInput(
                     text = draftText,
                     onTextChange = onDraftChange,

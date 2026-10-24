@@ -15,8 +15,10 @@ import androidx.compose.ui.graphics.Color
 
 // ── Brand ───────────────────────────────────────────────────────────────────
 
-/** Primary brand green. Header surfaces, primary buttons, selected nav, links. */
-val MediQGreen = Color(0xFF006B3C)
+/** Primary brand green. Header surfaces, primary buttons, selected nav, links.
+ *  Matches Figma brand green #16632C (used for header bands, primary buttons,
+ *  selected nav and links across the design). */
+val MediQGreen = Color(0xFF16632C)
 
 /** Darker brand green for pressed states and emphasis on light green. */
 val MediQDarkGreen = Color(0xFF004D2C)

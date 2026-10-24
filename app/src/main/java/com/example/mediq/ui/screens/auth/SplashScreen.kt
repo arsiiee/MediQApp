@@ -24,6 +24,7 @@ import com.example.mediq.ui.theme.MediQGreen
 import com.example.mediq.ui.theme.MediQOnBrand
 import com.example.mediq.ui.theme.MediQSize
 import com.example.mediq.ui.theme.MediQSpacing
+import com.example.mediq.ui.theme.Wordmark
 
 /**
  * Splash.
@@ -57,7 +58,7 @@ fun SplashContent(
     ) {
         Text(
             text = "MediQ",
-            style = MaterialTheme.typography.headlineLarge,
+            style = Wordmark,
             color = MediQOnBrand
         )
 

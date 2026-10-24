@@ -61,7 +61,7 @@ internal fun ChatMessageList(
     modifier: Modifier = Modifier
 ) {
     LazyColumn(
-        modifier = modifier.fillMaxSize(),
+        modifier = modifier,
         contentPadding = PaddingValues(horizontal = MediQSpacing.sm, vertical = MediQSpacing.xs),
         verticalArrangement = Arrangement.spacedBy(MediQSpacing.md)
     ) {

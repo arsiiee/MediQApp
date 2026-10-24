@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
@@ -16,6 +17,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import com.example.mediq.ui.theme.MediQGreen
 import com.example.mediq.ui.theme.MediQOnBrand
 import com.example.mediq.ui.theme.MediQSize
@@ -31,6 +33,9 @@ import com.example.mediq.ui.theme.MediQSpacing
  * [onBack] is nullable: a terminal screen such as a booking result has no back
  * action and drops the control rather than showing a dead one.
  *
+ * [height] is an optional fixed height for the bar. When provided it replaces
+ * the default vertical padding (used by messages and appointments, fixed at 80dp).
+ *
  * The trailing [actions] slot lets a screen add its own controls without this
  * header growing a new parameter it does not need yet.
  */
@@ -38,6 +43,7 @@ import com.example.mediq.ui.theme.MediQSpacing
 fun MediQBackHeader(
     title: String,
     onBack: (() -> Unit)?,
+    height: Dp? = null,
     modifier: Modifier = Modifier,
     actions: @Composable RowScope.() -> Unit = {}
 ) {
@@ -45,10 +51,10 @@ fun MediQBackHeader(
         modifier = modifier
             .fillMaxWidth()
             .background(MediQGreen)
-            .padding(
-                horizontal = MediQSpacing.xs,
-                vertical = MediQSpacing.sm
-            ),
+            .let { m ->
+                if (height != null) m.height(height) else m.padding(vertical = MediQSpacing.sm)
+            }
+            .padding(horizontal = MediQSpacing.xs),
         verticalAlignment = Alignment.CenterVertically
     ) {
         if (onBack != null) {

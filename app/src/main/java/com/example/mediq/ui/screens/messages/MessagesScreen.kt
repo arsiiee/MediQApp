@@ -14,7 +14,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
-import com.example.mediq.ui.components.MediQBackHeader
 import com.example.mediq.ui.navigation.Screen
 import com.example.mediq.ui.theme.MediQScaffoldBackground
 import com.example.mediq.ui.viewmodel.MessagesViewModel
@@ -70,8 +69,6 @@ fun MessagesContent(
             .fillMaxSize()
             .background(MediQScaffoldBackground)
     ) {
-        MediQBackHeader(title = "Messages", onBack = null)
-
         var searchQuery by remember { mutableStateOf("") }
 
         MessagesSearchField(

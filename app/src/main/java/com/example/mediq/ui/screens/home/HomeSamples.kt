@@ -49,7 +49,7 @@ object HomeSamples {
     )
 
     private val nextAppointment = NextAppointment(
-        id = "appt-2026-09-14",
+        id = "1",
         time = "9:30 AM",
         date = "Monday, September 14, 2026",
         doctorName = "Dr. Maria Elena Sandoval",

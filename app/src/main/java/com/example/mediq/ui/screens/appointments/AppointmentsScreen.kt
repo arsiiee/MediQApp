@@ -12,6 +12,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import com.example.mediq.ui.components.MediQBackHeader
@@ -98,7 +99,7 @@ fun AppointmentsContent(
             .fillMaxSize()
             .background(MediQScaffoldBackground)
     ) {
-        MediQBackHeader(title = "My appointments", onBack = null)
+        MediQBackHeader(title = "My appointments", onBack = null, height = 80.dp)
 
         AppointmentTabs(selected = selectedTab, onSelect = onTabSelected)
 

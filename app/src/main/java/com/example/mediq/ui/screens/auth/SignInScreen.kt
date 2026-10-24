@@ -33,6 +33,7 @@ import com.example.mediq.ui.theme.MediQTextPrimary
 import com.example.mediq.ui.theme.MediQTextSecondary
 import com.example.mediq.ui.viewmodel.AuthUiState
 import com.example.mediq.ui.viewmodel.AuthViewModel
+import com.example.mediq.data.model.UserRole
 import kotlinx.coroutines.launch
 
 /**
@@ -80,7 +81,8 @@ fun SignInScreen(
                             username = profile.username,
                             fullName = profile.fullName,
                             email = profile.email,
-                            phoneNumber = profile.mobileNumber
+                            phoneNumber = profile.mobileNumber,
+                            role = profile.role
                         )
                     )
                     navController.navigate(Screen.Home.route) {

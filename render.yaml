@@ -1,0 +1,38 @@
+# Render.com deployment configuration for MediQ Ktor backend
+# Connect this repo to Render, then create a "Web Service" using this file.
+# The Ktor server lives under server/ and is a standalone Gradle project.
+
+services:
+  - type: web
+    name: mediq-ktor-server
+    env: java
+    rootDir: server
+    # Build: compile the Ktor distribution (skip tests — no test sources exist yet)
+    buildCommand: ./gradlew installDist -x test --no-daemon
+    # Start: run the installed distribution binary directly (not ./gradlew run)
+    startCommand: ./build/install/mediq-server/bin/mediq-server
+    # Render injects PORT automatically; MainKt.kt reads it as the first priority.
+    healthCheckPath: /health
+    autoDeploy: true
+    # "starter" = always-on (~$7/mo). Use "free" for spin-down after inactivity.
+    plan: starter
+    envVars:
+      - key: DB_URL
+        sync: false
+        # Production value: jdbc:postgresql://<supabase-pooler-host>:6543/postgres
+        # Local/dev fallback: jdbc:h2:mem:mediq;DB_CLOSE_DELAY=-1;MODE=PostgreSQL
+      - key: DB_USER
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      - key: DB_DRIVER
+        value: org.postgresql.Driver
+      - key: JWT_SECRET
+        generateValue: true
+        # Min 256 bits. Rotate periodically. Never commit.
+      - key: CORS_ORIGINS
+        sync: false
+        # Production value: https://<your-frontend-domain>.onrender.com
+        # Comma-separated allow-list, no wildcards in production.
+      - key: PORT
+        # Render assigns this automatically; do not override.

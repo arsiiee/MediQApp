@@ -55,12 +55,6 @@ internal fun ChatHeader(
                 style = MaterialTheme.typography.titleMedium,
                 color = MediQOnBrand
             )
-
-            Text(
-                text = "Clinic secretary · replies within an hour",
-                style = MaterialTheme.typography.bodySmall,
-                color = MediQOnBrand.copy(alpha = 0.85f)
-            )
         }
     }
 }

@@ -1,5 +1,7 @@
 package com.example.mediq.ui.screens.auth
 
+import com.example.mediq.data.model.UserRole
+
 /*
  * What each auth screen can be doing, and what it asks its caller to do.
  *
@@ -66,7 +68,7 @@ data class SignInActions(
 /** What the four registration steps ask for. */
 data class RegisterActions(
     val onBack: () -> Unit = {},
-    val onDetailsContinue: (fullName: String, phoneNumber: String) -> Unit = { _, _ -> },
+    val onDetailsContinue: (fullName: String, phoneNumber: String, role: UserRole) -> Unit = { _, _, _ -> },
     val onOtpVerify: (code: String) -> Unit = {},
     val onOtpResend: () -> Unit = {},
     val onCredentialsCreate: (username: String, password: String) -> Unit = { _, _ -> },

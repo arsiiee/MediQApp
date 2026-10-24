@@ -3,6 +3,7 @@ package com.example.mediq.ui.session
 import android.content.Context
 import android.content.SharedPreferences
 import java.io.File
+import com.example.mediq.data.model.UserRole
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -17,7 +18,8 @@ data class SignedInUser(
     val username: String,
     val fullName: String,
     val email: String? = null,
-    val phoneNumber: String? = null
+    val phoneNumber: String? = null,
+    val role: UserRole = UserRole.PATIENT
 )
 
 /**
@@ -62,9 +64,9 @@ object MediQSession {
 
     /**
      * The name and number from the registration details step, waiting for the
-     * username from the credentials step.
+     * username from the credentials step, plus the account type chosen there.
      */
-    private var pendingRegistration: Pair<String, String?>? = null
+    private var pendingRegistration: Triple<String, String?, UserRole>? = null
 
     /** Bind this session to a context and restore any persisted account. */
     fun init(context: Context) {
@@ -84,6 +86,7 @@ object MediQSession {
         var fullName = p?.getString("fullName", null)
         var email = p?.getString("email", null)
         var phone = p?.getString("phone", null)
+        var roleName = p?.getString("role", null)
         var access = p?.getString("accessToken", null)
         var refresh = p?.getString("refreshToken", null)
 
@@ -99,15 +102,17 @@ object MediQSession {
                 fullName = get("fullName")
                 email = get("email")
                 phone = get("phone")
+                roleName = get("role")
                 access = get("accessToken")
                 refresh = get("refreshToken")
             }
         }
         if (username.isNullOrBlank()) return
+        val resolvedRole = roleName?.let { UserRole.valueOf(it) } ?: UserRole.PATIENT
         val resolvedFullName = fullName?.ifBlank { null } ?: username
         val resolvedEmail = email?.ifBlank { null }
         val resolvedPhone = phone?.ifBlank { null }
-        val user = SignedInUser(username, resolvedFullName, resolvedEmail, resolvedPhone)
+        val user = SignedInUser(username, resolvedFullName, resolvedEmail, resolvedPhone, resolvedRole)
         knownAccounts[username] = user
         _user.value = user
         _accessToken = access
@@ -115,22 +120,28 @@ object MediQSession {
     }
 
     /**
-     * Remembers the details step, which is the only step that learns a
-     * patient's real name.
+     * Remembers the details step, which is the only place a role is ever asked
+     * for, so it is kept here for the account the credentials step creates.
      */
-    fun beginRegistration(fullName: String, phoneNumber: String) {
-        pendingRegistration = fullName.trim() to phoneNumber.trim().ifEmpty { null }
+    fun beginRegistration(fullName: String, phoneNumber: String, role: UserRole = UserRole.PATIENT) {
+        pendingRegistration = Triple(
+            fullName.trim(),
+            phoneNumber.trim().ifEmpty { null },
+            role
+        )
     }
 
     /**
      * Creates the account now that the username is known.
      *
      * The account is not signed in yet: registration ends by sending the
-     * patient to the sign-in screen.
+     * patient to the sign-in screen. The role chosen at the details step is
+     * applied here.
      */
     fun completeRegistration(username: String) {
-        val (fullName, phoneNumber) = pendingRegistration ?: ("" to null)
-        rememberAccount(username, fullName, phoneNumber)
+        val pending = pendingRegistration
+            ?: Triple("", null, UserRole.PATIENT)
+        rememberAccount(username, pending.first, pending.second, pending.third)
         pendingRegistration = null
     }
 
@@ -138,16 +149,22 @@ object MediQSession {
      * Records an account created on this device.
      *
      * Called by the registration flow, the only step that learns a patient's
-     * real name.
+     * real name and account type.
      */
-    fun rememberAccount(username: String, fullName: String, phoneNumber: String?) {
+    fun rememberAccount(
+        username: String,
+        fullName: String,
+        phoneNumber: String?,
+        role: UserRole = UserRole.PATIENT
+    ) {
         val key = username.trim()
         if (key.isEmpty()) return
 
         knownAccounts[key] = SignedInUser(
             username = key,
             fullName = fullName.trim().ifEmpty { DisplayName.fromUsername(key) },
-            phoneNumber = phoneNumber?.trim()?.ifEmpty { null }
+            phoneNumber = phoneNumber?.trim()?.ifEmpty { null },
+            role = role
         )
     }
 
@@ -222,6 +239,7 @@ object MediQSession {
             editor.putString("fullName", user.fullName)
             editor.putString("email", user.email)
             editor.putString("phone", user.phoneNumber)
+            editor.putString("role", user.role.name)
         }
         editor.commit()
         persistFile()
@@ -252,6 +270,7 @@ object MediQSession {
                 "fullName=${user.fullName}\n" +
                 "email=${user.email ?: ""}\n" +
                 "phone=${user.phoneNumber ?: ""}\n" +
+                "role=${user.role.name}\n" +
                 "accessToken=${_accessToken ?: ""}\n" +
                 "refreshToken=${_refreshToken ?: ""}\n"
         )

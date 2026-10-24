@@ -34,6 +34,7 @@ import com.example.mediq.ui.navigation.Screen
 import com.example.mediq.ui.theme.MediQBackground
 import com.example.mediq.ui.theme.MediQElevation
 import com.example.mediq.ui.theme.MediQBorder
+import com.example.mediq.ui.theme.MediQDivider
 import com.example.mediq.ui.theme.MediQGreen
 import com.example.mediq.ui.theme.MediQSize
 import com.example.mediq.ui.theme.MediQTextSecondary
@@ -124,12 +125,12 @@ fun MediQBottomBar(navController: NavHostController) {
 
     Column(modifier = Modifier.background(MediQBackground)) {
 
-        // Hairline separator, matching every card outline in the design.
+        // Figma bottom bar: near-white fill with a #DDE5DF top stroke.
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(MediQSize.hairline)
-                .background(MediQBorder)
+                .background(MediQDivider)
         )
 
         NavigationBar(
