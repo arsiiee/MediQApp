@@ -7,6 +7,7 @@ export interface Env {
   KTOR_BASE_URL: string
   PORT: string
   COOKIE_SECRET?: string
+  CORS_ORIGINS?: string
 }
 
 export const createSupabaseClient = (url: string, key: string): SupabaseClient => {
@@ -20,6 +21,7 @@ export const loadEnv = (): Env => {
     KTOR_BASE_URL: process.env.KTOR_BASE_URL ?? 'http://localhost:8099',
     PORT: process.env.PORT ?? '3000',
     COOKIE_SECRET: process.env.COOKIE_SECRET,
+    CORS_ORIGINS: process.env.CORS_ORIGINS,
   }
 }
 

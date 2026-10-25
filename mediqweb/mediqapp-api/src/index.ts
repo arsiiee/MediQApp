@@ -15,8 +15,14 @@ const COOKIE_SECURE = process.env.NODE_ENV === 'production'
 const app = new Hono()
 
 // ---- CORS ----
+const corsOrigins = (env.CORS_ORIGINS ?? '')
+  .split(',')
+  .map((s: string) => s.trim().replace(/\/$/, ''))
+  .filter(Boolean);
+const corsAllowedOrigins = corsOrigins.length > 0 ? corsOrigins : ['http://localhost:4200'];
+
 app.use('*', cors({
-  origin: ['http://localhost:4200'],
+  origin: corsAllowedOrigins,
   credentials: true,
   allowHeaders: ['Content-Type', 'Authorization'],
   allowMethods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
