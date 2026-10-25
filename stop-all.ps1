@@ -34,6 +34,9 @@ Stop-Port -Port 8099 -Name "Ktor Server"
 # Stop Hono BFF (3000)
 Stop-Port -Port 3000 -Name "Hono BFF"
 
+# Stop Angular frontend (4200)
+Stop-Port -Port 4200 -Name "Angular Frontend"
+
 # Remove adb reverse port forwarding
 $adb = "$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe"
 if (Test-Path $adb) {

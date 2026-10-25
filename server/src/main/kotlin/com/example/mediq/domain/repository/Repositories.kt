@@ -91,6 +91,11 @@ interface AdminRepository {
     suspend fun getDoctorsForAdmin(): LoadState<List<Doctor>>
 }
 
+interface AuditRepository {
+    suspend fun findAll(): LoadState<List<AuditEntry>>
+    suspend fun create(entry: AuditEntry): LoadState<AuditEntry>
+}
+
 @Serializable
 data class AdminAccountsResponse(
     val patients: List<UserProfile>,

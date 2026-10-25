@@ -15,6 +15,7 @@ import androidx.compose.ui.Modifier
 import androidx.navigation.NavController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import com.example.mediq.ui.components.MediQBackHeader
+import com.example.mediq.ui.components.MediQSearchField
 import com.example.mediq.ui.navigation.Screen
 import com.example.mediq.ui.theme.MediQScaffoldBackground
 
@@ -99,6 +100,14 @@ fun AppointmentsContent(
             .background(MediQScaffoldBackground)
     ) {
         MediQBackHeader(title = "My appointments", onBack = null)
+
+        var searchQuery by remember { mutableStateOf("") }
+
+        MediQSearchField(
+            query = searchQuery,
+            onChange = { searchQuery = it },
+            placeholder = "Search appointments..."
+        )
 
         AppointmentTabs(selected = selectedTab, onSelect = onTabSelected)
 

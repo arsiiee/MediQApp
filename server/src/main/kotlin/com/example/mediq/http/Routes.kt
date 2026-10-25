@@ -24,6 +24,7 @@ fun Routing.configureRoutes(
     messageService: MessageService,
     notificationService: NotificationService,
     profileService: ProfileService,
+    auditService: AuditService,
     jwtProvider: JwtProvider,
 ) {
     mcpServer()
@@ -533,6 +534,14 @@ fun Routing.configureRoutes(
             get("doctors") {
                 if (!call.requireRole(UserRole.ADMIN)) return@get
                 adminService.getDoctorsForAdmin().fold(
+                    onSuccess = { call.respond(it) },
+                    onError = { call.respond(HttpStatusCode.InternalServerError, it) },
+                )
+            }
+
+            get("audit-logs") {
+                if (!call.requireRole(UserRole.ADMIN)) return@get
+                auditService.findAll().fold(
                     onSuccess = { call.respond(it) },
                     onError = { call.respond(HttpStatusCode.InternalServerError, it) },
                 )

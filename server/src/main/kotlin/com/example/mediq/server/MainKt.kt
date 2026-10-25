@@ -5,6 +5,7 @@ import com.example.mediq.http.configureRoutes
 import com.example.mediq.server.jdbc.DatabaseSeeder
 import com.example.mediq.server.jdbc.JdbcAdminRepository
 import com.example.mediq.server.jdbc.JdbcAppointmentRepository
+import com.example.mediq.server.jdbc.JdbcAuditRepository
 import com.example.mediq.server.jdbc.JdbcAuthRepository
 import com.example.mediq.server.jdbc.JdbcDoctorRepository
 import com.example.mediq.server.jdbc.JdbcMessageRepository
@@ -90,6 +91,7 @@ fun Application.configureApplication() {
     val messageService = MessageService(messageRepository)
     val notificationService = NotificationService(notificationRepository)
     val profileService = ProfileService(profileRepository)
+    val auditService = AuditService(JdbcAuditRepository(dataSource))
 
     // Serialization
     install(ContentNegotiation) {
@@ -203,6 +205,7 @@ fun Application.configureApplication() {
             messageService = messageService,
             notificationService = notificationService,
             profileService = profileService,
+            auditService = auditService,
             jwtProvider = jwtProvider,
         )
 

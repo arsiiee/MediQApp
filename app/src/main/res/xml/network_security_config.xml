@@ -5,6 +5,13 @@
   emulator; 127.0.0.1 is the device itself. Cleartext stays off everywhere
   else so a real device never talks to a plain-HTTP endpoint.
 -->
+<!--
+  For online deployment, add the production API domain here with HTTPS:
+  <domain-config cleartextTrafficPermitted="false">
+      <domain includeSubdomains="false">api.example.com</domain>
+  </domain-config>
+  Do NOT set cleartextTrafficPermitted="true" for production domains.
+-->
 <network-security-config>
     <domain-config cleartextTrafficPermitted="true">
         <domain includeSubdomains="false">10.0.2.2</domain>

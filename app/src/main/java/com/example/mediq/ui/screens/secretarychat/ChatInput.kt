@@ -61,7 +61,7 @@ internal fun ChatMessageList(
     modifier: Modifier = Modifier
 ) {
     LazyColumn(
-        modifier = modifier.fillMaxSize(),
+        modifier = modifier,
         contentPadding = PaddingValues(horizontal = MediQSpacing.sm, vertical = MediQSpacing.xs),
         verticalArrangement = Arrangement.spacedBy(MediQSpacing.md)
     ) {
@@ -90,7 +90,7 @@ internal fun ChatInput(
         modifier = modifier
             .fillMaxWidth()
             .background(MediQBackground)
-            .padding(horizontal = MediQSpacing.sm, vertical = MediQSpacing.xs),
+            .padding(start = MediQSpacing.sm, top = MediQSpacing.xs, end = MediQSpacing.sm, bottom = MediQSpacing.xxl),
         verticalAlignment = Alignment.CenterVertically
     ) {
         OutlinedTextField(

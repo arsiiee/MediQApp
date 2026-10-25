@@ -395,6 +395,23 @@ data class UserProfile(
 )
 
 @Serializable
+data class AuditEntry(
+    val id: String,
+    val actor: String,
+    val action: String,
+    val target: String,
+    val at: LocalDateTime,
+    val severity: AuditSeverity,
+)
+
+@Serializable
+enum class AuditSeverity(val serialName: String) {
+    @SerialName("info") INFO("info"),
+    @SerialName("warning") WARNING("warning"),
+    @SerialName("error") ERROR("error"),
+}
+
+@Serializable
 enum class UserRole(val serialName: String) {
     @SerialName("patient") PATIENT("patient"),
     @SerialName("doctor") DOCTOR("doctor"),

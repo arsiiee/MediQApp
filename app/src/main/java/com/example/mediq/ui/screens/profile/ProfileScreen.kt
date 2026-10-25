@@ -16,6 +16,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavController
 import com.example.mediq.ui.components.MediQBackHeader
+import com.example.mediq.ui.components.MediQSearchField
 import com.example.mediq.ui.navigation.Screen
 import com.example.mediq.data.api.RetrofitClient
 import com.example.mediq.ui.session.MediQSession
@@ -74,6 +75,16 @@ fun ProfileContent(
             ProfileUiState.Loading -> ProfileLoadingState()
             is ProfileUiState.Error -> ProfileErrorState(message = state.message, onRetry = {})
             is ProfileUiState.Content -> {
+                MediQBackHeader(title = "Profile", onBack = null)
+
+                var searchQuery by remember { mutableStateOf("") }
+
+                MediQSearchField(
+                    query = searchQuery,
+                    onChange = { searchQuery = it },
+                    placeholder = "Search profile..."
+                )
+
                 ProfileHeader(profile = state.profile)
 
                 Column(

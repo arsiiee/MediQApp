@@ -17,6 +17,13 @@ for /f "tokens=5" %%a in ('netstat -ano ^| findstr ":3000" ^| findstr "LISTENING
     taskkill /PID %%a /F >nul 2>&1
 )
 
+echo.
+echo Stopping Angular Frontend on port 4200...
+for /f "tokens=5" %%a in ('netstat -ano ^| findstr ":4200" ^| findstr "LISTENING"') do (
+    echo Found PID %%a listening on port 4200. Killing...
+    taskkill /PID %%a /F >nul 2>&1
+)
+
 set ADB=%LOCALAPPDATA%\Android\Sdk\platform-tools\adb.exe
 if exist "%ADB%" (
     echo.

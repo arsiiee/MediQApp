@@ -67,7 +67,7 @@ fun MediQBackHeader(
 
         Text(
             text = title,
-            style = MaterialTheme.typography.titleMedium,
+            style = MaterialTheme.typography.headlineLarge,
             color = MediQOnBrand,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,

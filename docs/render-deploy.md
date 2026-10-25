@@ -1,145 +1,102 @@
-# Render.com Deployment — MediQ Ktor Backend
+# Render.com Deployment — MediQ Multi-Service
 
-Deploys the Ktor server (`server/`) as the Android-facing API on Render.com.
+Deploys the full MediQ stack on Render.com:
 
-## 1. Backend Current Status
+| Surface | Service type | Root dir | Port | Role |
+|---------|-------------|----------|------|------|
+| Ktor backend | Web service (Java) | `server/` | Render-injected | Android-facing API (port 8099 locally) |
+| Hono BFF | Web service (Node) | `mediqweb/mediqapp-api/` | Render-injected | Web auth proxy + aggregations (port 3000 locally) |
+| Angular frontend | Static site | `mediqweb/mediqweb-fe/` | CDN (80) | Web dashboard |
+| PostgreSQL | Managed database | — | 5432 | Production data store for Ktor |
 
-| Item | Status |
-|------|--------|
-| **Backend** | Ktor 3.2.3 (Kotlin/JVM, Netty), port 8099 |
-| **Build** | `./gradlew build -x test` — **green** in `server/` |
-| **Runtime** | Running locally on port 8099 |
-| **Health check** | `GET /health` → `200 { "status": "ok" }` |
-| **Auth (demo)** | `demo_patient` / `demo12345` → `200` JWT issued |
-| **Auth guard** | `/doctors` → `401` (bearer auth mounted, as expected) |
-| **Routes** | Full contract implemented per `docs/api-contract.md` (auth, profile, doctors, appointments, messages, notifications, admin, secretary, specializations, patients) |
-| **Data layer** | JDBC repositories (HikariCP + Flyway) wired in `MainKt.kt`; H2 dev default, Postgres/Supabase configurable via env |
-| **Migrations** | Flyway `V1__initial_schema.sql` runs at startup from `db/migration/` |
-| **Tests** | No test sources under `server/src/test/` (build configured, `test` task exists but is empty) |
-| **Demo account** | `demo_patient` / `demo12345` (seeded by `DatabaseSeeder.seedIfEmpty()`) |
+All services are defined in the root `render.yaml`. Connect the repo to Render, create a **Blueprint** from `render.yaml`, then configure the cross-service environment variables described below.
 
-> The Hono BFF (`mediqweb/mediqapp-api/`) is a separate, minimal surface (`/health`, `/profile` only). It is **not** part of this Render deployment. The Ktor server is the canonical API for the Android app.
-
-## 2. Prerequisites
+## 1. Prerequisites
 
 - A Render account (free or paid)
 - The MediQApp repo connected to Render via GitHub
-- A PostgreSQL database (Render Postgres, Supabase, or external) for production data
-- A strong `JWT_SECRET` (min 256 bits)
+- A Supabase project (for `SUPABASE_URL` / `SUPABASE_PUBLISHABLE_KEY` used by the Hono BFF)
+- The `render.yaml` and `mediqweb/mediqweb-fe/render-build.sh` files committed and pushed
 
-## 3. Step-by-Step Deployment
+## 2. Step-by-Step Deployment
 
-### Step 1 — Push `render.yaml` to GitHub
-
-The `render.yaml` file at the repo root defines the web service. Commit and push it:
+### Step 1 — Push the Render blueprint
 
 ```bash
-git add render.yaml
-git commit -m "Add Render.com deployment config for Ktor backend"
+git add render.yaml mediqweb/mediqweb-fe/render-build.sh docs/render-deploy.md
+git commit -m "Add Render.com blueprint for all MediQ services"
 git push origin main
 ```
 
-### Step 2 — Create the Web Service on Render
+### Step 2 — Create the Blueprint on Render
 
-1. Log in to Render Dashboard → **New +** → **Web Service**
+1. Log in to Render Dashboard → **New +** → **Blueprint**
 2. Connect your GitHub repo: `MediQApp`
-3. Render auto-detects `render.yaml`. Review the settings:
-   - **Runtime:** Java
-   - **Root directory:** `server`
-   - **Build command:** `./gradlew installDist -x test --no-daemon`
-   - **Start command:** `./build/install/mediq-server/bin/mediq-server`
-   - **Health check path:** `/health`
-   - **Plan:** `starter` (always-on) or `free` (spins down after inactivity)
-4. Click **Create Web Service**
+3. Render auto-detects `render.yaml`. Review the services:
+   - `mediq-ktor-server` — Java web service, rootDir `server`
+   - `mediq-hono-bff` — Node web service, rootDir `mediqweb/mediqapp-api`
+   - `mediq-web-fe` — Static site, rootDir `mediqweb/mediqweb-fe`
+   - `mediq-db` — PostgreSQL database
+4. Click **Apply** (or **Create**)
 
-### Step 3 — Configure Environment Variables
+### Step 3 — Configure environment variables
 
-In the Render Dashboard, go to your service → **Environment** and add:
+After the blueprint creates the services, set the cross-service variables in the Render Dashboard:
 
-| Variable | Value | Required |
-|----------|-------|----------|
-| `DB_URL` | `jdbc:postgresql://<host>:<port>/<db>` | Yes |
-| `DB_USER` | `<db-user>` | Yes |
-| `DB_PASSWORD` | `<db-password>` | Yes |
-| `DB_DRIVER` | `org.postgresql.Driver` | No (default set in render.yaml) |
-| `JWT_SECRET` | `<strong-random-secret>` | Yes (auto-generated if left blank) |
-| `CORS_ORIGINS` | `https://<frontend-domain>.onrender.com` | Yes |
+#### mediq-ktor-server (Ktor)
 
-> Never commit secrets. Use Render's encrypted env var store (toggle "Encrypt" on sensitive values like `DB_PASSWORD` and `JWT_SECRET`).
+Go to the service → **Environment** and add:
 
-### Step 4 — Attach a Database (Production)
+| Variable | Value | Required | Notes |
+|----------|-------|----------|-------|
+| `DB_URL` | `jdbc:postgresql://<mediq-db-internal-host>:5432/mediq` | Yes | Get host from mediq-db → Connect → Internal connection string, prefix with `jdbc:` |
+| `DB_USER` | (auto from mediq-db) | Yes | Use `fromDatabase` binding in render.yaml |
+| `DB_PASSWORD` | (auto from mediq-db) | Yes | Use `fromDatabase` binding in render.yaml |
+| `DB_DRIVER` | `org.postgresql.Driver` | No | Already set in render.yaml |
+| `JWT_SECRET` | (auto-generated) | Yes | From `mediq-secrets` envGroup |
+| `CORS_ORIGINS` | `https://mediq-web-fe.onrender.com` | Yes | Comma-separated, no wildcards. Add more origins as needed. |
 
-If using **Render Postgres**:
+> Encrypt sensitive values (`DB_PASSWORD`, `JWT_SECRET`) using Render's "Encrypt" toggle.
 
-1. Render Dashboard → **New +** → **PostgreSQL**
-2. Copy the internal database URL (e.g., `jdbc:postgresql://<internal-host>:5432/<db>`)
-3. Add it as `DB_URL` on the web service, along with `DB_USER` and `DB_PASSWORD`
+#### mediq-hono-bff (Hono)
 
-If using **Supabase**:
+| Variable | Value | Required | Notes |
+|----------|-------|----------|-------|
+| `KTOR_BASE_URL` | `https://mediq-ktor-server.onrender.com` | Yes | Must be HTTPS |
+| `SUPABASE_URL` | `https://<project-ref>.supabase.co` | Yes | From Supabase project settings |
+| `SUPABASE_PUBLISHABLE_KEY` | `<supabase-anon-key>` | Yes | From Supabase project settings |
+| `COOKIE_SECRET` | (auto-generated) | Yes | From `mediq-secrets` envGroup |
+| `NODE_ENV` | `development` | No | Already set in render.yaml (keeps tsx installed) |
 
-1. Get the connection string from Supabase → Settings → Database
-2. Use the **connection pooler** URL (port 6543) for server deployments
-3. Set `DB_URL`, `DB_USER`, `DB_PASSWORD` accordingly
-4. Recommended HikariCP sizing for Supabase: `maximumPoolSize: 5-10`, `maxLifetime: 1800000` (30 min, below Supabase idle timeout)
+#### mediq-web-fe (Angular static site)
 
-### Step 5 — Deploy
+| Variable | Value | Required | Notes |
+|----------|-------|----------|-------|
+| `API_BASE_URL` | `https://mediq-ktor-server.onrender.com` | Yes | Injected into `environment.prod.ts` at build time |
+| `BFF_BASE_URL` | `https://mediq-hono-bff.onrender.com` | Yes | Injected into `environment.prod.ts` at build time |
 
-Render builds on every push to the connected branch. The build:
+### Step 4 — Deploy
 
-1. Runs `./gradlew installDist -x test --no-daemon` in `server/`
-2. Produces `build/install/mediq-server/`
-3. Starts `./build/install/mediq-server/bin/mediq-server`
-4. Runs Flyway migrations at startup
-5. Seeds demo data if tables are empty
+Render builds on every push to the connected branch:
 
-Verify the deployment:
+1. **Ktor**: `./gradlew installDist -x test --no-daemon` in `server/`, then starts `./build/install/mediq-server/bin/mediq-server`. Flyway migrations run at startup; demo data is seeded if tables are empty.
+2. **Hono BFF**: `npm install`, then `npx tsx src/index.ts`.
+3. **Angular**: `render-build.sh` runs `npm install`, substitutes `API_BASE_URL`/`BFF_BASE_URL` into `environment.prod.ts`, then `npm run build` outputs to `dist/mediqapp-fe`.
+
+Verify each deployment:
 
 ```bash
 curl https://mediq-ktor-server.onrender.com/health
 # → {"status":"ok"}
+
+curl https://mediq-hono-bff.onrender.com/health
+# → {"status":"ok"}
+
+curl https://mediq-web-fe.onrender.com
+# → Angular app HTML
 ```
 
-## 4. Environment Variable Reference
-
-| Variable | Source | Default | Production guidance |
-|----------|--------|---------|---------------------|
-| `PORT` | Render-injected | 8099 | Do not set manually |
-| `DB_URL` | `application.conf` → env | H2 in-memory | Set to Supabase/Postgres JDBC URL |
-| `DB_USER` | `application.conf` → env | `sa` | Your DB user |
-| `DB_PASSWORD` | `application.conf` → env | `""` | Your DB password (encrypt in Render) |
-| `DB_DRIVER` | `application.conf` → env | `org.h2.Driver` | `org.postgresql.Driver` for Postgres |
-| `JWT_SECRET` | `application.conf` → env | `mediq-dev-secret-change-in-production` | **Change in production**; min 256 bits |
-| `CORS_ORIGINS` | `application.conf` → env | `http://localhost:4200,http://localhost:3000` | Production frontend domain(s) only, no wildcards |
-
-`application.conf` (`server/src/main/resources/application.conf`) documents all config keys. Environment variables take precedence over the conf file.
-
-## 5. Port Handling
-
-Render injects the `PORT` environment variable. The server resolves it in `MainKt.kt` with this priority:
-
-1. `System.getenv("PORT")` ← Render sets this automatically
-2. `System.getenv("MEDIQ_PORT")`
-3. `System.getProperty("ktor.deployment.port")`
-4. Fallback: `8099`
-
-The server binds to `0.0.0.0` (all interfaces), which is required for container/platform deployment.
-
-## 6. Health Check
-
-Render polls `GET /health` on the assigned port. The endpoint returns `200 { "status": "ok" }` with no auth required. Use this for Render's built-in health checks and auto-deploy gating.
-
-## 7. Free Tier Limitations
-
-If you choose the **free** plan:
-
-- The service spins down after ~15 minutes of inactivity
-- First request after spin-down incurs a cold start (30+ seconds)
-- Android sign-in may report "We could not reach MediQ" during cold start
-- 512 MB RAM, shared CPU, single instance
-
-For a healthcare app where the Android client needs reliable sign-in, the **starter plan** (~$7/month, always-on) is recommended.
-
-## 8. Connecting the Android App
+## 3. Connecting the Android App
 
 After deployment, update the Android client's base URL to point at Render:
 
@@ -148,23 +105,62 @@ After deployment, update the Android client's base URL to point at Render:
 
 The Android `RetrofitClient` base URL is configured in `app/src/main/java/com/example/mediq/data/api/`. Update it for release builds against the Render URL.
 
-## 9. Troubleshooting
+## 4. Environment Variable Reference
 
-| Symptom | Likely cause | Fix |
-|---------|-------------|-----|
-| Build fails | Gradle wrapper line endings on Windows | `render.yaml` runs on Linux; ensure `gradlew` has Unix line endings (already handled by Dockerfile precedent) |
-| `502 Bad Gateway` | Start command wrong or binary missing | Verify `startCommand: ./build/install/mediq-server/bin/mediq-server` and `rootDir: server` |
-| `/health` returns non-200 | DB connection failing | Check `DB_URL`/`DB_USER`/`DB_PASSWORD`; Flyway migrations may be blocked |
-| Sign-in returns 500 | `JWT_SECRET` too weak or missing | Set a strong random `JWT_SECRET` (min 256 bits) |
-| CORS errors from frontend | `CORS_ORIGINS` missing frontend domain | Add the Render frontend URL to `CORS_ORIGINS` |
-| Service spins down | Free plan inactivity | Upgrade to starter plan or keep the service warmed up |
+### Ktor server (`server/`)
 
-## 10. Related Files
+| Variable | Source | Default | Production guidance |
+|----------|--------|---------|---------------------|
+| `PORT` | Render-injected | 8099 | Do not set manually |
+| `DB_URL` | render.yaml (user-set) | H2 in-memory | `jdbc:postgresql://<host>:5432/mediq` |
+| `DB_USER` | render.yaml (fromDatabase) | `sa` | mediq-db user |
+| `DB_PASSWORD` | render.yaml (fromDatabase) | `""` | mediq-db password (encrypt in Render) |
+| `DB_DRIVER` | render.yaml | `org.h2.Driver` | `org.postgresql.Driver` |
+| `JWT_SECRET` | mediq-secrets envGroup | dev secret | Auto-generated; min 256 bits; rotate periodically |
+| `CORS_ORIGINS` | render.yaml (user-set) | localhost origins | Production frontend domain(s) only |
 
-- `render.yaml` — Render service definition (this directory root)
-- `server/build.gradle.kts` — Ktor Gradle build (application plugin, `installDist` task)
-- `server/src/main/kotlin/com/example/mediq/server/MainKt.kt` — entry point, port resolution
-- `server/src/main/resources/application.conf` — config keys and defaults
-- `docs/api-contract.md` — full API endpoint reference
-- `docs/production-deploy.md` — general production checklist (TLS, Supabase pooling, security)
-- `docs/system-current-condition.md` — consolidated build/status reference for all surfaces
+### Hono BFF (`mediqweb/mediqapp-api/`)
+
+| Variable | Source | Default | Production guidance |
+|----------|--------|---------|---------------------|
+| `PORT` | Render-injected | 3000 | Do not set manually |
+| `KTOR_BASE_URL` | render.yaml (user-set) | `http://localhost:8099` | Must be HTTPS in production |
+| `SUPABASE_URL` | render.yaml (user-set) | Supabase project URL | From Supabase settings |
+| `SUPABASE_PUBLISHABLE_KEY` | render.yaml (user-set) | Supabase anon key | From Supabase settings |
+| `COOKIE_SECRET` | mediq-secrets envGroup | dev secret | Auto-generated; encrypt in Render |
+| `NODE_ENV` | render.yaml | `development` | Keeps tsx devDependency at runtime |
+
+### Angular frontend (`mediqweb/mediqweb-fe/`)
+
+| Variable | Source | Default | Production guidance |
+|----------|--------|---------|---------------------|
+| `API_BASE_URL` | render.yaml (user-set) | `https://api.mediq.app` | Substituted at build time into `environment.prod.ts` |
+| `BFF_BASE_URL` | render.yaml (user-set) | `https://bff.mediq.app` | Substituted at build time into `environment.prod.ts` |
+
+## 5. Port Handling
+
+- **Ktor**: `MainKt.kt` resolves port with priority: `PORT` env → `MEDIQ_PORT` env → `ktor.deployment.port` system property → fallback `8099`. Binds to `0.0.0.0`. Render injects `PORT` automatically.
+- **Hono BFF**: `src/index.ts` reads `PORT` env var. Render injects `PORT` automatically.
+- **Angular**: Served from Render's CDN on port 80 (static site). No `PORT` needed.
+
+## 6. Health Checks
+
+| Service | Endpoint | Expected |
+|---------|----------|----------|
+| Ktor | `GET /health` | `200 { "status": "ok" }` |
+| Hono BFF | `GET /health` | `200 { "status": "ok" }` |
+
+Render polls these for health-check gating and auto-deploy.
+
+## 7. Files Changed / Added
+
+- `render.yaml` — Render blueprint: database, envGroups, and all three services
+- `mediqweb/mediqweb-fe/render-build.sh` — Static-site build script (npm install + env substitution + `ng build`)
+- `gradlew` / `server/gradlew` — Normalized to Unix (LF) line endings for Render's Linux build environment
+
+## 8. Related Files
+
+- `docs/production-deploy.md` — General production checklist (TLS, Supabase pooling, security)
+- `docs/api-contract.md` — Full API endpoint reference
+- `server/src/main/resources/application.conf` — Ktor config keys and defaults
+- `server/Dockerfile` — Precedent for Unix line-ending normalization (`sed -i 's/\r$//' gradlew`)

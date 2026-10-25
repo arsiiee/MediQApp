@@ -2,6 +2,10 @@ package com.example.mediq.server.jdbc
 
 import com.example.mediq.domain.model.*
 import com.example.mediq.security.PasswordHash
+import com.example.mediq.util.minusDays
+import com.example.mediq.util.plusDays
+import com.example.mediq.util.withHour
+import com.example.mediq.util.withMinute
 import com.zaxxer.hikari.HikariDataSource
 import kotlinx.datetime.Clock
 import kotlinx.datetime.LocalDate
@@ -21,6 +25,8 @@ class DatabaseSeeder(
             seedSpecializations(conn)
             seedUsersAndDoctors(conn)
             seedMessages(conn)
+            seedAuditLogs(conn)
+            seedAppointments(conn)
         }
     }
 
@@ -188,6 +194,73 @@ class DatabaseSeeder(
                 msgPs.addBatch()
             }
             msgPs.executeBatch()
+        }
+    }
+
+    private fun seedAuditLogs(conn: Connection) {
+        val count = conn.prepareStatement("SELECT COUNT(*) FROM audit_logs").executeQuery().use { rs -> rs.next(); rs.getLong(1) }
+        if (count > 0) return
+
+        val now = Clock.System.now().toLocalDateTime(TimeZone.UTC)
+        val entries = listOf(
+            AuditEntry("log-1", "Alex Rivera", "Deactivated account", "Dr. Oscar Dela Cruz", now.minusDays(3), AuditSeverity.WARNING),
+            AuditEntry("log-2", "Alex Rivera", "Created secretary account", "Carla Bautista", now.minusDays(4), AuditSeverity.INFO),
+            AuditEntry("log-3", "Grace Lim", "Updated patient contact number", "Maria Concepcion", now.minusDays(5), AuditSeverity.INFO),
+            AuditEntry("log-4", "System", "Rejected sign-in attempt", "unknown@mediq.ph", now.minusDays(6), AuditSeverity.ERROR),
+            AuditEntry("log-5", "Alex Rivera", "Added specialization", "Psychiatry", now.minusDays(7), AuditSeverity.INFO),
+            AuditEntry("log-6", "Alex Rivera", "Reactivated account", "Dennis Ocampo", now.minusDays(8), AuditSeverity.INFO),
+            AuditEntry("log-7", "System", "Failed to export audit log", "retention job", now.minusDays(9), AuditSeverity.WARNING),
+            AuditEntry("log-8", "Alex Rivera", "Changed clinic contact email", "Clinic settings", now.minusDays(10), AuditSeverity.INFO),
+        )
+
+        conn.prepareStatement("INSERT INTO audit_logs (id, actor, action, target, at, severity, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)").use { ps ->
+            for (e in entries) {
+                ps.setString(1, e.id)
+                ps.setString(2, e.actor)
+                ps.setString(3, e.action)
+                ps.setString(4, e.target)
+                ps.setTimestamp(5, toTimestamp(e.at))
+                ps.setString(6, e.severity.name)
+                ps.setTimestamp(7, toTimestamp(now))
+                ps.addBatch()
+            }
+            ps.executeBatch()
+        }
+    }
+
+    private fun seedAppointments(conn: Connection) {
+        val count = conn.prepareStatement("SELECT COUNT(*) FROM appointments").executeQuery().use { rs -> rs.next(); rs.getLong(1) }
+        if (count > 0) return
+
+        val now = Clock.System.now().toLocalDateTime(TimeZone.UTC)
+        val appointments = listOf(
+            // Completed consultations in the last 14 days (workload + trends + heatmap)
+            Appointment("appt-100", "pat-1", "doc-1", now.minusDays(1).withHour(9).withMinute(0), 30, AppointmentStatus.COMPLETED, "Follow-up: blood pressure review", now, now),
+            Appointment("appt-101", "pat-2", "doc-2", now.minusDays(2).withHour(10).withMinute(30), 45, AppointmentStatus.COMPLETED, "Follow-up: knee rehabilitation", now, now),
+            Appointment("appt-102", "pat-1", "doc-3", now.minusDays(3).withHour(15).withMinute(0), 20, AppointmentStatus.COMPLETED, "Child wellness check", now, now),
+            Appointment("appt-103", "pat-2", "doc-1", now.minusDays(5).withHour(11).withMinute(0), 30, AppointmentStatus.COMPLETED, "Hypertension check", now, now),
+            Appointment("appt-104", "pat-1", "doc-2", now.minusDays(7).withHour(14).withMinute(0), 30, AppointmentStatus.COMPLETED, "ECG reading and review", now, now),
+            // Open appointments (booked / confirmed)
+            Appointment("appt-105", "pat-1", "doc-1", now.plusDays(1).withHour(14).withMinute(0), 30, AppointmentStatus.BOOKED, "Follow-up consultation", now, now),
+            Appointment("appt-106", "pat-2", "doc-3", now.plusDays(2).withHour(9).withMinute(0), 30, AppointmentStatus.CONFIRMED, "Dermatology consult", now, now),
+        )
+
+        conn.prepareStatement("INSERT INTO appointments (id, patient_id, doctor_id, starts_at, duration_minutes, status, reason, created_at, updated_at, completed_at, outcome) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)").use { ps ->
+            for (a in appointments) {
+                ps.setString(1, a.id)
+                ps.setString(2, a.patientId)
+                ps.setString(3, a.doctorId)
+                ps.setTimestamp(4, toTimestamp(a.startsAt))
+                ps.setInt(5, a.durationMinutes)
+                ps.setString(6, a.status.name)
+                ps.setString(7, a.reason)
+                ps.setTimestamp(8, toTimestamp(now))
+                ps.setTimestamp(9, toTimestamp(now))
+                ps.setTimestamp(10, null)
+                ps.setString(11, null)
+                ps.addBatch()
+            }
+            ps.executeBatch()
         }
     }
 }

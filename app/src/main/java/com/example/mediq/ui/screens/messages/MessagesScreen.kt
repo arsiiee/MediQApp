@@ -15,6 +15,7 @@ import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.example.mediq.ui.components.MediQBackHeader
+import com.example.mediq.ui.components.MediQSearchField
 import com.example.mediq.ui.navigation.Screen
 import com.example.mediq.ui.theme.MediQScaffoldBackground
 import com.example.mediq.ui.viewmodel.MessagesViewModel
@@ -74,9 +75,10 @@ fun MessagesContent(
 
         var searchQuery by remember { mutableStateOf("") }
 
-        MessagesSearchField(
+        MediQSearchField(
             query = searchQuery,
-            onChange = { searchQuery = it }
+            onChange = { searchQuery = it },
+            placeholder = "Search clinic chats..."
         )
 
         when (state) {

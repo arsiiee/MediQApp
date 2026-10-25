@@ -11,16 +11,13 @@ import java.util.concurrent.TimeUnit
 
 object RetrofitClient {
     /*
-     * The device's own loopback, forwarded to the developer machine by
+     * Local dev: default http://127.0.0.1:8099/, reached via
      * `adb reverse tcp:8099 tcp:8099`.
      *
-     * The emulator's 10.0.2.2 alias would also reach the machine, but the
-     * host firewall blocks inbound connections to a server that has no
-     * allow-rule for it, and that path is closed. The adb forward travels
-     * over the adb connection the device already has, and works the same on
-     * an emulator and on a physical handset.
+     * Online deployment: run with -Dmediq.api.baseUrl=https://your-api-domain.com/
+     * to point at the online backend.
      */
-    private const val BASE_URL = "http://127.0.0.1:8099/"
+    private val BASE_URL: String = System.getProperty("mediq.api.baseUrl") ?: "http://127.0.0.1:8099/"
 
     /**
      * The bearer token from the last sign-in.
