@@ -59,7 +59,18 @@ fun Application.configureApplication() {
     // Configuration
     val jwtSecret = environment.config.propertyOrNull("jwt.secret")?.getString()
         ?: "mediq-dev-secret-change-in-production"
-    val corsOrigins = environment.config.propertyOrNull("cors.origins")?.getString()?.split(",")
+    val corsOrigins = System.getenv("CORS_ORIGINS")
+        ?.let { origins ->
+            origins.split(",")
+                .map { it.trim().removeSuffix("/") }
+                .filter { it.isNotEmpty() }
+        }
+        ?: environment.config.propertyOrNull("cors.origins")?.getString()
+            ?.let { origins ->
+                origins.split(",")
+                    .map { it.trim().removeSuffix("/") }
+                    .filter { it.isNotEmpty() }
+            }
         ?: listOf("http://localhost:4200")
 
     // Services
