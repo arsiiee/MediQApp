@@ -20,6 +20,18 @@ desktop.ini
 *~
 *.bak
 
+# --- PowerShell & Batch scripts ---
+# Ignore generated/*.tmp scripts; keep the repo's run/stop scripts and Gradle wrapper tracked.
+*.ps1
+*.bat
+!run-all.bat
+!run-all.ps1
+!run-mediq-server.ps1
+!stop-all.bat
+!stop-all.ps1
+!gradlew.bat
+!server/gradlew.bat
+
 # --- Logs ---
 *.log
 logs/
