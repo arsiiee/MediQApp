@@ -23,11 +23,10 @@ services:
   # ------------------------------------------------------------------
   - type: web
     name: mediq-ktor-server
-    env: java
+    env: docker
     rootDir: server
-    # Gradle wrapper was normalized to Unix line endings for Linux builds.
-    buildCommand: ./gradlew installDist -x test --no-daemon
-    startCommand: ./build/install/mediq-server/bin/mediq-server
+    # Builds from Dockerfile at repo root via Gradle; runs on slim JRE.
+    # PORT is injected by Render automatically; MainKt.kt reads it.
     healthCheckPath: /health
     autoDeploy: true
     plan: starter
