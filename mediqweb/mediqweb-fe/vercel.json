@@ -1,7 +1,4 @@
 {
-  "version": 3,
-  "buildCommand": "sh vercel-build.sh",
-  "outputDirectory": "dist/mediqapp-fe",
   "routes": [
     { "src": "/(.*)", "dest": "/index.html" }
   ]
