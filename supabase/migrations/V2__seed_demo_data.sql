@@ -1,7 +1,15 @@
 -- MediQ seed demo data for Supabase.
 -- Mirrors server/src/main/kotlin/com/example/mediq/server/jdbc/DatabaseSeeder.kt
--- Idempotent: each INSERT is guarded by a COUNT check (or ON CONFLICT DO NOTHING)
--- so the migration is safe to re-apply. Re-run only if tables are empty.
+--
+-- Intended for fresh databases. Each INSERT block is guarded by
+-- WHERE NOT EXISTS (SELECT 1 FROM table) so the entire block is skipped
+-- if its target table already has any rows. This is table-level, not
+-- row-level, idempotency: re-running on a populated database skips tables
+-- that already contain data but still attempts to insert into empty ones.
+-- It is not designed for safe partial reruns. Supabase runs each migration
+-- file inside a transaction, so the whole seed is atomic.
+--
+-- Do NOT run against a connected or populated Supabase project.
 --
 -- Demo accounts (password: demo12345, BCrypt cost 12):
 --   demo_patient / demo_patient2   (patients)
@@ -10,7 +18,7 @@
 --   admin                          (admin)
 
 -- -------------------------------------------------------
--- specializations (7)
+-- specializations (6)
 -- -------------------------------------------------------
 INSERT INTO specializations (id, name, description, doctor_count)
 SELECT * FROM (VALUES
@@ -64,6 +72,8 @@ WHERE NOT EXISTS (SELECT 1 FROM doctors);
 -- -------------------------------------------------------
 -- clinic_hours (15: 3 doctors x Mon-Fri 09:00-17:00)
 -- -------------------------------------------------------
+-- No natural unique key on (doctor_id, day_of_week) in this schema,
+-- so table-level WHERE NOT EXISTS is used instead of ON CONFLICT.
 INSERT INTO clinic_hours (doctor_id, day_of_week, start_time, end_time, is_closed)
 SELECT * FROM (VALUES
   ('doc-1', 1, '09:00', '17:00', FALSE),
@@ -126,6 +136,8 @@ WHERE NOT EXISTS (SELECT 1 FROM appointments);
 -- -------------------------------------------------------
 -- audit_logs (8)
 -- -------------------------------------------------------
+-- Requires the audit_logs table (created by supabase migration
+-- 20261025000000_audit_logs.sql, mirroring Flyway V2__audit_logs.sql).
 INSERT INTO audit_logs (id, actor, action, target, at, severity, created_at)
 SELECT * FROM (VALUES
   ('log-1', 'Alex Rivera', 'Deactivated account', 'Dr. Oscar Dela Cruz', NOW() - INTERVAL '3 days', 'WARNING', NOW()),
