@@ -16,7 +16,9 @@ class AdminService(
 
     suspend fun createStaffAccount(kind: String, draft: StaffDraft): LoadState<UserProfile> {
         val resolvedKind = kind.ifBlank { draft.role ?: "doctor" }
-        val password = draft.password ?: draft.temporaryPassword ?: "demo12345"
+        val password = draft.password
+            ?.takeIf { it.isNotBlank() && it.length >= 8 }
+            ?: return LoadState.Error(ApiFailure.validation("Password is required and must be at least 8 characters"))
         val name = draft.fullName ?: draft.name ?: ""
         val role = when (resolvedKind) {
             "doctor" -> UserRole.DOCTOR
