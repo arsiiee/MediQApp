@@ -160,11 +160,11 @@
 
       <ui-form-field
         #passwordField
-        label="Temporary password"
+        label="Password"
         controlId="add-password"
         [required]="true"
-        hint="At least 8 characters. They can change it after signing in."
-        [error]="errorFor('temporaryPassword')"
+        hint="At least 8 characters."
+        [error]="errorFor('password')"
       >
         <span class="affix">
           <svg
@@ -186,7 +186,7 @@
           <input
             id="add-password"
             type="password"
-            formControlName="temporaryPassword"
+            formControlName="password"
             autocomplete="new-password"
             [attr.aria-invalid]="passwordField.hasError() ? true : null"
             [attr.aria-describedby]="passwordField.hasError() ? passwordField.helpId() : null"
@@ -211,6 +211,10 @@
         [attr.aria-describedby]="confirmField.hasError() ? confirmField.helpId() : null"
       />
     </ui-form-field>
+
+    @if (createError()) {
+      <div class="form-error" role="alert">{{ createError() }}</div>
+    }
 
     <ui-form-field
       label="Account status"

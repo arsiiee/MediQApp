@@ -70,6 +70,7 @@ export class StaffDirectory {
   protected readonly createOpen = signal(false);
   protected readonly saving = signal(false);
   protected readonly confirmDisableFor = signal<StaffAccount | null>(null);
+  protected readonly createError = this.session.createError;
 
   // ---------------------------------------------------------------------------
   // Wording — everything role-specific is derived from `kind`
@@ -138,15 +139,14 @@ export class StaffDirectory {
    * full name everywhere, and splitting the input only to rejoin it on save
    * invited the two halves to disagree with what the table shows.
    *
-   * The two password controls exist so the flow can be demonstrated end to end.
-   * Nothing keeps the value -- see `StaffDraft`, which deliberately models no
-   * credential -- so this is validated and then dropped.
+   * The password is collected here and sent to the API, which hashes and stores
+   * it. Nothing keeps the plaintext value in this component.
    */
   protected readonly form = this.fb.nonNullable.group({
     name: ['', [Validators.required]],
     email: ['', [Validators.required, Validators.email]],
     username: ['', [Validators.required]],
-    temporaryPassword: ['', [Validators.required, Validators.minLength(8)]],
+    password: ['', [Validators.required, Validators.minLength(8)]],
     confirmPassword: ['', [Validators.required]],
     status: ['active' as AccountStatus],
     // Both of these are doctor-only fields, so they carry no static validator:
@@ -173,7 +173,7 @@ export class StaffDirectory {
     { id: 'inactive', label: 'Inactive' },
   ];
 
-  protected errorFor(control: 'name' | 'email' | 'username' | 'temporaryPassword'): string | null {
+  protected errorFor(control: 'name' | 'email' | 'username' | 'password'): string | null {
     const field = this.form.controls[control];
     if (!field.touched) return null;
     if (field.hasError('required')) return 'This field is required.';
@@ -193,7 +193,7 @@ export class StaffDirectory {
     const field = this.form.controls.confirmPassword;
     if (!field.touched) return null;
     if (field.hasError('required')) return 'This field is required.';
-    if (field.value !== this.form.controls.temporaryPassword.value)
+    if (field.value !== this.form.controls.password.value)
       return 'Passwords do not match.';
     return null;
   }
@@ -257,6 +257,7 @@ export class StaffDirectory {
   // ---------------------------------------------------------------------------
   protected openCreate(): void {
     this.form.reset();
+    this.session.clearCreateError();
     this.createOpen.set(true);
   }
 
@@ -297,7 +298,7 @@ export class StaffDirectory {
     // rather than something to fill in later.
     const missingDoctor = this.kind() === 'secretary' && !this.form.controls.assignedDoctorId.value;
     const mismatched =
-      this.form.controls.confirmPassword.value !== this.form.controls.temporaryPassword.value;
+      this.form.controls.confirmPassword.value !== this.form.controls.password.value;
 
     if (
       this.form.invalid ||
@@ -317,13 +318,14 @@ export class StaffDirectory {
     }
 
     this.saving.set(true);
-    const { name, email, username, status, specializationId, licenseNumber, assignedDoctorId } =
+    const { name, email, username, password, status, specializationId, licenseNumber, assignedDoctorId } =
       this.form.getRawValue();
 
     const created = this.session.addStaffAccount(this.kind(), {
       name,
       email,
       username,
+      password,
       status,
       // Secretaries have no specialization, and doctors have no desk, so each
       // role's field is dropped for the other.

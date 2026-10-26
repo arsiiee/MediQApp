@@ -41,6 +41,7 @@ export class AdminSession {
   private readonly specializationsState = signal<AdminSpecialization[]>([]);
   private readonly auditState = signal<AuditEntry[]>([]);
   private readonly appointmentsState = signal<AdminAppointment[]>([]);
+  private readonly createErrorState = signal<string | null>(null);
 
   readonly doctors = this.doctorsState.asReadonly();
   readonly secretaries = this.secretariesState.asReadonly();
@@ -48,6 +49,12 @@ export class AdminSession {
   readonly specializations = this.specializationsState.asReadonly();
   readonly auditEntries = this.auditState.asReadonly();
   readonly appointments = this.appointmentsState.asReadonly();
+  readonly createError = this.createErrorState.asReadonly();
+
+  /** Clear any server-reported create-account error (e.g. when reopening the form). */
+  clearCreateError(): void {
+    this.createErrorState.set(null);
+  }
 
   constructor() {
     forkJoin({
@@ -154,8 +161,11 @@ export class AdminSession {
           list.map((a) => (a.id === '' ? created : a)),
         );
         this.record(`Created ${kind} account`, created.name, 'info');
+        this.createErrorState.set(null);
       },
-      error: () => {
+      error: (err: unknown) => {
+        const serverMessage = (err as { error?: { message?: string } })?.error?.message;
+        this.createErrorState.set(serverMessage ?? 'Failed to create account.');
         target.update((list) => list.filter((a) => a.id === ''));
       },
     });
