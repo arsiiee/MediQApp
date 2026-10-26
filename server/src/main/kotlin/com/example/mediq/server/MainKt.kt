@@ -97,7 +97,7 @@ fun Application.configureApplication() {
     // Services
     val authService = AuthService(authRepository, jwtProvider, passwordHash)
     val doctorService = DoctorService(doctorRepository, specializationRepository)
-    val adminService = AdminService(adminRepository, doctorRepository, authRepository, passwordHash)
+    val adminService = AdminService(adminRepository, doctorRepository, authRepository)
     val appointmentService = AppointmentService(appointmentRepository, doctorRepository)
     val messageService = MessageService(messageRepository)
     val notificationService = NotificationService(notificationRepository)

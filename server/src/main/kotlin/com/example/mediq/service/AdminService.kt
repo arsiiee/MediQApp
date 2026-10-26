@@ -2,7 +2,6 @@ package com.example.mediq.service
 
 import com.example.mediq.domain.model.*
 import com.example.mediq.domain.repository.*
-import com.example.mediq.security.PasswordHash
 import kotlinx.datetime.Clock
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
@@ -12,13 +11,12 @@ class AdminService(
     private val adminRepository: AdminRepository,
     private val doctorRepository: DoctorRepository,
     private val authRepository: AuthRepository,
-    private val passwordHash: PasswordHash,
 ) {
     suspend fun getAllAccounts(): LoadState<AdminAccountsResponse> = adminRepository.getAllAccounts()
 
     suspend fun createStaffAccount(kind: String, draft: StaffDraft): LoadState<UserProfile> {
         val resolvedKind = kind.ifBlank { draft.role ?: "doctor" }
-        val passwordHash = this.passwordHash.hash(draft.password ?: draft.temporaryPassword ?: "demo12345")
+        val password = draft.password ?: draft.temporaryPassword ?: "demo12345"
         val name = draft.fullName ?: draft.name ?: ""
         val role = when (resolvedKind) {
             "doctor" -> UserRole.DOCTOR
@@ -27,7 +25,7 @@ class AdminService(
         }
         val registrationDraft = RegistrationDraft(
             username = draft.username,
-            password = passwordHash,
+            password = password,
             fullName = name,
             email = draft.email,
             mobileNumber = draft.mobileNumber ?: "+639000000000",
