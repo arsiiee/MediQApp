@@ -41,6 +41,11 @@ object Database {
             ?: getEnv("DB_USER")
             ?: config.propertyOrNull("db.user")?.getString()
             ?: "sa"
+        logger.info("DB env var names present: {}", System.getenv().keys.filter { it.contains("DB", ignoreCase = true) || it.contains("MEDIQ", ignoreCase = true) }.sorted())
+        logger.info("username source={} len={} urlHasUserParam={}",
+            if (getEnv("MEDIQ_DB_USER") == null) "MEDIQ_DB_USER" else if (getEnv("DB_USER") != null) "DB_USER" else "fallback",
+            hikariConfig.username.length,
+            url.contains("user=", ignoreCase = true))
         hikariConfig.password = getEnv("MEDIQ_DB_PASSWORD")
             ?: getEnv("DB_PASSWORD")
             ?: config.propertyOrNull("db.password")?.getString()
