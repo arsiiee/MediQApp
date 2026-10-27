@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, of } from 'rxjs';
-import { catchError, tap } from 'rxjs';
+import { Observable, throwError } from 'rxjs';
+import { catchError, finalize, tap } from 'rxjs';
 import { AuthSession } from './models';
 import { AuthState } from './auth.state';
 import { environment } from '../../../environments/environment';
@@ -13,6 +13,7 @@ const REFRESH = `${environment.bffBaseUrl}/auth/refresh`;
 export class AuthService {
   private http = inject(HttpClient);
   private authState = inject(AuthState);
+  private refreshInFlight: Observable<AuthSession> | null = null;
 
   signIn(username: string, password: string): Observable<AuthSession> {
     return this.http.post<AuthSession>(SIGN_IN, { username, password }).pipe(
@@ -24,14 +25,27 @@ export class AuthService {
     this.authState.setSession(session);
   }
 
+  /**
+   * Refreshes the access token. Concurrent callers share a single in-flight
+   * /auth/refresh attempt so a burst of 401s cannot trigger a request storm.
+   * When refresh itself fails, stored tokens/session are cleared and the error
+   * is propagated so the interceptor can sign out and redirect to login.
+   */
   refresh(): Observable<AuthSession> {
-    return this.http.post<AuthSession>(REFRESH, {}).pipe(
+    if (this.refreshInFlight) {
+      return this.refreshInFlight;
+    }
+    this.refreshInFlight = this.http.post<AuthSession>(REFRESH, {}).pipe(
       tap((session) => this.authState.setSession(session)),
-      catchError(() => {
+      catchError((err) => {
         this.authState.clear();
-        return of(null as unknown as AuthSession);
+        return throwError(() => err);
+      }),
+      finalize(() => {
+        this.refreshInFlight = null;
       }),
     );
+    return this.refreshInFlight;
   }
 
   signOut(): void {

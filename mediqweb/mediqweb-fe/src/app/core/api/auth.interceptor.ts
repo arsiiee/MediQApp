@@ -2,10 +2,12 @@ import { HttpErrorResponse, HttpHandlerFn, HttpRequest } from '@angular/common/h
 import { inject } from '@angular/core';
 import { catchError, switchMap, throwError } from 'rxjs';
 import { AuthService } from './auth.service';
+import { Router } from '@angular/router';
 import { environment } from '../../../environments/environment';
 
 export function authInterceptor(req: HttpRequest<any>, next: HttpHandlerFn) {
   const authService = inject(AuthService);
+  const router = inject(Router);
   const token = authService.accessToken;
 
   const headers = token ? req.headers.set('Authorization', `Bearer ${token}`) : req.headers;
@@ -23,7 +25,10 @@ export function authInterceptor(req: HttpRequest<any>, next: HttpHandlerFn) {
             return next(retryReq);
           }),
           catchError(() => {
+            // Refresh itself failed (401): tokens/session are stale after a
+            // reseed. Clear them once, stop retrying, and send the user to login.
             authService.signOut();
+            void router.navigateByUrl('/login');
             return throwError(() => error);
           }),
         );
