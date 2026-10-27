@@ -332,7 +332,14 @@ fun Routing.configureRoutes(
                 )
                 appointmentService.findAll(filter).fold(
                     onSuccess = { call.respond(it) },
-                    onError = { call.respond(HttpStatusCode.InternalServerError, it) },
+                    onError = { failure ->
+                        val status = when (failure.code) {
+                            "VALIDATION_ERROR" -> HttpStatusCode.BadRequest
+                            "NOT_FOUND" -> HttpStatusCode.NotFound
+                            else -> HttpStatusCode.InternalServerError
+                        }
+                        call.respond(status, failure)
+                    },
                 )
             }
 
