@@ -309,9 +309,6 @@ fun Routing.configureRoutes(
                 val claims = call.authentication.principal<JwtClaims>()!!
                 val statusParam = call.request.queryParameters["status"]
                 val status = statusParam?.let { runCatching { AppointmentStatus.valueOf(it.uppercase()) }.getOrNull() }
-                if (statusParam != null && status == null) {
-                    return@get call.respond(HttpStatusCode.BadRequest, ApiFailure.validation("Invalid status"))
-                }
                 val fromParam = call.request.queryParameters["from"]
                 val from = fromParam?.let { runCatching { kotlinx.datetime.LocalDateTime.parse(it) }.getOrNull() }
                 if (fromParam != null && from == null) {
