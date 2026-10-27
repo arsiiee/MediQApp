@@ -147,6 +147,6 @@ class JdbcAppointmentRepository(dataSource: HikariDataSource) : JdbcRepositoryBa
             createdAt = fromTimestamp(rs.getTimestamp("created_at"))!!,
             updatedAt = fromTimestamp(rs.getTimestamp("updated_at"))!!,
             completedAt = fromTimestamp(rs.getTimestamp("completed_at")),
-            outcome = rs.getString("outcome")?.let { VisitOutcome.valueOf(it) },
+            outcome = rs.getString("outcome")?.let { runCatching { VisitOutcome.valueOf(it) }.getOrNull() },
         )
 }

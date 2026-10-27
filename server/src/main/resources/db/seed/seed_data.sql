@@ -157,7 +157,7 @@ SELECT gen_random_uuid()::text,
        now(),
        now(),
        CASE WHEN rand >= 0.75 THEN start_time + (duration || ' minutes')::interval ELSE NULL END,
-       CASE WHEN rand >= 0.75 THEN 'SUCCESS' ELSE NULL END
+       CASE WHEN rand >= 0.75 THEN 'COMPLETED' ELSE NULL END
 FROM appts;
 
 -- 4. Update specialization doctor_count
