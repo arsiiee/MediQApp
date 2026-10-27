@@ -69,7 +69,7 @@ class MediQSessionTest {
 
     @Test
     fun `an account created on this device keeps the name it was registered with`() {
-        MediQSession.beginRegistration("Kissie Ann Apple", "0917 555 0142")
+        MediQSession.beginRegistration("Kissie Ann Apple", "kissie@example.com", "0917 555 0142")
         MediQSession.completeRegistration("kissie.apple")
 
         MediQSession.signIn("kissie.apple")

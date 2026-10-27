@@ -71,6 +71,10 @@ class AuthViewModel : ViewModel() {
                 RetrofitClient.accessToken = session.accessToken
                 MediQSession.setTokens(session.accessToken, session.refreshToken)
                 _uiState.value = AuthUiState.Success(session.profile)
+            } catch (e: HttpException) {
+                _uiState.value = AuthUiState.Error(registerMessage(e))
+            } catch (e: IOException) {
+                _uiState.value = AuthUiState.Error("We could not reach MediQ. Check your connection and try again.")
             } catch (e: Exception) {
                 _uiState.value = AuthUiState.Error(e.message ?: "Registration failed")
             }
@@ -139,6 +143,22 @@ class AuthViewModel : ViewModel() {
     } catch (e: Exception) {
         _uiState.value = AuthUiState.Error(e.message ?: "We could not save your new password.")
         false
+    }
+
+    /**
+     * What the server said about a rejected registration.
+     *
+     * The server explains it (e.g. "email already in use"), so the screen can
+     * show the patient exactly what went wrong.
+     */
+    private fun registerMessage(e: HttpException): String {
+        val body = e.response()?.errorBody()?.string().orEmpty()
+        val message = Regex("\"message\"\\s*:\\s*\"([^\"]+)\"").find(body)?.groupValues?.get(1)
+        return message ?: when (e.code()) {
+            409 -> "That email is already in use. Choose another one."
+            400 -> "Registration failed. Check your details and try again."
+            else -> "We could not reach MediQ. Check your connection and try again."
+        }
     }
 
     /**

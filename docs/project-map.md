@@ -3,7 +3,7 @@
 ## Android (`app/`)
 - `MainActivity.kt` — entry point, hosts Compose + bottom bar.
 - `ui/theme/` — Color.kt, Type.kt, Spacing.kt, Shape.kt (design tokens; only place for raw color).
-- `ui/components/` — MediQBottomBar (reference), MediQBackHeader, MediQNotice, MediQStatusMark.
+- `ui/components/` — MediQBottomBar (reference), MediQPageHeader, MediQNotice, MediQStatusMark.
 - `ui/navigation/` — Routes.kt, MediQNavHost.kt.
 - `ui/screens/` — one package per screen family:
   - `home/` — HomeScreen (reference implementation of token system).

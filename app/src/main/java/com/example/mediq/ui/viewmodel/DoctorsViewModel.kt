@@ -18,6 +18,9 @@ class DoctorsViewModel : ViewModel() {
     private val _selectedDoctor = MutableStateFlow<Doctor?>(null)
     val selectedDoctor: StateFlow<Doctor?> = _selectedDoctor.asStateFlow()
 
+    private val _specializations = MutableStateFlow<List<Specialty>>(emptyList())
+    val specializations: StateFlow<List<Specialty>> = _specializations.asStateFlow()
+
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
@@ -35,6 +38,16 @@ class DoctorsViewModel : ViewModel() {
                 _error.value = e.message ?: "Failed to load doctors"
             } finally {
                 _isLoading.value = false
+            }
+        }
+    }
+
+    fun loadSpecializations() {
+        viewModelScope.launch {
+            try {
+                _specializations.value = api.getSpecializations()
+            } catch (e: Exception) {
+                _error.value = e.message ?: "Failed to load specializations"
             }
         }
     }

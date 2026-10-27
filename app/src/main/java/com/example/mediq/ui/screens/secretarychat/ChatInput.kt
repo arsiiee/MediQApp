@@ -77,8 +77,8 @@ internal fun ChatInput(
     text: String,
     onTextChange: (String) -> Unit,
     onSend: () -> Unit,
-    enabled: Boolean = true,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true
 ) {
     var messageText by remember { mutableStateOf(text) }
 
@@ -90,7 +90,7 @@ internal fun ChatInput(
         modifier = modifier
             .fillMaxWidth()
             .background(MediQBackground)
-            .padding(start = MediQSpacing.sm, top = MediQSpacing.xs, end = MediQSpacing.sm, bottom = MediQSpacing.xxl),
+            .padding(start = MediQSpacing.sm, top = MediQSpacing.xs, end = MediQSpacing.sm),
         verticalAlignment = Alignment.CenterVertically
     ) {
         OutlinedTextField(

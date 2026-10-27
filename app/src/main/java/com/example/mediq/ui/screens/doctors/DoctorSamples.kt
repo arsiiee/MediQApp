@@ -17,6 +17,7 @@ object DoctorsSamples {
             experience = 14,
             fee = 700,
             location = "Main Building — 2F · Clinic 204",
+            licenseNumber = "PRC 0112843",
             openSlots = 13
         ),
         DoctorInfo(
@@ -27,6 +28,7 @@ object DoctorsSamples {
             experience = 18,
             fee = 500,
             location = "Annex Wing — 1F · Clinic 108",
+            licenseNumber = "PRC 0234567",
             openSlots = 18
         ),
         DoctorInfo(
@@ -37,6 +39,7 @@ object DoctorsSamples {
             experience = 20,
             fee = 1000,
             location = "Main Building — 3F · Heart Station 301",
+            licenseNumber = "PRC 0345678",
             openSlots = 10
         ),
         DoctorInfo(
@@ -47,6 +50,7 @@ object DoctorsSamples {
             experience = 15,
             fee = 800,
             location = "Annex Wing — 4F · Clinic 402",
+            licenseNumber = "PRC 0456789",
             openSlots = 15
         ),
         DoctorInfo(
@@ -57,6 +61,7 @@ object DoctorsSamples {
             experience = 13,
             fee = 900,
             location = "Main Building — 2F · Clinic 212",
+            licenseNumber = "PRC 0567890",
             openSlots = 15
         )
     )

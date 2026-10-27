@@ -73,6 +73,9 @@ object MediQSize {
     /** 48dp — minimum touch target for any interactive element (WCAG 2.1 AA). */
     val minTouchTarget = 48.dp
 
+    /** Minimum width of a date card in the strip so "N open" never clips. */
+    val slotCardMinWidth = 64.dp
+
     /** 40dp — visual size of an icon button or avatar. Pad up to [minTouchTarget]. */
     val control = 40.dp
 

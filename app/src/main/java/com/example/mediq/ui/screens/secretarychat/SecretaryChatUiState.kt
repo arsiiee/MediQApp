@@ -11,6 +11,8 @@ sealed interface ChatUiState {
     data class Content(
         val conversationId: String,
         val secretaryName: String,
+        val role: String? = null,
+        val location: String? = null,
         val messages: List<ChatMessage>
     ) : ChatUiState
 }

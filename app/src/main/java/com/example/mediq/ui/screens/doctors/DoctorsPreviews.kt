@@ -15,7 +15,12 @@ import com.example.mediq.ui.theme.MediQTheme
 @Composable
 private fun DoctorsLoadedPreview() {
     MediQTheme {
-        DoctorsContent(state = DoctorsSamples.loaded, actions = DoctorsActions())
+        DoctorsContent(
+            state = DoctorsSamples.loaded,
+            filters = DoctorFilters.Default,
+            onFiltersChange = {},
+            actions = DoctorsActions()
+        )
     }
 }
 
@@ -23,7 +28,12 @@ private fun DoctorsLoadedPreview() {
 @Composable
 private fun DoctorsLoadingPreview() {
     MediQTheme {
-        DoctorsContent(state = DoctorsSamples.loading, actions = DoctorsActions())
+        DoctorsContent(
+            state = DoctorsSamples.loading,
+            filters = DoctorFilters.Default,
+            onFiltersChange = {},
+            actions = DoctorsActions()
+        )
     }
 }
 
@@ -31,7 +41,12 @@ private fun DoctorsLoadingPreview() {
 @Composable
 private fun DoctorsEmptyPreview() {
     MediQTheme {
-        DoctorsContent(state = DoctorsSamples.empty, actions = DoctorsActions())
+        DoctorsContent(
+            state = DoctorsSamples.empty,
+            filters = DoctorFilters.Default,
+            onFiltersChange = {},
+            actions = DoctorsActions()
+        )
     }
 }
 
@@ -39,7 +54,12 @@ private fun DoctorsEmptyPreview() {
 @Composable
 private fun DoctorsErrorPreview() {
     MediQTheme {
-        DoctorsContent(state = DoctorsSamples.error, actions = DoctorsActions())
+        DoctorsContent(
+            state = DoctorsSamples.error,
+            filters = DoctorFilters.Default,
+            onFiltersChange = {},
+            actions = DoctorsActions()
+        )
     }
 }
 

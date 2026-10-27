@@ -116,12 +116,13 @@ fun NextConsultationCard(
                 text = appointment.location
             )
 
-            Spacer(Modifier.height(MediQSpacing.xs))
-
-            MetaRow(
-                icon = Icons.Default.AccessTime,
-                text = appointment.arrivalNote
-            )
+            if (appointment.arrivalNote.isNotBlank()) {
+                Spacer(Modifier.height(MediQSpacing.xs))
+                MetaRow(
+                    icon = Icons.Default.AccessTime,
+                    text = appointment.arrivalNote
+                )
+            }
 
             Spacer(Modifier.height(MediQSpacing.sm))
 

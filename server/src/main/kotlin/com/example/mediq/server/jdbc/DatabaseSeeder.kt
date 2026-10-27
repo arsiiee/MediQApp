@@ -200,32 +200,10 @@ class DatabaseSeeder(
     private fun seedAuditLogs(conn: Connection) {
         val count = conn.prepareStatement("SELECT COUNT(*) FROM audit_logs").executeQuery().use { rs -> rs.next(); rs.getLong(1) }
         if (count > 0) return
-
-        val now = Clock.System.now().toLocalDateTime(TimeZone.UTC)
-        val entries = listOf(
-            AuditEntry("log-1", "Alex Rivera", "Deactivated account", "Dr. Oscar Dela Cruz", now.minusDays(3), AuditSeverity.WARNING),
-            AuditEntry("log-2", "Alex Rivera", "Created secretary account", "Carla Bautista", now.minusDays(4), AuditSeverity.INFO),
-            AuditEntry("log-3", "Grace Lim", "Updated patient contact number", "Maria Concepcion", now.minusDays(5), AuditSeverity.INFO),
-            AuditEntry("log-4", "System", "Rejected sign-in attempt", "unknown@mediq.ph", now.minusDays(6), AuditSeverity.ERROR),
-            AuditEntry("log-5", "Alex Rivera", "Added specialization", "Psychiatry", now.minusDays(7), AuditSeverity.INFO),
-            AuditEntry("log-6", "Alex Rivera", "Reactivated account", "Dennis Ocampo", now.minusDays(8), AuditSeverity.INFO),
-            AuditEntry("log-7", "System", "Failed to export audit log", "retention job", now.minusDays(9), AuditSeverity.WARNING),
-            AuditEntry("log-8", "Alex Rivera", "Changed clinic contact email", "Clinic settings", now.minusDays(10), AuditSeverity.INFO),
-        )
-
-        conn.prepareStatement("INSERT INTO audit_logs (id, actor, action, target, at, severity, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)").use { ps ->
-            for (e in entries) {
-                ps.setString(1, e.id)
-                ps.setString(2, e.actor)
-                ps.setString(3, e.action)
-                ps.setString(4, e.target)
-                ps.setTimestamp(5, toTimestamp(e.at))
-                ps.setString(6, e.severity.name)
-                ps.setTimestamp(7, toTimestamp(now))
-                ps.addBatch()
-            }
-            ps.executeBatch()
-        }
+        // No seed entries: audit logs are recorded only when the server actually
+        // writes them through AuditService.create(). No routes currently trigger
+        // an audit write, so the table starts empty rather than with entries that
+        // don't correspond to any real user action.
     }
 
     private fun seedAppointments(conn: Connection) {
@@ -241,7 +219,6 @@ class DatabaseSeeder(
             Appointment("appt-103", "pat-2", "doc-1", now.minusDays(5).withHour(11).withMinute(0), 30, AppointmentStatus.COMPLETED, "Hypertension check", now, now),
             Appointment("appt-104", "pat-1", "doc-2", now.minusDays(7).withHour(14).withMinute(0), 30, AppointmentStatus.COMPLETED, "ECG reading and review", now, now),
             // Open appointments (booked / confirmed)
-            Appointment("appt-105", "pat-1", "doc-1", now.plusDays(1).withHour(14).withMinute(0), 30, AppointmentStatus.BOOKED, "Follow-up consultation", now, now),
             Appointment("appt-106", "pat-2", "doc-3", now.plusDays(2).withHour(9).withMinute(0), 30, AppointmentStatus.CONFIRMED, "Dermatology consult", now, now),
         )
 

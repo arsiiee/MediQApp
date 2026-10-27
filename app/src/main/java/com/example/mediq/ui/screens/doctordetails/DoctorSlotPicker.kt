@@ -1,5 +1,6 @@
 package com.example.mediq.ui.screens.doctordetails
 
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -8,6 +9,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.sizeIn
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
@@ -81,7 +84,9 @@ internal fun DoctorSlotPicker(
         Spacer(Modifier.height(MediQSpacing.md))
 
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState()),
             horizontalArrangement = Arrangement.spacedBy(MediQSpacing.sm)
         ) {
             schedule.forEachIndexed { index, day ->
@@ -90,7 +95,7 @@ internal fun DoctorSlotPicker(
                     openSlots = day.openSlots,
                     isSelected = index == selectedDateIndex,
                     onSelect = { selectedDateIndex = index },
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.sizeIn(minWidth = MediQSize.slotCardMinWidth)
                 )
             }
         }

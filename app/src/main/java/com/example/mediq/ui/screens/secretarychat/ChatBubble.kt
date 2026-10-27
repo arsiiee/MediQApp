@@ -17,6 +17,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import java.text.SimpleDateFormat
+import java.util.Locale
 import com.example.mediq.ui.screens.messages.ChatMessage
 import com.example.mediq.ui.theme.MediQBackground
 import com.example.mediq.ui.theme.MediQGreen
@@ -58,9 +60,32 @@ internal fun ChatBubble(
         Spacer(Modifier.height(MediQSpacing.xxs))
 
         Text(
-            text = message.time,
+            text = formatMessageTime(message.time),
             style = MaterialTheme.typography.labelSmall,
             color = MediQTextSecondary
         )
+    }
+}
+
+/** Displays a message time as "MMM dd, h:mm a" (e.g. "Oct 25, 11:38 PM").
+ * Tries ISO 8601 with fractional seconds first ("2026-10-25T23:38:13.444531"),
+ * then "MMM dd · h:mm a". Falls back to the original text when both fail. */
+private fun formatMessageTime(time: String): String {
+    return try {
+        val output = SimpleDateFormat("MMM dd, h:mm a", Locale.US)
+        when {
+            time.contains("T") -> {
+                // ISO 8601 with optional fractional seconds.
+                val iso = time.substringBefore('.').replace('T', ' ')
+                val input = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US)
+                output.format(input.parse(iso))
+            }
+            else -> {
+                val input = SimpleDateFormat("MMM dd · h:mm a", Locale.US)
+                output.format(input.parse(time))
+            }
+        }
+    } catch (e: Exception) {
+        time
     }
 }

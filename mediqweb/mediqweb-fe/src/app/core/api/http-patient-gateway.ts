@@ -139,6 +139,14 @@ export class HttpPatientGateway {
     );
   }
 
+  // ---- Doctor area: confirm a booking ----
+  confirmAppointment(appointmentId: string): Observable<Appointment> {
+    return this.http.post<Appointment>(
+      `${BASE}/appointments/${appointmentId}/confirm`,
+      null,
+    );
+  }
+
   // ---- Doctor area: appointments for this doctor ----
   getDoctorAppointments(
     filter?: AppointmentFilter,

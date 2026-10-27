@@ -145,12 +145,7 @@ fun Routing.configureRoutes(
                 val id = call.parameters["id"]!!
                 doctorService.getSchedule(id).fold(
                     onSuccess = { hours ->
-                        val grouped = hours.groupBy { it.dayOfWeek }
-                        val wire = (0..6).map { day ->
-                            val sessions = grouped[day]?.filter { !it.isClosed }?.map { ScheduleBlockWire(it.startTime, it.endTime) } ?: emptyList()
-                            ScheduleDayWire(day, sessions)
-                        }.filter { it.sessions.isNotEmpty() || grouped.containsKey(it.dayOfWeek) }
-                        call.respond(wire)
+                        call.respond(hours)
                     },
                     onError = { call.respond(HttpStatusCode.NotFound, it) },
                 )
@@ -425,7 +420,11 @@ fun Routing.configureRoutes(
             post("conversations/{id}/messages") {
                 val conversationId = call.parameters["id"]!!
                 val claims = call.authentication.principal<JwtClaims>()!!
-                val body = call.receive<String>()
+                // Retrofit on Android serializes a Kotlin String body as a JSON string literal
+                // (e.g. `"hi"` with surrounding quotes). Strip them so the stored body matches
+                // what the user typed. Web sends raw text already, so this is a no-op there.
+                val rawBody = call.receive<String>()
+                val body = rawBody.removeSurrounding("\"", "\"")
 
                 // Only a participant of the conversation may post into it.
                 val thread = messageService.findConversation(conversationId).getOrNull()
@@ -531,6 +530,18 @@ fun Routing.configureRoutes(
                 )
             }
 
+            patch("accounts/{id}/doctor") {
+                if (!call.requireRole(UserRole.ADMIN)) return@patch
+                val id = call.parameters["id"]!!
+                val body = call.receive<SecretaryDoctorUpdate>()
+                val doctorId = body.assignedDoctorId
+                    ?: return@patch call.respond(HttpStatusCode.BadRequest, ApiFailure.validation("doctorId is required"))
+                adminService.reassignSecretaryDoctor(id, doctorId).fold(
+                    onSuccess = { call.respond(it) },
+                    onError = { call.respond(HttpStatusCode.BadRequest, it) },
+                )
+            }
+
             get("doctors") {
                 if (!call.requireRole(UserRole.ADMIN)) return@get
                 adminService.getDoctorsForAdmin().fold(
@@ -588,6 +599,29 @@ fun Routing.configureRoutes(
                 if (!call.requireRole(UserRole.SECRETARY, UserRole.ADMIN)) return@get
                 val claims = call.authentication.principal<JwtClaims>()!!
                 messageService.findConversationsForSecretary(claims.userId).fold(
+                    onSuccess = { call.respond(it) },
+                    onError = { call.respond(HttpStatusCode.InternalServerError, it) },
+                )
+            }
+
+            // The secretary's assigned doctor — the desk this screen works.
+            get("doctor") {
+                if (!call.requireRole(UserRole.SECRETARY, UserRole.ADMIN)) return@get
+                val claims = call.authentication.principal<JwtClaims>()!!
+                val profile = authService.findById(claims.userId).getOrNull()
+                val doctorId = profile?.assignedDoctorId
+                    ?: return@get call.respond(HttpStatusCode.NotFound)
+                doctorService.findById(doctorId).fold(
+                    onSuccess = { call.respond(it) },
+                    onError = { call.respond(HttpStatusCode.InternalServerError, it) },
+                )
+            }
+
+            // The assigned doctor's published weekly hours.
+            get("doctor/{id}/schedule") {
+                if (!call.requireRole(UserRole.SECRETARY, UserRole.ADMIN)) return@get
+                val id = call.parameters["id"]!!
+                doctorService.getSchedule(id).fold(
                     onSuccess = { call.respond(it) },
                     onError = { call.respond(HttpStatusCode.InternalServerError, it) },
                 )

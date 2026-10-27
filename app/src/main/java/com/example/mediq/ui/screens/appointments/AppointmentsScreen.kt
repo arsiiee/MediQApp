@@ -11,13 +11,16 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavController
 import androidx.navigation.compose.currentBackStackEntryAsState
-import com.example.mediq.ui.components.MediQBackHeader
-import com.example.mediq.ui.components.MediQSearchField
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.mediq.ui.components.MediQPageHeader
 import com.example.mediq.ui.navigation.Screen
+import com.example.mediq.ui.screens.appointments.AppointmentCancellationStore
 import com.example.mediq.ui.theme.MediQScaffoldBackground
+import com.example.mediq.ui.viewmodel.AppointmentsViewModel
 
 /** Where the patient came from, handed back by the detail screen. */
 private const val SOURCE_TAB_KEY = "appointment_source_tab"
@@ -30,24 +33,27 @@ private const val CANCELLED_ID_KEY = "cancelled_appointment_id"
  *
  * Job: track bookings. Primary action: open one booking.
  *
- * [state] defaults to the current mock source, [AppointmentsSamples]. Replacing
- * it with a repository changes this one call site, not the layout.
+ * Bookings are loaded from the API via [AppointmentsViewModel]; sample data is
+ * no longer used in the running app.
  */
 @Composable
 fun AppointmentsScreen(
     navController: NavController,
-    state: AppointmentsUiState = AppointmentsSamples.content
+    viewModel: AppointmentsViewModel = viewModel()
 ) {
     var selectedTabIndex by rememberSaveable { mutableIntStateOf(0) }
-    var cancelledIds by remember { mutableStateOf(emptySet<String>()) }
+    var cancelledIds by rememberSaveable { mutableStateOf(emptySet<String>()) }
+
+    val bookings by viewModel.appointments.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
+    val error by viewModel.error.collectAsState()
+
+    LaunchedEffect(viewModel) {
+        viewModel.loadAppointments()
+    }
 
     val selectedTab = AppointmentsTab.entries[selectedTabIndex]
 
-    /*
-     * The detail screen talks back through the saved-state handle: which tab an
-     * appointment was opened from, and whether it was cancelled. Reading those
-     * here keeps the screen's own state the single owner.
-     */
     val backStackEntry by navController.currentBackStackEntryAsState()
 
     val sourceTab = backStackEntry?.savedStateHandle?.get<Int>(SOURCE_TAB_KEY)
@@ -71,11 +77,23 @@ fun AppointmentsScreen(
         }
     }
 
+    val all = bookings
+    val upcoming = all.filter { it.status.canCancel }
+    val history = all.filterNot { it.status.canCancel }
+    val content = AppointmentsUiState.Content(upcoming = upcoming, history = history).withCancelled(cancelledIds)
+
+    val state = when {
+        isLoading -> AppointmentsUiState.Loading
+        error != null -> AppointmentsUiState.Error(error.orEmpty())
+        else -> content
+    }
+
     AppointmentsContent(
-        state = (state as? AppointmentsUiState.Content)?.withCancelled(cancelledIds) ?: state,
+        state = state,
         selectedTab = selectedTab,
         onTabSelected = { selectedTabIndex = it.ordinal },
         actions = AppointmentsActions(
+            onRetry = { viewModel.loadAppointments() },
             onOpenAppointment = { id, fromTab ->
                 navController.currentBackStackEntry
                     ?.savedStateHandle
@@ -99,14 +117,9 @@ fun AppointmentsContent(
             .fillMaxSize()
             .background(MediQScaffoldBackground)
     ) {
-        MediQBackHeader(title = "My appointments", onBack = null)
-
-        var searchQuery by remember { mutableStateOf("") }
-
-        MediQSearchField(
-            query = searchQuery,
-            onChange = { searchQuery = it },
-            placeholder = "Search appointments..."
+        MediQPageHeader(
+            title = "My appointments",
+            subtitle = "Upcoming and past visits"
         )
 
         AppointmentTabs(selected = selectedTab, onSelect = onTabSelected)

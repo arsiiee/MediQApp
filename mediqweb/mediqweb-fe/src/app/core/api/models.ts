@@ -66,6 +66,17 @@ export interface MessageThread {
   awaitingAction: boolean;
 }
 
+/** One message in a conversation, as returned by the Ktor API. */
+export interface Message {
+  id: string;
+  conversationId: string;
+  authorId: string;
+  authorRole: string;
+  body: string;
+  sentAt: string;
+  readAt?: string | null;
+}
+
 export interface Specialization {
   id: string;
   name: string;

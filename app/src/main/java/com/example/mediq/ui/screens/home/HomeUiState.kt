@@ -45,13 +45,12 @@ data class NextAppointment(
     val status: AppointmentStatus
 )
 
-/** A doctor ranked by open slots this week. */
+/** A doctor shown on the home screen's "Most open slots this week" card. */
 data class DoctorAvailability(
     val doctorId: String,
     val name: String,
     val specialty: String,
     val location: String,
-    val openSlots: Int
 )
 
 /** Everything the home screen renders. */

@@ -1,8 +1,8 @@
 package com.example.mediq.ui.screens.home
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -12,6 +12,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -20,7 +22,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
@@ -29,6 +30,15 @@ import com.example.mediq.ui.theme.MediQNotificationDot
 import com.example.mediq.ui.theme.MediQOnBrand
 import com.example.mediq.ui.theme.MediQSize
 import com.example.mediq.ui.theme.MediQSpacing
+
+/**
+ * The notification badge label, or null when nothing should be shown.
+ */
+private fun badgeLabel(count: Int): String? = when {
+    count <= 0 -> null
+    count > 9 -> "9+"
+    else -> count.toString()
+}
 
 /**
  * Greeting, patient identity and the notifications entry point.
@@ -113,9 +123,23 @@ private fun NotificationButton(
         "Notifications"
     }
 
-    Box(
+    BadgedBox(
         modifier = Modifier.size(MediQSize.minTouchTarget),
-        contentAlignment = Alignment.Center
+        badge = {
+            val label = badgeLabel(unreadNotifications)
+            if (label != null) {
+                Badge(
+                    containerColor = MediQNotificationDot,
+                    contentColor = MediQOnBrand
+                ) {
+                    Text(
+                        text = label,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MediQOnBrand
+                    )
+                }
+            }
+        }
     ) {
         IconButton(
             onClick = onClick,
@@ -130,18 +154,6 @@ private fun NotificationButton(
                 contentDescription = null,
                 tint = MediQOnBrand,
                 modifier = Modifier.size(MediQSize.iconLarge)
-            )
-        }
-
-        if (unreadNotifications > 0) {
-            Box(
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(top = MediQSpacing.xs, end = MediQSpacing.xs)
-                    .size(MediQSpacing.sm)
-                    .clip(CircleShape)
-                    .background(MediQNotificationDot)
-                    .clearAndSetSemantics { }
             )
         }
     }

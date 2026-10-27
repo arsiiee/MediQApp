@@ -65,10 +65,14 @@ export class AdminSession {
         const doctors = accounts.doctors as unknown as ApiAccount[];
         const secretaries = accounts.secretaries as unknown as ApiAccount[];
         const patients = accounts.patients as unknown as ApiAccount[];
+        // doctorSpecs maps doctor.id -> { specializationId, licenseNumber }
         this.doctorsState.set(
-          doctors.map((d) => toStaffAccount(d, doctorSpecs.get(d.id))),
+          doctors.map((d) => {
+            const meta = doctorSpecs.get(d.id);
+            return toStaffAccount(d, meta?.specializationId ?? null, meta?.licenseNumber ?? null);
+          }),
         );
-        this.secretariesState.set(secretaries.map((d) => toStaffAccount(d, null)));
+        this.secretariesState.set(secretaries.map((d) => toStaffAccount(d, null, null)));
         this.patientsState.set(patients.map(toPatientAccount));
       },
       error: () => {
@@ -196,6 +200,28 @@ export class AdminSession {
     return true;
   }
 
+  setAssignedDoctor(kind: StaffKind, id: string, doctorId: string): boolean {
+    const target = kind === 'doctor' ? this.doctorsState : this.secretariesState;
+    const existing = target().find((a) => a.id === id);
+    if (!existing || existing.assignedDoctorId === doctorId) return false;
+
+    target.update((list) =>
+      list.map((a) => (a.id === id ? { ...a, assignedDoctorId: doctorId } : a)),
+    );
+    this.adminGateway.updateAssignedDoctor(id, doctorId).subscribe({
+      next: () => {
+        const doctor = this.doctorsState().find((d) => d.id === doctorId)?.name ?? doctorId;
+        this.record(`Reassigned secretary to ${doctor}`, existing.name, 'info');
+      },
+      error: () => {
+        target.update((list) =>
+          list.map((a) => (a.id === id ? { ...a, assignedDoctorId: existing.assignedDoctorId } : a)),
+        );
+      },
+    });
+    return true;
+  }
+
   setPatientStatus(id: string, status: AccountStatus): boolean {
     const existing = this.patientsState().find((p) => p.id === id);
     if (!existing || existing.status === status) return false;
@@ -274,6 +300,8 @@ interface ApiAccount {
   readonly dateOfBirth: string;
   readonly status: AccountStatus;
   readonly role?: string;
+  /** Doctors only — Ktor returns it shaped on the account. */
+  readonly licenseNumber?: string | null;
   readonly doctorId?: string | null;
   readonly assignedDoctorId?: string | null;
   readonly createdAt: string;
@@ -297,6 +325,7 @@ function toPatientAccount(api: ApiAccount): PatientAccount {
 function toStaffAccount(
   api: ApiAccount,
   specializationId: string | null = null,
+  licenseNumber: string | null = null,
 ): StaffAccount {
   return {
     id: api.id,
@@ -306,7 +335,7 @@ function toStaffAccount(
     status: api.status,
     role: api.role,
     specializationId,
-    licenseNumber: null,
+    licenseNumber,
     assignedDoctorId: api.role === 'secretary' ? api.assignedDoctorId ?? null : null,
     joinedOn: api.createdAt,
     lastActiveOn: null,

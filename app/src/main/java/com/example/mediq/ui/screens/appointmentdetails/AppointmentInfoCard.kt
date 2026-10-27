@@ -17,6 +17,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.runtime.Composable
@@ -109,21 +110,55 @@ internal fun AppointmentMapPreview(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val hasLocation = location.isNotBlank()
+
+    /** The hospital/building name only — floor and room details are for display,
+     * not for navigation. Split on the first separator (" · " or " — ") so the
+     * map goes to the building, not a room inside it. */
+    val mapLocation = location
+        .split(Regex("[ —·]"))
+        .firstOrNull { it.isNotBlank() }
+        ?.trim()
+        ?.takeIf { it.isNotBlank() }
+        ?: location
+
     Surface(
         modifier = modifier
             .fillMaxWidth()
-            .clickable {
-                val query = Uri.encode(location)
-                val intent = Intent(
-                    Intent.ACTION_VIEW,
-                    Uri.parse("geo:0,0?q=$query")
-                )
-                // Only launch if something can handle it; otherwise do nothing
-                // rather than crashing on devices without a maps app.
-                if (intent.resolveActivity(context.packageManager) != null) {
-                    context.startActivity(intent)
+            .clickable(
+                enabled = hasLocation,
+                onClick = {
+                    val query = Uri.encode(mapLocation)
+                    // 1) Try Google Maps app directly (most reliable on devices that have it).
+                    val mapsAppIntent = Intent(Intent.ACTION_VIEW, Uri.parse("geo:0,0?q=$query")).apply {
+                        setPackage("com.google.android.apps.maps")
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                    try {
+                        context.startActivity(mapsAppIntent)
+                        return@clickable
+                    } catch (_: ActivityNotFoundException) {}
+
+                    // 2) Try any app that handles geo: (e.g. Apple Maps, Waze on some devices).
+                    val geoIntent = Intent(Intent.ACTION_VIEW, Uri.parse("geo:0,0?q=$query")).apply {
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                    try {
+                        context.startActivity(geoIntent)
+                        return@clickable
+                    } catch (_: ActivityNotFoundException) {}
+
+                    // 3) Fallback: Google Maps search page in a browser.
+                    // Use the plain search URL (not maps.google.com) so it stays
+                    // in the browser instead of redirecting to an intent:// scheme
+                    // that browsers can't load.
+                    val browserIntent = Intent(
+                        Intent.ACTION_VIEW,
+                        Uri.parse("https://www.google.com/maps/search/?api=1&query=$query")
+                    ).apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
+                    context.startActivity(browserIntent)
                 }
-            },
+            ),
         shape = MaterialTheme.shapes.large,
         color = MediQLightGreen
     ) {

@@ -4,14 +4,14 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
-import com.example.mediq.ui.components.MediQBackHeader
-import com.example.mediq.ui.navigation.Screen
-import com.example.mediq.ui.theme.MediQGreen
-import com.example.mediq.ui.theme.MediQOnBrand
+import com.example.mediq.ui.components.MediQPageHeader
 import com.example.mediq.ui.theme.MediQScaffoldBackground
-import com.example.mediq.ui.theme.MediQSize
+import com.example.mediq.ui.viewmodel.NotificationsViewModel
 
 /**
  * Notifications.
@@ -19,17 +19,31 @@ import com.example.mediq.ui.theme.MediQSize
  * Job: read updates. Primary action: open the related screen (handled by tap
  * on a card, not implemented in the mock).
  *
- * [state] defaults to the mock source. Replacing it with a repository changes
- * this one call site.
+ * Each notification is also promoted to a real Android system notification via
+ * [NotificationsViewModel] / [NotificationHelper], so the appointment events
+ * surface in the system shade as well as the in-app list.
+ *
+ * Notifications are loaded from the API via [NotificationsViewModel]; sample
+ * data is no longer used in the running app.
  */
 @Composable
-fun NotificationsScreen(
-    navController: NavController,
-    state: NotificationsUiState = NotificationsSamples.content
-) {
+fun NotificationsScreen(navController: NavController) {
+    val context = LocalContext.current
+    val viewModel = viewModel { NotificationsViewModel(context) }
+    val notifications = viewModel.notifications.collectAsState().value
+    val isLoading = viewModel.isLoading.collectAsState().value
+    val error = viewModel.error.collectAsState().value
+
+    val state = when {
+        isLoading -> NotificationsUiState.Loading
+        error != null -> NotificationsUiState.Error(error.orEmpty())
+        notifications.isEmpty() -> NotificationsUiState.Empty
+        else -> NotificationsUiState.Content(notifications)
+    }
+
     NotificationsContent(
         state = state,
-        actions = NotificationsActions(onRetry = {}),
+        actions = NotificationsActions(onRetry = { viewModel.loadNotifications() }),
         onBack = { navController.popBackStack() }
     )
 }
@@ -47,10 +61,9 @@ fun NotificationsContent(
             .fillMaxSize()
             .background(MediQScaffoldBackground)
     ) {
-        MediQBackHeader(
+        MediQPageHeader(
             title = "Notifications",
-            onBack = onBack,
-            actions = {}
+            onBack = onBack
         )
 
         when (state) {

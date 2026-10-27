@@ -20,10 +20,13 @@ import com.example.mediq.ui.screens.doctordetails.DoctorDetailsScreen
 import com.example.mediq.ui.screens.doctors.DoctorsScreen
 import com.example.mediq.ui.screens.home.HomeScreen
 import com.example.mediq.ui.screens.messages.MessagesScreen
+import com.example.mediq.ui.screens.messages.MockConversations
 import com.example.mediq.ui.screens.notifications.NotificationsScreen
 import com.example.mediq.ui.screens.profile.EditProfileScreen
 import com.example.mediq.ui.screens.profile.ProfileScreen
+import com.example.mediq.ui.screens.secretarychat.ChatUiState
 import com.example.mediq.ui.screens.secretarychat.SecretaryChatScreen
+import com.example.mediq.ui.screens.secretarychat.SecretaryChatSamples
 
 @Composable
 fun MediQNavHost(navController: NavHostController, startDestination: String = Screen.SignIn.route) {
@@ -55,9 +58,20 @@ fun MediQNavHost(navController: NavHostController, startDestination: String = Sc
                     ?.getString("conversationId")
                     ?: "maria_secretary"
 
+            // Resolve the secretary's identity from the sample conversation so
+            // the header shows name, role, and location instead of defaults.
+            val content = (when (conversationId) {
+                "maria_secretary" -> SecretaryChatSamples.maria
+                "kathleen_secretary" -> SecretaryChatSamples.kathleen
+                else -> null
+            }) as? ChatUiState.Content
+
             SecretaryChatScreen(
                 navController = navController,
-                conversationId = conversationId
+                conversationId = conversationId,
+                secretaryName = content?.secretaryName ?: "Secretary",
+                role = content?.role,
+                location = content?.location,
             )
         }
         composable(Screen.Profile.route) { ProfileScreen(navController) }

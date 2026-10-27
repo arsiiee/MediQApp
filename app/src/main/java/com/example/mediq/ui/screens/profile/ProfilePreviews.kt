@@ -31,23 +31,23 @@ private fun ProfileSignOutDialogPreview() {
 @Preview(name = "Edit profile - idle", showBackground = true, heightDp = 800)
 @Composable
 private fun EditProfileIdlePreview() {
-    MediQTheme { EditProfileContent(state = ProfileSamples.editIdle, fullName = MockProfile.fullName, onFullNameChange = {}, phoneNumber = MockProfile.phoneNumber, onPhoneNumberChange = {}, actions = EditProfileActions()) }
+    MediQTheme { EditProfileContent(state = ProfileSamples.editIdle, fullName = MockProfile.fullName, onFullNameChange = {}, phoneNumber = MockProfile.phoneNumber ?: "", onPhoneNumberChange = {}, email = MockProfile.email ?: "", actions = EditProfileActions()) }
 }
 
 @Preview(name = "Edit profile - saving", showBackground = true, heightDp = 800)
 @Composable
 private fun EditProfileSavingPreview() {
-    MediQTheme { EditProfileContent(state = ProfileSamples.editSaving, fullName = MockProfile.fullName, onFullNameChange = {}, phoneNumber = MockProfile.phoneNumber, onPhoneNumberChange = {}, actions = EditProfileActions()) }
+    MediQTheme { EditProfileContent(state = ProfileSamples.editSaving, fullName = MockProfile.fullName, onFullNameChange = {}, phoneNumber = MockProfile.phoneNumber ?: "", onPhoneNumberChange = {}, email = MockProfile.email ?: "", actions = EditProfileActions()) }
 }
 
 @Preview(name = "Edit profile - saved", showBackground = true, heightDp = 800)
 @Composable
 private fun EditProfileSavedPreview() {
-    MediQTheme { EditProfileContent(state = ProfileSamples.editSaved, fullName = MockProfile.fullName, onFullNameChange = {}, phoneNumber = MockProfile.phoneNumber, onPhoneNumberChange = {}, actions = EditProfileActions()) }
+    MediQTheme { EditProfileContent(state = ProfileSamples.editSaved, fullName = MockProfile.fullName, onFullNameChange = {}, phoneNumber = MockProfile.phoneNumber ?: "", onPhoneNumberChange = {}, email = MockProfile.email ?: "", actions = EditProfileActions()) }
 }
 
 @Preview(name = "Edit profile - error", showBackground = true, heightDp = 800)
 @Composable
 private fun EditProfileErrorPreview() {
-    MediQTheme { EditProfileContent(state = ProfileSamples.editError, fullName = MockProfile.fullName, onFullNameChange = {}, phoneNumber = MockProfile.phoneNumber, onPhoneNumberChange = {}, actions = EditProfileActions()) }
+    MediQTheme { EditProfileContent(state = ProfileSamples.editError, fullName = MockProfile.fullName, onFullNameChange = {}, phoneNumber = MockProfile.phoneNumber ?: "", onPhoneNumberChange = {}, email = MockProfile.email ?: "", actions = EditProfileActions()) }
 }

@@ -121,6 +121,52 @@ class JdbcAdminRepository(
         }
     }
 
+    override suspend fun reassignSecretaryDoctor(userId: String, assignedDoctorId: String?): LoadState<UserProfile> = withConnection { conn ->
+        // The user must exist and be a secretary.
+        val role = conn.prepareStatement("SELECT role FROM users WHERE id = ?").use { ps ->
+            ps.setString(1, userId)
+            ps.executeQuery().use { rs ->
+                if (rs.next()) rs.getString("role") else null
+            }
+        }
+
+        if (role == null) {
+            LoadState.Error(ApiFailure.notFound("User not found"))
+        } else if (role != UserRole.SECRETARY.serialName) {
+            LoadState.Error(ApiFailure.validation("Only secretaries can be reassigned to a doctor"))
+        } else if (assignedDoctorId != null) {
+            // assignedDoctorId is a doctor's id (doctors.id), not a user id. Look it
+            // up directly on the doctors table.
+            val doctorActive = conn.prepareStatement(
+                "SELECT d.status FROM doctors d WHERE d.id = ?",
+            ).use { ps ->
+                ps.setString(1, assignedDoctorId)
+                ps.executeQuery().use { rs -> rs.next() }
+            }
+            if (!doctorActive) {
+                LoadState.Error(ApiFailure.validation("Doctor not found or not active"))
+            } else {
+                conn.prepareStatement("UPDATE users SET assigned_doctor_id = ?, updated_at = ? WHERE id = ?").use { ps ->
+                    ps.setObject(1, assignedDoctorId, java.sql.Types.VARCHAR)
+                    ps.setTimestamp(2, toTimestamp(nowUtc()))
+                    ps.setString(3, userId)
+                    val updated = ps.executeUpdate()
+                    if (updated == 0) LoadState.Error(ApiFailure.notFound("User not found"))
+                    else findUserById(conn, userId)
+                }
+            }
+        } else {
+            conn.prepareStatement("UPDATE users SET assigned_doctor_id = ?, updated_at = ? WHERE id = ?").use { ps ->
+                ps.setObject(1, assignedDoctorId, java.sql.Types.VARCHAR)
+                ps.setTimestamp(2, toTimestamp(nowUtc()))
+                ps.setString(3, userId)
+                val updated = ps.executeUpdate()
+                if (updated == 0) LoadState.Error(ApiFailure.notFound("User not found"))
+                else findUserById(conn, userId)
+            }
+        }
+    }
+
     override suspend fun getDoctorsForAdmin(): LoadState<List<Doctor>> = withConnection { conn ->
         conn.prepareStatement("SELECT d.* FROM doctors d JOIN users u ON d.user_id = u.id WHERE u.role = 'DOCTOR' ORDER BY d.full_name LIMIT 1000").use { ps ->
             ps.executeQuery().use { rs ->

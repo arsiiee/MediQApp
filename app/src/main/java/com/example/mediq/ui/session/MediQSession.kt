@@ -60,11 +60,18 @@ object MediQSession {
      */
     private val knownAccounts = mutableMapOf<String, SignedInUser>()
 
+    /** The details step's pending registration, waiting for the username. */
+    internal data class RegistrationPending(
+        val fullName: String,
+        val email: String,
+        val phoneNumber: String?,
+    )
+
     /**
      * The name and number from the registration details step, waiting for the
      * username from the credentials step.
      */
-    private var pendingRegistration: Pair<String, String?>? = null
+    private var pendingRegistration: RegistrationPending? = null
 
     /** Bind this session to a context and restore any persisted account. */
     fun init(context: Context) {
@@ -116,10 +123,23 @@ object MediQSession {
 
     /**
      * Remembers the details step, which is the only step that learns a
-     * patient's real name.
+     * patient's real name, email, and optional number.
      */
-    fun beginRegistration(fullName: String, phoneNumber: String) {
-        pendingRegistration = fullName.trim() to phoneNumber.trim().ifEmpty { null }
+    fun beginRegistration(fullName: String, email: String, phoneNumber: String) {
+        pendingRegistration = RegistrationPending(
+            fullName = fullName.trim(),
+            email = email.trim(),
+            phoneNumber = phoneNumber.trim().ifEmpty { null }
+        )
+    }
+
+    /**
+     * Takes and clears the pending registration, if any.
+     */
+    internal fun takePendingRegistration(): RegistrationPending? {
+        val pending = pendingRegistration
+        pendingRegistration = null
+        return pending
     }
 
     /**
@@ -129,8 +149,8 @@ object MediQSession {
      * patient to the sign-in screen.
      */
     fun completeRegistration(username: String) {
-        val (fullName, phoneNumber) = pendingRegistration ?: ("" to null)
-        rememberAccount(username, fullName, phoneNumber)
+        val pending = pendingRegistration ?: RegistrationPending("", "", null)
+        rememberAccount(username, pending.fullName, pending.email, pending.phoneNumber)
         pendingRegistration = null
     }
 
@@ -138,15 +158,16 @@ object MediQSession {
      * Records an account created on this device.
      *
      * Called by the registration flow, the only step that learns a patient's
-     * real name.
+     * real name and contact details.
      */
-    fun rememberAccount(username: String, fullName: String, phoneNumber: String?) {
+    fun rememberAccount(username: String, fullName: String, email: String, phoneNumber: String?) {
         val key = username.trim()
         if (key.isEmpty()) return
 
         knownAccounts[key] = SignedInUser(
             username = key,
             fullName = fullName.trim().ifEmpty { DisplayName.fromUsername(key) },
+            email = email.ifBlank { null },
             phoneNumber = phoneNumber?.trim()?.ifEmpty { null }
         )
     }

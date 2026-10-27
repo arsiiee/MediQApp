@@ -54,7 +54,7 @@ object AuthSamples {
     /** What the form steps show when they are submitted empty. */
     val signInErrors: SignInErrors = AuthValidation.validateSignIn("", "")
 
-    val detailsErrors: DetailsErrors = AuthValidation.validateDetails("", "0917")
+    val detailsErrors: DetailsErrors = AuthValidation.validateDetails("", "name@example.com", "0917")
 
     val credentialsErrors: CredentialsErrors =
         AuthValidation.validateCredentials("ki", "short", "other")

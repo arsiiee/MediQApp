@@ -4,7 +4,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
@@ -22,7 +21,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.navigation.NavController
-import com.example.mediq.ui.components.MediQBackHeader
+import com.example.mediq.ui.components.MediQPageHeader
 import com.example.mediq.ui.components.MediQNotice
 import com.example.mediq.ui.navigation.Screen
 import com.example.mediq.ui.session.MediQSession
@@ -36,7 +35,8 @@ import com.example.mediq.ui.theme.MediQTextSecondary
 /**
  * Registration step 1: who the patient is.
  *
- * Job: collect a name and a number. Primary action: continue.
+ * Job: collect a name and an email (required) plus an optional mobile number.
+ * Primary action: continue to the one-time-code step.
  */
 @Composable
 fun RegisterDetailsScreen(
@@ -47,12 +47,16 @@ fun RegisterDetailsScreen(
         state = state,
         actions = RegisterActions(
             onBack = { navController.popBackStack() },
-            onDetailsContinue = { fullName, phoneNumber ->
+            onDetailsContinue = { fullName, email, phoneNumber ->
                 /*
-                 * Hand the number forward through the back-stack entry so the
+                 * Hand the contact forward through the back-stack entry so the
                  * code step can say where the code went, rather than repeating
-                 * a number the patient may not have typed.
+                 * a contact the patient may not have typed.
                  */
+                navController.currentBackStackEntry
+                    ?.savedStateHandle
+                    ?.set(OTP_EMAIL_KEY, email)
+
                 navController.currentBackStackEntry
                     ?.savedStateHandle
                     ?.set(OTP_PHONE_KEY, phoneNumber)
@@ -62,7 +66,7 @@ fun RegisterDetailsScreen(
                  * for, so it is kept here for the account the credentials step
                  * is about to create.
                  */
-                MediQSession.beginRegistration(fullName, phoneNumber)
+                MediQSession.beginRegistration(fullName, email, phoneNumber)
 
                 navController.navigate(Screen.RegisterOTP.route)
             }
@@ -74,10 +78,11 @@ fun RegisterDetailsScreen(
 fun RegisterDetailsContent(
     state: RegisterState,
     actions: RegisterActions,
-    initialErrors: DetailsErrors = DetailsErrors(null, null),
+    initialErrors: DetailsErrors = DetailsErrors(null, null, null),
     modifier: Modifier = Modifier
 ) {
     var fullName by rememberSaveable { mutableStateOf("") }
+    var email by rememberSaveable { mutableStateOf("") }
     var phoneNumber by rememberSaveable { mutableStateOf("") }
     var errors by remember { mutableStateOf(initialErrors) }
 
@@ -88,7 +93,7 @@ fun RegisterDetailsContent(
             .fillMaxSize()
             .background(MediQBackground)
     ) {
-        MediQBackHeader(title = REGISTRATION_TITLE, onBack = actions.onBack)
+        MediQPageHeader(title = REGISTRATION_TITLE, onBack = actions.onBack)
 
         Column(
             modifier = Modifier
@@ -122,9 +127,22 @@ fun RegisterDetailsContent(
                 value = fullName,
                 onValueChange = { fullName = it },
                 label = "Full name",
-                placeholder = "Kissie Ann Apple",
+                placeholder = AuthSamples.FULL_NAME,
                 error = errors.fullName,
                 enabled = !submitting
+            )
+
+            Spacer(Modifier.height(MediQSpacing.lg))
+
+            AuthField(
+                value = email,
+                onValueChange = { email = it },
+                label = "Email address",
+                placeholder = "name@example.com",
+                error = errors.email,
+                hint = "Used for verification and sign-in.",
+                enabled = !submitting,
+                keyboardType = KeyboardType.Text
             )
 
             Spacer(Modifier.height(MediQSpacing.lg))
@@ -135,7 +153,7 @@ fun RegisterDetailsContent(
                 label = "Mobile number",
                 placeholder = AuthSamples.PHONE_NUMBER,
                 error = errors.phoneNumber,
-                hint = "Used for the verification code and appointment reminders.",
+                hint = "Optional. Used for appointment reminders.",
                 enabled = !submitting,
                 keyboardType = KeyboardType.Phone
             )
@@ -157,10 +175,10 @@ fun RegisterDetailsContent(
                 label = if (submitting) "Sending code..." else "Continue",
                 enabled = !submitting,
                 onClick = {
-                    val checked = AuthValidation.validateDetails(fullName, phoneNumber)
+                    val checked = AuthValidation.validateDetails(fullName, email, phoneNumber)
                     errors = checked
                     if (checked.isClean) {
-                        actions.onDetailsContinue(fullName.trim(), phoneNumber)
+                        actions.onDetailsContinue(fullName.trim(), email.trim(), phoneNumber)
                     }
                 }
             )

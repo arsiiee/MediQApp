@@ -272,6 +272,37 @@ export class DoctorSession {
   }
 
   /**
+   * Confirms a booking, moving it from `booked` to `confirmed`.
+   *
+   * Refuses an appointment that is not `booked` — only a booking can be
+   * confirmed, and a confirmed appointment is already past that step.
+   */
+  confirmAppointment(id: string): boolean {
+    const current = this.appointmentState().find(
+      (appointment) => appointment.id === id && appointment.doctorId === this.doctorId(),
+    );
+    if (!current || current.status !== 'booked') return false;
+
+    this.appointmentState.update((appointments) =>
+      appointments.map((appointment) =>
+        appointment.id === id ? { ...appointment, status: 'confirmed' } : appointment,
+      ),
+    );
+
+    this.gateway.confirmAppointment(id).subscribe({
+      error: () => {
+        // Roll back optimistically if the server rejects it.
+        this.appointmentState.update((appointments) =>
+          appointments.map((appointment) =>
+            appointment.id === id ? { ...appointment, status: 'booked' } : appointment,
+          ),
+        );
+      },
+    });
+    return true;
+  }
+
+  /**
    * Replaces the published availability with a saved week.
    */
   saveSchedule(days: readonly ScheduleDay[]): void {

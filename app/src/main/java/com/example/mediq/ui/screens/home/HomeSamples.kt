@@ -29,32 +29,29 @@ object HomeSamples {
             doctorId = "joel-marquez",
             name = "Dr. Joel Marquez",
             specialty = "Pediatrics",
-            location = "Annex Wing — 1F",
-            openSlots = 18
+            location = "Annex Wing · Floor 1"
         ),
         DoctorAvailability(
             doctorId = "grace-villanueva",
             name = "Dr. Grace Villanueva",
             specialty = "OB-Gynecology",
-            location = "Annex Wing — 4F",
-            openSlots = 15
+            location = "Annex Wing · Floor 4"
         ),
         DoctorAvailability(
             doctorId = "ramon-dela-cruz",
             name = "Dr. Ramon Dela Cruz",
             specialty = "Orthopedics",
-            location = "Main Building — 2F",
-            openSlots = 15
+            location = "Main Building · Floor 2"
         )
     )
 
     private val nextAppointment = NextAppointment(
         id = "appt-2026-09-14",
         time = "9:30 AM",
-        date = "Monday, September 14, 2026",
+        date = "Mon, Sep 14",
         doctorName = "Dr. Maria Elena Sandoval",
         specialty = "Internal Medicine",
-        location = "Main Building — 2F — Clinic 204",
+        location = "Main Building · Floor 2 · Room 204",
         arrivalNote = "Arrive 15 minutes early for registration",
         status = AppointmentStatus.Confirmed
     )

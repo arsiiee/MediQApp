@@ -1,10 +1,15 @@
 package com.example.mediq.ui.screens.appointments
 
+import com.example.mediq.ui.session.DateTimeFormatter
+
 /*
  * The current appointments data source: fixed sample content.
  *
  * Replacing this with a repository changes only AppointmentsScreen's default
  * argument. The detail screen reads the same bookings, so the two cannot drift.
+ *
+ * Dates and times come from [DateTimeFormatter] so the list, the detail screen
+ * and the home card never disagree on how a visit is shown.
  */
 
 object AppointmentsSamples {
@@ -15,9 +20,9 @@ object AppointmentsSamples {
             doctor = "Dr. Maria Elena Sandoval",
             initials = "ME",
             specialty = "Internal Medicine",
-            dateShort = "Mon, Sep 14",
-            dateLong = "Monday, September 14, 2026",
-            time = "9:30 AM",
+            dateShort = DateTimeFormatter.formatDate("2026-09-14T09:30:00"),
+            dateLong = DateTimeFormatter.formatDateLong("2026-09-14T09:30:00"),
+            time = DateTimeFormatter.formatTime("2026-09-14T09:30:00"),
             location = "Main Building — 2F · Clinic 204",
             reason = "Follow-up for elevated blood pressure",
             status = AppointmentStatus.Confirmed,
@@ -28,9 +33,9 @@ object AppointmentsSamples {
             doctor = "Dr. Kathleen Lim",
             initials = "KL",
             specialty = "Dermatology",
-            dateShort = "Thu, Sep 17",
-            dateLong = "Thursday, September 17, 2026",
-            time = "10:00 AM",
+            dateShort = DateTimeFormatter.formatDate("2026-09-17T10:00:00"),
+            dateLong = DateTimeFormatter.formatDateLong("2026-09-17T10:00:00"),
+            time = DateTimeFormatter.formatTime("2026-09-17T10:00:00"),
             location = "Annex Wing — 1F · Clinic 114",
             reason = "Recurring skin rash on both arms",
             status = AppointmentStatus.AwaitingConfirmation,
@@ -41,9 +46,9 @@ object AppointmentsSamples {
             doctor = "Dr. Ramon Dela Cruz",
             initials = "RD",
             specialty = "Orthopedics",
-            dateShort = "Mon, Aug 24",
-            dateLong = "Monday, August 24, 2026",
-            time = "2:00 PM",
+            dateShort = DateTimeFormatter.formatDate("2026-08-24T14:00:00"),
+            dateLong = DateTimeFormatter.formatDateLong("2026-08-24T14:00:00"),
+            time = DateTimeFormatter.formatTime("2026-08-24T14:00:00"),
             location = "Main Building — 2F · Clinic 212",
             reason = "Knee pain consultation",
             status = AppointmentStatus.Completed,
@@ -54,9 +59,9 @@ object AppointmentsSamples {
             doctor = "Dr. Grace Villanueva",
             initials = "GV",
             specialty = "OB-Gynecology",
-            dateShort = "Wed, Aug 12",
-            dateLong = "Wednesday, August 12, 2026",
-            time = "11:30 AM",
+            dateShort = DateTimeFormatter.formatDate("2026-08-12T11:30:00"),
+            dateLong = DateTimeFormatter.formatDateLong("2026-08-12T11:30:00"),
+            time = DateTimeFormatter.formatTime("2026-08-12T11:30:00"),
             location = "Annex Wing — 4F · Clinic 402",
             reason = "Routine consultation",
             status = AppointmentStatus.Completed,

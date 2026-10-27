@@ -88,6 +88,15 @@ fun DoctorListItem(
                     color = MediQGreen
                 )
 
+                doctor.licenseNumber?.let { license ->
+                    Spacer(Modifier.height(MediQSpacing.xxs))
+                    Text(
+                        text = "License: $license",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MediQTextSecondary
+                    )
+                }
+
                 Spacer(Modifier.height(MediQSpacing.xs))
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -106,12 +115,6 @@ fun DoctorListItem(
                 }
 
                 Spacer(Modifier.height(MediQSpacing.sm))
-
-                Text(
-                    text = "${doctor.openSlots} open slots",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MediQGreen
-                )
             }
         }
     }

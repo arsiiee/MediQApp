@@ -6,7 +6,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavController
-import com.example.mediq.ui.components.MediQBackHeader
+import com.example.mediq.ui.components.MediQPageHeader
 import com.example.mediq.ui.navigation.Screen
 import com.example.mediq.ui.theme.MediQScaffoldBackground
 
@@ -60,7 +60,7 @@ fun BookingFlowContent(
             .fillMaxSize()
             .background(MediQScaffoldBackground)
     ) {
-        MediQBackHeader(
+        MediQPageHeader(
             title = "Book Appointment",
             onBack = actions.onBack
         )
@@ -115,7 +115,7 @@ fun BookingSuccessContent(
             .fillMaxSize()
             .background(MediQScaffoldBackground)
     ) {
-        MediQBackHeader(
+        MediQPageHeader(
             title = when (state) {
                 is BookingSuccessState.Success -> "Booking Successful"
                 is BookingSuccessState.Conflict -> "Booking Not Completed"

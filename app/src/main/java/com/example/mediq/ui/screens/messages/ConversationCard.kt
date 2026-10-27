@@ -24,6 +24,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.example.mediq.ui.session.DateTimeFormatter
 import com.example.mediq.ui.theme.MediQAvatarBrandTile
 import com.example.mediq.ui.theme.MediQBackground
 import com.example.mediq.ui.theme.MediQGreen
@@ -33,7 +34,6 @@ import com.example.mediq.ui.theme.MediQSize
 import com.example.mediq.ui.theme.MediQSpacing
 import com.example.mediq.ui.theme.MediQTextPrimary
 import com.example.mediq.ui.theme.MediQTextSecondary
-import com.example.mediq.ui.theme.MediQTextPlaceholder
 
 /** One row in the list. */
 @Composable
@@ -79,15 +79,7 @@ internal fun ConversationCard(
                 Spacer(Modifier.height(MediQSpacing.xxs))
 
                 Text(
-                    text = "Secretary · ${conversation.doctorName}",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MediQGreen
-                )
-
-                Spacer(Modifier.height(MediQSpacing.xxs))
-
-                Text(
-                    text = conversation.preview,
+                    text = conversation.preview.takeIf { it.isNotBlank() } ?: "No preview",
                     style = MaterialTheme.typography.bodySmall,
                     color = MediQTextPrimary,
                     maxLines = 1,
@@ -97,7 +89,7 @@ internal fun ConversationCard(
                 Spacer(Modifier.height(MediQSpacing.xxs))
 
                 Text(
-                    text = conversation.date,
+                    text = DateTimeFormatter.formatMessageTime(conversation.date),
                     style = MaterialTheme.typography.labelSmall,
                     color = MediQTextSecondary
                 )

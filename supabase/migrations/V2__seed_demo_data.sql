@@ -119,7 +119,7 @@ SELECT * FROM (VALUES
 WHERE NOT EXISTS (SELECT 1 FROM messages);
 
 -- -------------------------------------------------------
--- appointments (7: 5 completed past, 2 upcoming)
+-- appointments (6: 5 completed past, 1 upcoming)
 -- -------------------------------------------------------
 INSERT INTO appointments (id, patient_id, doctor_id, starts_at, duration_minutes, status, reason, created_at, updated_at, completed_at, outcome)
 SELECT * FROM (VALUES
@@ -128,7 +128,6 @@ SELECT * FROM (VALUES
   ('appt-102', 'pat-1', 'doc-3', NOW() - INTERVAL '3 days' + INTERVAL '15 hour', 20, 'COMPLETED', 'Child wellness check', NOW(), NOW(), NULL, NULL),
   ('appt-103', 'pat-2', 'doc-1', NOW() - INTERVAL '5 days' + INTERVAL '11 hour', 30, 'COMPLETED', 'Hypertension check', NOW(), NOW(), NULL, NULL),
   ('appt-104', 'pat-1', 'doc-2', NOW() - INTERVAL '7 days' + INTERVAL '14 hour', 30, 'COMPLETED', 'ECG reading and review', NOW(), NOW(), NULL, NULL),
-  ('appt-105', 'pat-1', 'doc-1', NOW() + INTERVAL '1 day' + INTERVAL '14 hour', 30, 'BOOKED', 'Follow-up consultation', NOW(), NOW(), NULL, NULL),
   ('appt-106', 'pat-2', 'doc-3', NOW() + INTERVAL '2 days' + INTERVAL '9 hour', 30, 'CONFIRMED', 'Dermatology consult', NOW(), NOW(), NULL, NULL)
 ) AS v(id, patient_id, doctor_id, starts_at, duration_minutes, status, reason, created_at, updated_at, completed_at, outcome)
 WHERE NOT EXISTS (SELECT 1 FROM appointments);

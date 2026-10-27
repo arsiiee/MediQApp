@@ -23,6 +23,8 @@ interface DoctorWithSpecialization {
   readonly userId: string;
   readonly fullName: string;
   readonly specializationId: string | null;
+  /** Doctors only — the PRC license number from the doctors table. */
+  readonly licenseNumber: string | null;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -46,15 +48,26 @@ export class HttpAdminGateway {
     });
   }
 
+  updateAssignedDoctor(id: string, doctorId: string): Observable<StaffAccount> {
+    return this.http.patch<StaffAccount>(`${BASE}/admin/accounts/${id}/doctor`, {
+      assignedDoctorId: doctorId,
+    });
+  }
+
   getDoctorsForAdmin(): Observable<StaffAccount[]> {
     return this.http.get<StaffAccount[]>(`${BASE}/admin/doctors`);
   }
 
-  /** Doctor id -> specialization id, from the doctors table. */
-  getDoctorSpecializations(): Observable<Map<string, string | null>> {
+  /** Doctor id -> {specializationId, licenseNumber}, from the doctors table. */
+  getDoctorSpecializations(): Observable<Map<string, { specializationId: string | null; licenseNumber: string | null }>> {
     return this.http.get<DoctorWithSpecialization[]>(`${BASE}/admin/doctors`).pipe(
       map((doctors) =>
-        new Map(doctors.map((d) => [d.id, d.specializationId])),
+        new Map(
+          doctors.map((d) => [
+            d.id,
+            { specializationId: d.specializationId, licenseNumber: d.licenseNumber },
+          ]),
+        ),
       ),
     );
   }

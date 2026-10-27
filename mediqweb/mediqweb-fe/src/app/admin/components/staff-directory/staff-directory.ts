@@ -70,6 +70,9 @@ export class StaffDirectory {
   protected readonly createOpen = signal(false);
   protected readonly saving = signal(false);
   protected readonly confirmDisableFor = signal<StaffAccount | null>(null);
+  protected readonly confirmReassignFor = signal<StaffAccount | null>(null);
+  protected readonly reassigning = signal(false);
+  protected readonly selectedDoctorId = signal<string | null>(null);
   protected readonly createError = this.session.createError;
 
   // ---------------------------------------------------------------------------
@@ -164,6 +167,10 @@ export class StaffDirectory {
   );
 
   protected readonly assignedDoctorItems = computed(() =>
+    this.session.activeDoctorOptions().map((o) => ({ id: o.id, label: o.label })),
+  );
+
+  protected readonly reassignDoctorItems = computed(() =>
     this.session.activeDoctorOptions().map((o) => ({ id: o.id, label: o.label })),
   );
 
@@ -373,6 +380,38 @@ export class StaffDirectory {
       this.toasts.success(`${account.name} was re-enabled`, 'They can sign in again.');
     } else {
       this.toasts.error('Not re-enabled', `${account.name} could not be updated.`);
+    }
+  }
+
+  protected requestReassign(account: StaffAccount): void {
+    this.selectedDoctorId.set(null);
+    this.confirmReassignFor.set(account);
+  }
+
+  protected cancelReassign(): void {
+    this.confirmReassignFor.set(null);
+    this.selectedDoctorId.set(null);
+  }
+
+  protected onReassignDoctorChange(item: DropdownItem): void {
+    this.selectedDoctorId.set(item.id);
+  }
+
+  protected confirmReassign(): void {
+    const account = this.confirmReassignFor();
+    const doctorId = this.selectedDoctorId();
+    if (!account || !doctorId) return;
+    const changed = this.session.setAssignedDoctor(this.kind(), account.id, doctorId);
+    this.confirmReassignFor.set(null);
+    this.selectedDoctorId.set(null);
+
+    if (changed) {
+      const doctor = this.session
+        .activeDoctorOptions()
+        .find((d) => d.id === doctorId)?.label ?? doctorId;
+      this.toasts.success(`${account.name} reassigned`, `Now working under ${doctor}.`);
+    } else {
+      this.toasts.error('Not reassigned', `${account.name} could not be updated.`);
     }
   }
 }

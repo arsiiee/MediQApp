@@ -217,6 +217,14 @@ describe('DoctorAppointments', () => {
     expect(latestToast()?.tone).toBe('warning');
   });
 
+  it('confirms a booked appointment', () => {
+    const booked = session.appointments().find((a) => a.status === 'booked')!;
+    page().confirm(booked);
+    fixture.detectChanges();
+    expect(statusOf(booked.id)).toBe('confirmed');
+    expect(latestToast()?.title).toBe('Appointment confirmed');
+  });
+
   it('records an outcome immediately, with no confirmation dialog', () => {
     const confirmed = session.appointments().find((a) => a.status === 'confirmed')!;
     page().complete(confirmed);
@@ -241,11 +249,10 @@ describe('DoctorAppointments', () => {
 
   // --- What this desk is not allowed to do
 
-  it('offers no Confirm, because only a Secretary approves an appointment', () => {
+  it('offers Confirm for a booked appointment', () => {
     const booked = session.appointments().find((a) => a.status === 'booked')!;
-    expect(page().canRecord(booked)).toBe(false);
-    expect(button('Confirm')).toBeUndefined();
-    expect(text()).not.toContain('Confirm');
+    expect(page().canConfirm(booked)).toBe(true);
+    expect(button('Confirm')).toBeTruthy();
   });
 
   it('offers no Cancel, because calling a booking off is the front desk decision', () => {
@@ -257,15 +264,28 @@ describe('DoctorAppointments', () => {
     expect(button('Cancel appointment')).toBeUndefined();
   });
 
-  it('shows only Complete and No-show, and only on a confirmed appointment', () => {
+  it('shows Confirm on booked rows and Complete/No-show on confirmed rows', () => {
     const labels = rowActions();
-    expect(new Set(labels)).toEqual(new Set(['Complete', 'No-show']));
 
-    // One pair per confirmed appointment, and no other row carries an action.
+    // Each booked row gets one Confirm button; each confirmed row gets Complete + No-show.
+    const booked = page()
+      .appointments()
+      .filter((a: any) => a.status === 'booked').length;
     const confirmed = page()
       .appointments()
       .filter((a: any) => a.status === 'confirmed').length;
-    expect(labels.length).toBe(confirmed * 2);
+    expect(labels.length).toBe(booked + confirmed * 2);
+
+    // No row carries both Confirm and Complete/No-show.
+    for (const appointment of page().appointments()) {
+      if (appointment.status === 'booked') {
+        expect(page().canConfirm(appointment)).toBe(true);
+        expect(page().canRecord(appointment)).toBe(false);
+      } else if (appointment.status === 'confirmed') {
+        expect(page().canConfirm(appointment)).toBe(false);
+        expect(page().canRecord(appointment)).toBe(true);
+      }
+    }
   });
 
   it('refuses to record an outcome on a booking the front desk never confirmed', () => {
@@ -277,10 +297,9 @@ describe('DoctorAppointments', () => {
   });
 
   it('says which decisions belong to the Secretary', () => {
-    // The absence of Confirm and Cancel reads as a gap unless the page says
-    // otherwise. This is the sentence that stops that.
+    // Cancel remains the Secretary's decision; the page says so explicitly.
     expect(text()).toContain(
-      'A Secretary at the front desk confirms an appointment and calls it off',
+      'calling one off is the Secretary',
     );
   });
 });

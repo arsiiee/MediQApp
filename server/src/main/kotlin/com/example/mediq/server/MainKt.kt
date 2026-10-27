@@ -16,6 +16,8 @@ import com.example.mediq.security.JwtClaims
 import com.example.mediq.security.JwtProvider
 import com.example.mediq.security.PasswordHash
 import com.example.mediq.service.*
+import io.ktor.client.HttpClient
+import io.ktor.client.engine.cio.CIO
 import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.Application
@@ -77,6 +79,19 @@ fun Application.configureApplication() {
     val passwordHash = PasswordHash()
     val jwtProvider = JwtProvider(jwtSecret)
 
+    // Email provider: Resend when an API key is configured, otherwise a
+    // logging stub that never sends and never logs the key.
+    val resendApiKey: String = System.getenv("RESEND_API_KEY")
+        ?: environment.config.propertyOrNull("resend.api.key")?.getString()
+        ?: ""
+    val httpClient = HttpClient(CIO)
+    val emailConfig = EmailConfig(apiKey = resendApiKey)
+    val emailProvider: EmailProvider = if (resendApiKey.isNotBlank()) {
+        ResendEmailProvider(httpClient, emailConfig)
+    } else {
+        LoggingEmailProvider()
+    }
+
     // Database
     val dataSource = Database.createDataSource(environment.config)
     Database.runMigrations(dataSource)
@@ -95,7 +110,7 @@ fun Application.configureApplication() {
     DatabaseSeeder(dataSource, passwordHash).seedIfEmpty()
 
     // Services
-    val authService = AuthService(authRepository, jwtProvider, passwordHash)
+    val authService = AuthService(authRepository, jwtProvider, passwordHash, emailProvider)
     val doctorService = DoctorService(doctorRepository, specializationRepository)
     val adminService = AdminService(adminRepository, doctorRepository, authRepository)
     val appointmentService = AppointmentService(appointmentRepository, doctorRepository)

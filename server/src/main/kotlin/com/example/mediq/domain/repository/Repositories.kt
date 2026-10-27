@@ -88,6 +88,7 @@ interface AdminRepository {
     suspend fun getAllAccounts(): LoadState<AdminAccountsResponse>
     suspend fun createStaffAccount(draft: RegistrationDraft): LoadState<UserProfile>
     suspend fun updateAccountStatus(userId: String, status: AccountStatus): LoadState<UserProfile>
+    suspend fun reassignSecretaryDoctor(userId: String, assignedDoctorId: String?): LoadState<UserProfile>
     suspend fun getDoctorsForAdmin(): LoadState<List<Doctor>>
 }
 

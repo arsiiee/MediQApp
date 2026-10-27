@@ -43,13 +43,24 @@ class JdbcAuthRepository(
     override suspend fun register(request: RegisterRequest): LoadState<AuthSession> = withConnection { conn ->
         conn.autoCommit = false
         try {
-            val exists = conn.prepareStatement("SELECT id FROM users WHERE username = ?").use { ps ->
+            val usernameExists = conn.prepareStatement("SELECT id FROM users WHERE username = ?").use { ps ->
                 ps.setString(1, request.username)
                 ps.executeQuery().use { rs -> rs.next() }
             }
-            if (exists) {
+            if (usernameExists) {
                 conn.rollback()
                 return@withConnection LoadState.Error(ApiFailure.conflict("Username already exists"))
+            }
+
+            if (request.email.isNotBlank()) {
+                val emailExists = conn.prepareStatement("SELECT id FROM users WHERE email = ?").use { ps ->
+                    ps.setString(1, request.email)
+                    ps.executeQuery().use { rs -> rs.next() }
+                }
+                if (emailExists) {
+                    conn.rollback()
+                    return@withConnection LoadState.Error(ApiFailure.conflict("email already in use"))
+                }
             }
             val id = newId()
             val now = nowUtc()
@@ -77,7 +88,7 @@ class JdbcAuthRepository(
             conn.commit()
             val profile = UserProfile(
                 id = id, username = request.username, fullName = request.fullName, email = request.email,
-                mobileNumber = request.mobileNumber, dateOfBirth = request.dateOfBirth, role = request.role,
+                mobileNumber = request.mobileNumber ?: "", dateOfBirth = request.dateOfBirth, role = request.role,
                 status = AccountStatus.ACTIVE, createdAt = now, updatedAt = now,
             )
             LoadState.Success(AuthSession(

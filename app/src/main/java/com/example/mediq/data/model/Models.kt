@@ -210,8 +210,8 @@ data class RegisterRequest(
     val username: String,
     val password: String,
     val fullName: String,
-    val email: String?,
-    val mobileNumber: String,
+    val email: String,
+    val mobileNumber: String?,
     val dateOfBirth: String,
     val role: UserRole,
 )

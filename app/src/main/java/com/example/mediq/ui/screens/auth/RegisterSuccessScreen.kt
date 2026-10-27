@@ -17,7 +17,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.navigation.NavController
-import com.example.mediq.ui.components.MediQBackHeader
+import com.example.mediq.ui.components.MediQPageHeader
 import com.example.mediq.ui.components.MediQStatusMark
 import com.example.mediq.ui.navigation.Screen
 import com.example.mediq.ui.theme.MediQBackground
@@ -62,7 +62,7 @@ fun RegisterSuccessContent(
             .fillMaxSize()
             .background(MediQBackground)
     ) {
-        MediQBackHeader(title = "Account created", onBack = null)
+        MediQPageHeader(title = "Account created", onBack = null)
 
         Column(
             modifier = Modifier

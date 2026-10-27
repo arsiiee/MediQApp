@@ -18,44 +18,95 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
-import com.example.mediq.ui.components.MediQBackHeader
+import com.example.mediq.data.model.RegisterRequest
+import com.example.mediq.data.model.UserRole
+import com.example.mediq.ui.components.MediQPageHeader
 import com.example.mediq.ui.components.MediQNotice
 import com.example.mediq.ui.navigation.Screen
 import com.example.mediq.ui.session.MediQSession
+import com.example.mediq.ui.session.SignedInUser
 import com.example.mediq.ui.theme.MediQBackground
 import com.example.mediq.ui.theme.MediQError
 import com.example.mediq.ui.theme.MediQErrorContainer
 import com.example.mediq.ui.theme.MediQSpacing
 import com.example.mediq.ui.theme.MediQTextPrimary
 import com.example.mediq.ui.theme.MediQTextSecondary
+import com.example.mediq.ui.viewmodel.AuthUiState
+import com.example.mediq.ui.viewmodel.AuthViewModel
+import kotlinx.coroutines.launch
 
 /**
- * Registration step 3: choose what the patient will sign in with.
+ * Registration step 3: choose what the patient will sign in with, and create
+ * the account.
  *
- * Job: set a username and password. Primary action: create the account.
+ * Job: set a username and password, then call the server to create the
+ * account with the details from step 1. Primary action: create the account.
+ * Server errors (e.g. "email already in use") are shown on screen.
  */
 @Composable
 fun RegisterCredentialsScreen(
     navController: NavController,
-    state: RegisterState = AuthSamples.registerIdle
+    viewModel: AuthViewModel = viewModel()
 ) {
+    val uiState by viewModel.uiState.collectAsState()
+    val registerState = uiState.toRegisterState()
+    val scope = rememberCoroutineScope()
+
+    LaunchedEffect(uiState) {
+        val state = uiState
+        if (state is AuthUiState.Success) {
+            val profile = state.profile
+            MediQSession.completeRegistration(profile.username)
+            MediQSession.signIn(
+                SignedInUser(
+                    username = profile.username,
+                    fullName = profile.fullName,
+                    email = profile.email ?: "",
+                    phoneNumber = profile.mobileNumber
+                )
+            )
+            navController.navigate(Screen.RegisterSuccess.route) {
+                popUpTo(Screen.RegisterDetails.route) { inclusive = true }
+            }
+        }
+    }
+
     RegisterCredentialsContent(
-        state = state,
+        state = registerState,
         actions = RegisterActions(
             onBack = { navController.popBackStack() },
-            onCredentialsCreate = { username, _ ->
-                /*
-                 * Create the account now that the username is known, so the
-                 * sign-in that follows can greet the patient by the name they
-                 * typed at the details step.
-                 */
-                MediQSession.completeRegistration(username)
-                navController.navigate(Screen.RegisterSuccess.route)
+            onCredentialsCreate = { username, password ->
+                scope.launch {
+                    val pending = MediQSession.takePendingRegistration()
+                    val request = RegisterRequest(
+                        username = username,
+                        password = password,
+                        fullName = pending?.fullName ?: "",
+                        email = pending?.email ?: "",
+                        mobileNumber = pending?.phoneNumber,
+                        dateOfBirth = "1970-01-01",
+                        role = UserRole.PATIENT,
+                    )
+                    viewModel.register(request)
+                }
             }
         )
     )
+}
+
+/** What the credentials screen draws, given what the server answered. */
+private fun AuthUiState.toRegisterState(): RegisterState = when (this) {
+    is AuthUiState.Idle -> RegisterState.Idle
+    is AuthUiState.Loading -> RegisterState.Submitting
+    is AuthUiState.Error -> RegisterState.Error(message)
+    is AuthUiState.Success -> RegisterState.Idle
+    is AuthUiState.InvalidCredentials -> RegisterState.Idle
 }
 
 @Composable
@@ -77,7 +128,7 @@ fun RegisterCredentialsContent(
             .fillMaxSize()
             .background(MediQBackground)
     ) {
-        MediQBackHeader(title = REGISTRATION_TITLE, onBack = actions.onBack)
+        MediQPageHeader(title = REGISTRATION_TITLE, onBack = actions.onBack)
 
         Column(
             modifier = Modifier
@@ -164,7 +215,7 @@ fun RegisterCredentialsContent(
                     )
                     errors = checked
                     if (checked.isClean) {
-                        actions.onCredentialsCreate(username, password)
+                        actions.onCredentialsCreate(username.trim(), password)
                     }
                 }
             )

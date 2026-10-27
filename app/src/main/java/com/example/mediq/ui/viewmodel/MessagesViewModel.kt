@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.mediq.data.api.RetrofitClient
 import com.example.mediq.data.model.MessageThread
+import com.example.mediq.ui.session.DisplayName
 import com.example.mediq.ui.screens.messages.ChatMessage
 import com.example.mediq.ui.screens.messages.MessagesUiState
 import com.example.mediq.ui.screens.messages.MockConversations
@@ -30,9 +31,9 @@ class MessagesViewModel : ViewModel() {
                     else SecretaryConversation(
                         id = thread.id,
                         secretaryName = thread.subject,
-                        initials = thread.subject.take(1).uppercase(),
+                        initials = DisplayName.initials(thread.subject),
                         doctorName = "",
-                        preview = "",
+                        preview = thread.subject.takeIf { it.isNotBlank() } ?: "",
                         date = thread.lastMessageAt,
                         unreadCount = thread.unreadCount,
                     )

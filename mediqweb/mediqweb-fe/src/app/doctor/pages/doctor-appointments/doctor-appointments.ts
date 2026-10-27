@@ -39,12 +39,11 @@ const STATUS_ITEMS: DropdownItem[] = [
  * The doctor's appointment list.
  *
  * The working list: what is still to happen, and the place to say what happened at
- * it. Two actions, and the page is built around how few they are — mark a visit
- * **complete**, or record a **no-show** for a patient who was not there in the
- * booked time. Both say what occurred, and neither is available until the
- * appointment has been confirmed, because the front desk confirms first and a
- * doctor recording an outcome on a booking nobody approved would skip that step
- * rather than describe anything.
+ * it. Three actions, and the page is built around them — **confirm** a booking the
+ * patient has made, mark a visit **complete**, or record a **no-show** for a patient
+ * who was not there in the booked time. Confirming and recording an outcome are both
+ * available on this page: the doctor confirms the booking, and once confirmed can
+ * record what occurred at the visit.
  *
  * Nothing that is already finished is listed here. A recorded visit moves to the
  * History page, and a cancelled appointment is not this doctor's record at all —
@@ -53,9 +52,9 @@ const STATUS_ITEMS: DropdownItem[] = [
  * opened to be checked, and none of them needed checking.
  *
  * Everything else in the lifecycle is absent on purpose, and it is the store that
- * refuses it rather than the template that hides it. A doctor cannot approve their
- * own booking, cannot cancel one, and cannot create or move one. See
- * `DoctorSession.recordOutcome`, which is the only lever the store offers.
+ * refuses it rather than the template that hides it. A doctor cannot cancel one,
+ * and cannot create or move one. See `DoctorSession.recordOutcome` and
+ * `DoctorSession.confirmAppointment`, which are the only levers the store offers.
  */
 @Component({
   selector: 'app-doctor-appointments',
@@ -146,11 +145,30 @@ export class DoctorAppointments {
    *
    * Mirrors the store's rule rather than restating it in the template, and says
    * the same thing the store does: only an appointment the front desk has
-   * confirmed has had a visit to describe. A `booked` row shows no action at all,
-   * which is the honest answer — there is nothing yet to report about it.
+   * confirmed has had a visit to describe. A `booked` row cannot have an outcome
+   * recorded against it yet — it can be confirmed instead, see `canConfirm`.
    */
   protected canRecord(appointment: Appointment): boolean {
     return appointment.status === 'confirmed';
+  }
+
+  /**
+   * Whether a booking can be confirmed by this doctor.
+   *
+   * Only a `booked` appointment can be confirmed; once it is confirmed the
+   * doctor records an outcome instead.
+   */
+  protected canConfirm(appointment: Appointment): boolean {
+    return appointment.status === 'booked';
+  }
+
+  protected confirm(appointment: Appointment): void {
+    const name = this.patientName(appointment);
+    if (!this.session.confirmAppointment(appointment.id)) {
+      this.toasts.error('Not confirmed', `${name}'s appointment could not be confirmed.`);
+      return;
+    }
+    this.toasts.show('success', 'Appointment confirmed', `${name}'s appointment is confirmed.`);
   }
 
   protected complete(appointment: Appointment): void {

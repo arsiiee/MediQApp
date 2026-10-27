@@ -54,7 +54,7 @@ fun NoUpcomingAppointmentCard(modifier: Modifier = Modifier) {
             Spacer(Modifier.height(MediQSpacing.md))
 
             Text(
-                text = "No upcoming appointment",
+                text = "No upcoming consultation",
                 style = MaterialTheme.typography.labelLarge,
                 color = MediQTextPrimary
             )

@@ -127,6 +127,28 @@ app.post('/auth/sign-in', async (c) => {
   )
 })
 
+// ---- Auth: register (proxy to Ktor, forward body and status) ----
+app.post('/auth/register', async (c) => {
+  const body = await c.req.json()
+
+  let ktorRes: Response
+  try {
+    ktorRes = await proxyJson(`${KTOR_BASE_URL}/auth/register`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+  } catch {
+    return c.json({ error: 'auth service unreachable' }, 502)
+  }
+
+  const bodyText = await ktorRes.text()
+  return new Response(bodyText, {
+    status: ktorRes.status,
+    headers: { 'content-type': 'application/json' },
+  })
+})
+
 // ---- Auth: refresh (rotate access token via refresh cookie) ----
 app.post('/auth/refresh', async (c) => {
   const refreshToken = getRefreshCookie(c.req.header('cookie'))

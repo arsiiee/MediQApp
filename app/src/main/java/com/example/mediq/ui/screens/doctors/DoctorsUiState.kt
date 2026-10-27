@@ -9,7 +9,8 @@ data class DoctorInfo(
     val experience: Int,
     val fee: Int,
     val location: String,
-    val openSlots: Int
+    val openSlots: Int,
+    val licenseNumber: String? = null
 )
 
 /** The catalogue the screen searches. */

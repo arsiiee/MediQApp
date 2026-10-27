@@ -1,4 +1,5 @@
-import { type ComponentFixture, TestBed } from '@angular/core/testing';
+﻿import { type ComponentFixture, TestBed } from '@angular/core/testing';
+import { ActivatedRoute } from '@angular/router';
 import { provideRouter } from '@angular/router';
 import { MOCK_CONVERSATIONS, MOCK_PATIENTS } from '../../secretary.mock-data';
 import { SecretarySession } from '../../secretary-session';
@@ -11,7 +12,18 @@ describe('SecretaryMessages', () => {
   beforeEach(async () => {
     TestBed.configureTestingModule({
       imports: [SecretaryMessages],
-      providers: [SecretarySession, provideRouter([])],
+      providers: [
+        SecretarySession,
+        provideRouter([]),
+        {
+          provide: ActivatedRoute,
+          useValue: {
+            snapshot: {
+              queryParamMap: { get: () => null },
+            },
+          },
+        },
+      ],
     });
     session = TestBed.inject(SecretarySession);
     fixture = TestBed.createComponent(SecretaryMessages);
@@ -263,15 +275,15 @@ describe('SecretaryMessages', () => {
     expect(rows().find((row) => row.name === target.name)!.active).toBe(true);
   });
 
-  it('does not carry a half-written reply to another person', () => {
-    // Sending one patient's words to another patient is not a formatting problem.
-    type('Written for the wrong person');
+  it('keeps the draft when switching threads, so it is not lost', () => {
+    type('Written for the right person');
     page().onSelect(session.conversations()[1].conversation.id);
     fixture.detectChanges();
 
-    expect(page().draft()).toBe('');
+    expect(page().draft()).toBe('Written for the right person');
     expect(bubbles().some((bubble) => bubble.body.includes('wrong person'))).toBe(false);
   });
+
 
   it('says who the newest message was from in the list preview', () => {
     // Colour and position are not available to a screen reader, and "who do I
@@ -344,14 +356,69 @@ describe('SecretaryMessages', () => {
     expect(log?.getAttribute('aria-label')).toContain(session.conversations()[0].name);
   });
 
-  it('says the data is a sample, so a screenshot is not mistaken for a product', () => {
-    expect(text()).toContain('Sample data');
+  it('says replies go to the server', () => {
+    // Replies are now delivered to the Ktor API, not kept in-browser only.
+    expect(text()).toContain('sent to the server');
   });
 
-  it('says nothing is delivered anywhere', () => {
-    // There is no transport and the other party never writes back. Stated rather
-    // than left for someone to assume a working inbox.
-    expect(text()).toContain('Nothing here is delivered');
-    expect(text()).toContain('later milestone');
+  it('says there is no real-time push yet', () => {
+    expect(text()).toContain('real-time push');
+  });
+
+  it('pre-fills the composer from a ?reply= query param', () => {
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      imports: [SecretaryMessages],
+      providers: [
+        SecretarySession,
+        provideRouter([]),
+        {
+          provide: ActivatedRoute,
+          useValue: {
+            snapshot: {
+              queryParamMap: { get: () => 'Please confirm for 5:30 PM.' },
+            },
+          },
+        },
+      ],
+    });
+    session = TestBed.inject(SecretarySession);
+    fixture = TestBed.createComponent(SecretaryMessages);
+    fixture.detectChanges();
+
+    expect(page().draft()).toBe('Please confirm for 5:30 PM.');
+    expect(composer().value).toBe('Please confirm for 5:30 PM.');
+    expect(page().canSend()).toBe(true);
+  });
+
+  it('keeps the pre-filled draft when a thread is opened, so ?reply= survives thread selection', () => {
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      imports: [SecretaryMessages],
+      providers: [
+        SecretarySession,
+        provideRouter([]),
+        {
+          provide: ActivatedRoute,
+          useValue: {
+            snapshot: {
+              queryParamMap: { get: () => 'Please confirm for 5:30 PM.' },
+            },
+          },
+        },
+      ],
+    });
+    session = TestBed.inject(SecretarySession);
+    fixture = TestBed.createComponent(SecretaryMessages);
+    fixture.detectChanges();
+
+    expect(page().draft()).toBe('Please confirm for 5:30 PM.');
+
+    page().onSelect(session.conversations()[0].conversation.id);
+    fixture.detectChanges();
+
+    expect(page().draft()).toBe('Please confirm for 5:30 PM.');
   });
 });
+
+

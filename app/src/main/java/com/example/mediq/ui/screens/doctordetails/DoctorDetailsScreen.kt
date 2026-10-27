@@ -4,11 +4,15 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
-import com.example.mediq.ui.components.MediQBackHeader
+import com.example.mediq.ui.components.MediQPageHeader
 import com.example.mediq.ui.navigation.Screen
 import com.example.mediq.ui.theme.MediQScaffoldBackground
+import com.example.mediq.ui.viewmodel.DoctorDetailsViewModel
 
 /**
  * Doctor details.
@@ -16,17 +20,25 @@ import com.example.mediq.ui.theme.MediQScaffoldBackground
  * Job: decide on this one doctor and pick a slot.
  * Primary action: "Continue" with a time selected.
  *
- * [state] defaults to the current mock source, [DoctorDetailsSamples]. Swapping
- * that for a repository changes this one call site, not the layout.
+ * The profile and schedule are loaded live from the API using [doctorId], so
+ * when a doctor changes their schedule on the server it shows up here.
  */
 @Composable
 fun DoctorDetailsScreen(
     navController: NavController,
     doctorId: String?,
-    state: DoctorDetailsUiState = DoctorDetailsSamples.content
+    viewModel: DoctorDetailsViewModel = viewModel()
 ) {
+    val uiState = viewModel.uiState.collectAsState().value
+
+    LaunchedEffect(doctorId) {
+        if (doctorId != null) {
+            viewModel.loadDoctor(doctorId)
+        }
+    }
+
     DoctorDetailsContent(
-        state = state,
+        state = uiState,
         actions = DoctorDetailsActions(
             onBack = { navController.popBackStack() },
             onContinue = { dateIndex, time ->
@@ -37,6 +49,9 @@ fun DoctorDetailsScreen(
                         time = time
                     )
                 )
+            },
+            onRetry = {
+                if (doctorId != null) viewModel.loadDoctor(doctorId)
             }
         )
     )
@@ -58,7 +73,7 @@ fun DoctorDetailsContent(
             .fillMaxSize()
             .background(MediQScaffoldBackground)
     ) {
-        MediQBackHeader(
+        MediQPageHeader(
             title = "Doctors Profile",
             onBack = actions.onBack
         )

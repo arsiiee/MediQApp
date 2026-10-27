@@ -19,7 +19,7 @@ private fun HomeLoadedPreview() {
     }
 }
 
-@Preview(name = "Home — nothing booked", showBackground = true, heightDp = 900)
+@Preview(name = "Home — no upcoming consultation", showBackground = true, heightDp = 900)
 @Composable
 private fun HomeNothingBookedPreview() {
     MediQTheme {

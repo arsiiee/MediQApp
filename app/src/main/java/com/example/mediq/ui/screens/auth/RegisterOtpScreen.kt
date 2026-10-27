@@ -24,7 +24,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.example.mediq.data.model.OtpPurpose
-import com.example.mediq.ui.components.MediQBackHeader
+import com.example.mediq.ui.components.MediQPageHeader
 import com.example.mediq.ui.navigation.Screen
 import com.example.mediq.ui.theme.MediQBackground
 import com.example.mediq.ui.theme.MediQSpacing
@@ -33,6 +33,9 @@ import com.example.mediq.ui.theme.MediQTextSecondary
 import com.example.mediq.ui.viewmodel.AuthViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+
+/** The saved-state key the details step leaves the email under. */
+internal const val OTP_EMAIL_KEY = "register_email_address"
 
 /** The saved-state key the details step leaves the number under. */
 internal const val OTP_PHONE_KEY = "register_phone_number"
@@ -54,7 +57,8 @@ fun RegisterOtpScreen(
         mutableIntStateOf(AuthValidation.OTP_RESEND_SECONDS)
     }
     var state by remember { mutableStateOf<OtpState>(OtpState.Sent) }
-    var phoneNumber by rememberSaveable { mutableStateOf(AuthSamples.PHONE_NUMBER) }
+    var email by rememberSaveable { mutableStateOf("") }
+    var phoneNumber by rememberSaveable { mutableStateOf("") }
     val scope = rememberCoroutineScope()
 
     /*
@@ -69,23 +73,31 @@ fun RegisterOtpScreen(
     }
 
     /*
-     * The number the details step collected is the one the code went to, so
+     * The contact the details step collected is the one the code went to, so
      * the code step can say where the code went rather than repeating a
-     * number the patient may not have typed.
+     * contact the patient may not have typed. Email is preferred when present.
      */
+    val savedEmail = navController.previousBackStackEntry
+        ?.savedStateHandle
+        ?.get<String>(OTP_EMAIL_KEY)
     val savedPhone = navController.previousBackStackEntry
         ?.savedStateHandle
         ?.get<String>(OTP_PHONE_KEY)
+    if (savedEmail != null && savedEmail != email) {
+        email = savedEmail
+    }
     if (savedPhone != null && savedPhone != phoneNumber) {
         phoneNumber = savedPhone
     }
+
+    val contact = if (email.isNotBlank()) email else phoneNumber
 
     /*
      * A code is asked for as soon as the step opens, and again whenever the
      * patient asks for a new one.
      */
-    LaunchedEffect(phoneNumber) {
-        if (viewModel.requestOtp(phoneNumber, OtpPurpose.REGISTER)) {
+    LaunchedEffect(contact) {
+        if (contact.isNotBlank() && viewModel.requestOtp(contact, OtpPurpose.REGISTER)) {
             state = OtpState.Sent
         } else {
             state = OtpState.Error("We could not send the code. Check your connection and try again.")
@@ -94,14 +106,14 @@ fun RegisterOtpScreen(
 
     RegisterOtpContent(
         state = state,
-        phoneNumber = phoneNumber,
+        contact = contact,
         resendSecondsLeft = secondsLeft,
         actions = RegisterActions(
             onBack = { navController.popBackStack() },
             onOtpResend = {
                 secondsLeft = AuthValidation.OTP_RESEND_SECONDS
                 scope.launch {
-                    state = if (viewModel.requestOtp(phoneNumber, OtpPurpose.REGISTER)) {
+                    state = if (contact.isNotBlank() && viewModel.requestOtp(contact, OtpPurpose.REGISTER)) {
                         OtpState.Sent
                     } else {
                         OtpState.Error("We could not send the code. Check your connection and try again.")
@@ -111,7 +123,7 @@ fun RegisterOtpScreen(
             onOtpVerify = { code ->
                 scope.launch {
                     state = OtpState.Verifying
-                    val session = viewModel.verifyOtp(phoneNumber, code, OtpPurpose.REGISTER)
+                    val session = viewModel.verifyOtp(contact, code, OtpPurpose.REGISTER)
                     if (session != null) {
                         navController.navigate(Screen.RegisterCredentials.route)
                     } else {
@@ -133,7 +145,7 @@ fun RegisterOtpScreen(
 @Composable
 fun RegisterOtpContent(
     state: OtpState,
-    phoneNumber: String,
+    contact: String,
     resendSecondsLeft: Int,
     actions: RegisterActions,
     initialCodeError: String? = null,
@@ -150,7 +162,7 @@ fun RegisterOtpContent(
             .fillMaxSize()
             .background(MediQBackground)
     ) {
-        MediQBackHeader(title = REGISTRATION_TITLE, onBack = actions.onBack)
+        MediQPageHeader(title = REGISTRATION_TITLE, onBack = actions.onBack)
 
         Column(
             modifier = Modifier
@@ -169,7 +181,7 @@ fun RegisterOtpContent(
             Spacer(Modifier.height(MediQSpacing.lg))
 
             Text(
-                text = "Verify your number",
+                text = "Verify your contact",
                 style = MaterialTheme.typography.titleLarge,
                 color = MediQTextPrimary
             )
@@ -177,7 +189,7 @@ fun RegisterOtpContent(
             Spacer(Modifier.height(MediQSpacing.xs))
 
             Text(
-                text = "We sent a ${AuthValidation.OTP_LENGTH}-digit code to $phoneNumber.",
+                text = "We sent a ${AuthValidation.OTP_LENGTH}-digit code to $contact.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MediQTextSecondary
             )

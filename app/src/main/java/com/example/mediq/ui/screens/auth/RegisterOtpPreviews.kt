@@ -17,7 +17,7 @@ private fun OtpSentPreview() {
     MediQTheme {
         RegisterOtpContent(
             state = AuthSamples.otpSent,
-            phoneNumber = AuthSamples.PHONE_NUMBER,
+            contact = AuthSamples.PHONE_NUMBER,
             resendSecondsLeft = AuthValidation.OTP_RESEND_SECONDS,
             actions = sampleActions
         )
@@ -30,7 +30,7 @@ private fun OtpResendReadyPreview() {
     MediQTheme {
         RegisterOtpContent(
             state = AuthSamples.otpSent,
-            phoneNumber = AuthSamples.PHONE_NUMBER,
+            contact = AuthSamples.PHONE_NUMBER,
             resendSecondsLeft = 0,
             actions = sampleActions
         )
@@ -43,7 +43,7 @@ private fun OtpIncompletePreview() {
     MediQTheme {
         RegisterOtpContent(
             state = AuthSamples.otpSent,
-            phoneNumber = AuthSamples.PHONE_NUMBER,
+            contact = AuthSamples.PHONE_NUMBER,
             resendSecondsLeft = 0,
             actions = sampleActions,
             initialCodeError = AuthSamples.otpIncomplete
@@ -57,7 +57,7 @@ private fun OtpExpiredPreview() {
     MediQTheme {
         RegisterOtpContent(
             state = AuthSamples.otpExpired,
-            phoneNumber = AuthSamples.PHONE_NUMBER,
+            contact = AuthSamples.PHONE_NUMBER,
             resendSecondsLeft = AuthValidation.OTP_RESEND_SECONDS,
             actions = sampleActions
         )
@@ -70,7 +70,7 @@ private fun OtpVerifyingPreview() {
     MediQTheme {
         RegisterOtpContent(
             state = AuthSamples.otpVerifying,
-            phoneNumber = AuthSamples.PHONE_NUMBER,
+            contact = AuthSamples.PHONE_NUMBER,
             resendSecondsLeft = 0,
             actions = sampleActions
         )
@@ -83,7 +83,7 @@ private fun OtpRejectedPreview() {
     MediQTheme {
         RegisterOtpContent(
             state = AuthSamples.otpRejected,
-            phoneNumber = AuthSamples.PHONE_NUMBER,
+            contact = AuthSamples.PHONE_NUMBER,
             resendSecondsLeft = 0,
             actions = sampleActions
         )

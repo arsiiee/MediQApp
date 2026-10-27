@@ -83,6 +83,27 @@ class InMemoryAdminRepository(
         return LoadState.Success(updated)
     }
 
+    override suspend fun reassignSecretaryDoctor(userId: String, assignedDoctorId: String?): LoadState<UserProfile> {
+        val profile = authRepository.users.value[userId]
+            ?: return LoadState.Error(ApiFailure.notFound("User not found"))
+        if (profile.role != UserRole.SECRETARY) {
+            return LoadState.Error(ApiFailure.validation("Only secretaries can be reassigned to a doctor"))
+        }
+        if (assignedDoctorId != null) {
+            val doctor = doctorRepository.findByUserId(assignedDoctorId).getOrNull()
+                ?: return LoadState.Error(ApiFailure.validation("Doctor not found or not active"))
+            if (doctor.status != DoctorStatus.ACTIVE) {
+                return LoadState.Error(ApiFailure.validation("Doctor not found or not active"))
+            }
+        }
+        val updated = profile.copy(
+            assignedDoctorId = assignedDoctorId,
+            updatedAt = Clock.System.now().toLocalDateTime(TimeZone.UTC),
+        )
+        authRepository.users.update { it + (userId to updated) }
+        return LoadState.Success(updated)
+    }
+
     override suspend fun getDoctorsForAdmin(): LoadState<List<Doctor>> {
         return doctorRepository.findAll(DoctorQuery(limit = 1000)).fold(
             onSuccess = { LoadState.Success(it.items) },

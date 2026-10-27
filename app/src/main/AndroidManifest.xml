@@ -5,6 +5,19 @@
     <!-- The app talks to the MediQ API over the network. -->
     <uses-permission android:name="android.permission.INTERNET" />
 
+    <!-- Android 11+: declare the geo: intent so the Maps app resolves. -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="geo" />
+        </intent>
+        <package android:name="com.google.android.apps.maps" />
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="https" />
+        </intent>
+    </queries>
+
     <application
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"

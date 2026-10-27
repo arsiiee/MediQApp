@@ -28,7 +28,7 @@ services:
       - DB_USER=mediq
       - DB_PASSWORD=mediq_dev_password
       - DB_DRIVER=org.postgresql.Driver
-      - JWT_SECRET=mediq-dev-secret-change-in-production
+      - JWT_SECRET=${JWT_SECRET}
       - CORS_ORIGINS=http://localhost:4200,http://localhost:3000
     depends_on:
       postgres:
@@ -48,8 +48,8 @@ services:
     environment:
       - PORT=3000
       - KTOR_BASE_URL=http://ktor-server:8099
-      - SUPABASE_URL=https://wdoyhtjpjhmhsegdllvd.supabase.co
-      - SUPABASE_PUBLISHABLE_KEY=REDACTED_SUPABASE_KEY
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_PUBLISHABLE_KEY=${SUPABASE_PUBLISHABLE_KEY}
     depends_on:
       ktor-server:
         condition: service_healthy
@@ -68,8 +68,8 @@ services:
     depends_on:
       - hono-bff
     environment:
-      - API_BASE_URL=http://localhost:8099
-      - BFF_BASE_URL=http://localhost:3000
+      - API_BASE_URL=${API_BASE_URL:-http://localhost:8099}
+      - BFF_BASE_URL=${BFF_BASE_URL:-http://localhost:3000}
 
 volumes:
   postgres_data:

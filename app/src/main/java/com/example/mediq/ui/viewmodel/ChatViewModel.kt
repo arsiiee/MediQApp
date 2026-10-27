@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.mediq.data.api.RetrofitClient
 import com.example.mediq.data.model.Message
+import com.example.mediq.data.model.MessageAuthorRole
 import com.example.mediq.ui.screens.messages.ChatMessage
 import com.example.mediq.ui.screens.secretarychat.ChatUiState
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -48,7 +49,14 @@ class ChatViewModel : ViewModel() {
         viewModelScope.launch {
             _error.value = null
             try {
-                api.sendMessage(conversationId, text)
+                val sent = api.sendMessage(conversationId, text)
+                _messages.value = _messages.value + listOf(
+                    ChatMessage(
+                        text = sent.body,
+                        sentByPatient = sent.authorRole == MessageAuthorRole.PATIENT,
+                        time = sent.sentAt.toString(),
+                    )
+                )
             } catch (e: Exception) {
                 _error.value = e.message ?: "Failed to send message"
             }

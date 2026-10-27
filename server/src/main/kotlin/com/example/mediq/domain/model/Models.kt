@@ -94,6 +94,11 @@ data class AccountStatusUpdate(
 )
 
 @Serializable
+data class SecretaryDoctorUpdate(
+    val assignedDoctorId: String?,
+)
+
+@Serializable
 
 data class AppointmentFilter(
     val doctorId: String? = null,
@@ -278,8 +283,8 @@ data class RegisterRequest(
     val username: String,
     val password: String,
     val fullName: String,
-    val email: String?,
-    val mobileNumber: String,
+    val email: String,
+    val mobileNumber: String?,
     val dateOfBirth: LocalDate,
     val role: UserRole,
 )

@@ -18,6 +18,7 @@ class AuthService(
     private val authRepository: AuthRepository,
     private val jwtProvider: JwtProvider,
     private val passwordHash: PasswordHash,
+    private val emailProvider: EmailProvider,
 ) {
     private val logger = LoggerFactory.getLogger(AuthService::class.java)
 
@@ -41,6 +42,20 @@ class AuthService(
             onSuccess = { existing ->
                 if (existing != null) {
                     LoadState.Error(ApiFailure.conflict("Username already exists"))
+                } else if (request.email.isNotBlank()) {
+                    authRepository.findByContact(request.email).fold(
+                        onSuccess = { contactExisting ->
+                            if (contactExisting != null) {
+                                LoadState.Error(ApiFailure.conflict("email already in use"))
+                            } else {
+                                authRepository.register(request).fold(
+                                    onSuccess = { session -> createSession(session.profile) },
+                                    onError = { LoadState.Error(it) },
+                                )
+                            }
+                        },
+                        onError = { LoadState.Error(it) },
+                    )
                 } else {
                     authRepository.register(request).fold(
                         onSuccess = { session -> createSession(session.profile) },
@@ -66,7 +81,16 @@ class AuthService(
 
         val code = generateOtpCode()
         authRepository.saveOtp(otpKey(contact, request.purpose), code, now().plusMinutes(OTP_VALIDITY_MINUTES))
-        logger.info("OTP for $contact (${request.purpose}): $code")
+
+        if (contact.contains("@")) {
+            emailProvider.send(
+                to = contact,
+                subject = "Your MediQ verification code",
+                body = "Your MediQ verification code is $code. It expires in $OTP_VALIDITY_MINUTES minutes."
+            )
+        } else {
+            logger.info("OTP for $contact (${request.purpose}): $code")
+        }
 
         return LoadState.Success(Unit)
     }

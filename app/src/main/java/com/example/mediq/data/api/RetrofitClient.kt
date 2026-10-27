@@ -1,5 +1,6 @@
 package com.example.mediq.data.api
 
+import com.example.mediq.BuildConfig
 import kotlinx.serialization.json.Json
 import okhttp3.Interceptor
 import okhttp3.MediaType.Companion.toMediaType
@@ -11,13 +12,19 @@ import java.util.concurrent.TimeUnit
 
 object RetrofitClient {
     /*
-     * Local dev: default http://127.0.0.1:8099/, reached via
-     * `adb reverse tcp:8099 tcp:8099`.
+     * Debug builds: local Ktor server. Change DEBUG_BASE_URL to match your
+     * dev machine (emulator uses 10.0.2.2; adb reverse forwards 8099).
      *
-     * Online deployment: run with -Dmediq.api.baseUrl=https://your-api-domain.com/
-     * to point at the online backend.
+     * Release builds: https://mediq-ktor-server.onrender.com/
+     *
+     * Override with -Dmediq.api.baseUrl=... if needed.
      */
-    private val BASE_URL: String = System.getProperty("mediq.api.baseUrl") ?: "http://127.0.0.1:8099/"
+    private const val DEBUG_BASE_URL = "http://10.0.2.2:8099/"
+    private val BASE_URL: String = System.getProperty("mediq.api.baseUrl") ?: if (BuildConfig.DEBUG) {
+        DEBUG_BASE_URL
+    } else {
+        "https://mediq-ktor-server.onrender.com/"
+    }
 
     /**
      * The bearer token from the last sign-in.

@@ -49,19 +49,23 @@
     </ng-template>
 
     <!--
-      Two actions, and only on an appointment the front desk has confirmed.
+      Three actions, one per row depending on its status:
 
-      No Confirm and no Cancel: approving a booking means the patient said they were
-      coming, and calling one off is an administrative decision about a booking —
-      both are the Secretary's. What only the doctor can say is whether the patient
-      was seen, or was not there in the booked time.
+      Confirm — on a `booked` appointment. The doctor confirms the patient's
+      booking directly from the list; once confirmed the visit can be closed out.
 
-      A `booked` row therefore shows nothing at all. That is not a missing button;
-      there is no visit to report on until the desk has confirmed it.
+      Complete and No-show — only on an appointment the desk has confirmed.
+      Neither is available on a `booked` row, because there is no visit to
+      report on until the booking has been confirmed.
+
+      No Cancel: calling a booking off is an administrative decision about a
+      booking — that is the Secretary's.
     -->
     <ng-template uiTableCell="actions" let-row>
       <div class="actions">
-        @if (canRecord(row)) {
+        @if (canConfirm(row)) {
+          <ui-button size="sm" (click)="confirm(row)">Confirm</ui-button>
+        } @else if (canRecord(row)) {
           <ui-button size="sm" (click)="complete(row)">Complete</ui-button>
           <ui-button variant="ghost" size="sm" (click)="markNoShow(row)">No-show</ui-button>
         }
@@ -71,9 +75,10 @@
 </ui-card>
 
 <p class="row-footnote">
-  A Secretary at the front desk confirms an appointment and calls it off; only then can you record
-  what happened — complete if the visit went ahead, no-show if the patient was not there in the
-  booked time. A visit you have recorded moves to
-  <a routerLink="/doctor/history">Visit History</a>, and an appointment the desk called off is kept
-  on the Secretary's record rather than yours.
+  A booking shows Confirm until the doctor confirms it; once confirmed the visit can be closed
+  out — Complete if the patient was seen, No-show if they were not there in the booked time.
+  A Secretary at the front desk can also confirm and call off appointments; calling one off is
+  the Secretary's decision and is kept on the Secretary's record rather than yours.
+  A visit you have recorded moves to
+  <a routerLink="/doctor/history">Visit History</a>.
 </p>

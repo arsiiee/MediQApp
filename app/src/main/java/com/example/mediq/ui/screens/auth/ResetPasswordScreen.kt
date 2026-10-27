@@ -24,7 +24,7 @@ import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.example.mediq.data.model.OtpPurpose
-import com.example.mediq.ui.components.MediQBackHeader
+import com.example.mediq.ui.components.MediQPageHeader
 import com.example.mediq.ui.components.MediQNotice
 import com.example.mediq.ui.navigation.Screen
 import com.example.mediq.ui.theme.MediQBackground
@@ -121,7 +121,7 @@ fun ResetPasswordContent(
             .fillMaxSize()
             .background(MediQBackground)
     ) {
-        MediQBackHeader(title = RESET_TITLE, onBack = onBack)
+        MediQPageHeader(title = RESET_TITLE, onBack = onBack)
 
         Column(
             modifier = Modifier

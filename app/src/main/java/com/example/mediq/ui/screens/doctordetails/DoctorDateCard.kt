@@ -74,19 +74,22 @@ internal fun DateCard(
         Text(
             text = date.day,
             style = MaterialTheme.typography.labelSmall,
-            color = secondaryText
+            color = secondaryText,
+            maxLines = 1
         )
 
         Text(
             text = date.date.toString(),
             style = MaterialTheme.typography.titleMedium,
-            color = primaryText
+            color = primaryText,
+            maxLines = 1
         )
 
         Text(
             text = "$openSlots open",
             style = MaterialTheme.typography.labelSmall,
-            color = accentText
+            color = accentText,
+            maxLines = 1
         )
     }
 }

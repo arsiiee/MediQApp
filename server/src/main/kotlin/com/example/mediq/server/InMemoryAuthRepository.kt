@@ -71,7 +71,7 @@ class InMemoryAuthRepository(val passwordHash: PasswordHash) : AuthRepository {
             username = request.username,
             fullName = request.fullName,
             email = request.email,
-            mobileNumber = request.mobileNumber,
+            mobileNumber = request.mobileNumber ?: "",
             dateOfBirth = request.dateOfBirth,
             role = request.role,
             status = AccountStatus.ACTIVE,

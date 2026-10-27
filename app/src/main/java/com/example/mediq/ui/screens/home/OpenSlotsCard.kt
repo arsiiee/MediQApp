@@ -29,7 +29,6 @@ import com.example.mediq.ui.theme.MediQBackground
 import com.example.mediq.ui.theme.MediQBorder
 import com.example.mediq.ui.theme.MediQDivider
 import com.example.mediq.ui.theme.MediQElevation
-import com.example.mediq.ui.theme.MediQGreen
 import com.example.mediq.ui.theme.MediQIconMuted
 import com.example.mediq.ui.theme.MediQSize
 import com.example.mediq.ui.theme.MediQSpacing
@@ -114,12 +113,6 @@ private fun DoctorAvailabilityRow(
                 color = MediQTextSecondary
             )
         }
-
-        Text(
-            text = doctor.openSlots.toString(),
-            style = MaterialTheme.typography.labelLarge,
-            color = MediQGreen
-        )
 
         Spacer(Modifier.width(MediQSpacing.sm))
 

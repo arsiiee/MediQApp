@@ -5,7 +5,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -49,8 +48,7 @@ fun SpecialtyChips(
         Spacer(Modifier.height(MediQSpacing.md))
 
         LazyRow(
-            horizontalArrangement = Arrangement.spacedBy(MediQSpacing.sm),
-            contentPadding = PaddingValues(horizontal = MediQSpacing.gutter)
+            horizontalArrangement = Arrangement.spacedBy(MediQSpacing.sm)
         ) {
             items(items = specialties, key = { it }) { specialty ->
                 SpecialtyChip(

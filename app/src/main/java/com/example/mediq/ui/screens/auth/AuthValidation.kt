@@ -11,11 +11,12 @@ package com.example.mediq.ui.screens.auth
 /** Errors under each field of the details step; `null` where the input is fine. */
 data class DetailsErrors(
     val fullName: String?,
+    val email: String?,
     val phoneNumber: String?
 ) {
     /** True when nothing on this step needs the patient's attention. */
     val isClean: Boolean
-        get() = fullName == null && phoneNumber == null
+        get() = fullName == null && email == null && phoneNumber == null
 }
 
 /** Errors under each field of the credentials step. */
@@ -52,18 +53,33 @@ object AuthValidation {
     private const val MIN_USERNAME_LENGTH = 4
 
     private val USERNAME_ALLOWED = Regex("^[A-Za-z0-9._]+$")
+    private val EMAIL_ALLOWED = Regex("^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$")
 
-    fun validateDetails(fullName: String, phoneNumber: String) = DetailsErrors(
+    fun validateDetails(fullName: String, email: String, phoneNumber: String) = DetailsErrors(
         fullName = when {
             fullName.isBlank() -> "Enter your full name"
             fullName.trim().length < MIN_NAME_LENGTH -> "Enter your full name"
             else -> null
         },
-        phoneNumber = validatePhoneNumber(phoneNumber)
+        email = validateEmail(email),
+        phoneNumber = validatePhoneNumberOptional(phoneNumber)
     )
+
+    fun validateEmail(value: String): String? = when {
+        value.isBlank() -> "Enter your email address"
+        !EMAIL_ALLOWED.matches(value) -> "Enter a valid email address"
+        else -> null
+    }
 
     fun validatePhoneNumber(value: String): String? = when {
         value.isBlank() -> "Enter your mobile number"
+        value.count { it.isDigit() } < MIN_PHONE_DIGITS -> "Enter a complete mobile number"
+        else -> null
+    }
+
+    /** Phone is optional on the details step: blank is fine, a partial number is not. */
+    fun validatePhoneNumberOptional(value: String): String? = when {
+        value.isBlank() -> null
         value.count { it.isDigit() } < MIN_PHONE_DIGITS -> "Enter a complete mobile number"
         else -> null
     }

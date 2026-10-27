@@ -1,6 +1,8 @@
-import { Injectable, computed, signal, inject } from '@angular/core';
+﻿import { Injectable, computed, signal, inject } from '@angular/core';
 import { HttpSecretaryGateway } from '../core/api/http-secretary-gateway';
 import { AuthService } from '../core/api/auth.service';
+import { Observable, of, throwError } from 'rxjs';
+import { catchError, map } from 'rxjs/operators';
 import { isSameDay, localIso, minutesOfDay, shortDate, startOfDay } from './secretary.dates';
 import type { AccountStatus } from '../shared/domain/account-status';
 import type {
@@ -65,7 +67,7 @@ const EMPTY_PROFILE: SecretaryProfile = {
  *
  * Fetches profile, appointments, patients, doctors and conversations on init,
  * keeps them in signals, and every page keeps working exactly as before because
- * all the computeds and mutation methods have the same shape — they just
+ * all the computeds and mutation methods have the same shape â€” they just
  * read/write API-backed signals instead of in-memory fixtures.
  *
  * Everything is scoped to one doctor: the one an administrator assigned this
@@ -159,7 +161,7 @@ export class SecretarySession {
     );
   });
 
-  /** Booked but not yet confirmed by the patient — the queue needing a reminder. */
+  /** Booked but not yet confirmed by the patient â€” the queue needing a reminder. */
   readonly awaitingConfirmation = computed(() =>
     this.appointments().filter((appointment) => appointment.status === 'booked'),
   );
@@ -312,22 +314,25 @@ export class SecretarySession {
   conversationSubtitle(conversation: Conversation): string {
     if (conversation.party === 'doctor') {
       const doctor = this.doctorById(conversation.partyId);
-      return doctor ? `Doctor · ${doctor.specialization}` : 'Doctor';
+      return doctor ? `Doctor Â· ${doctor.specialization}` : 'Doctor';
     }
 
     const summary = this.patients().find((entry) => entry.patient.id === conversation.partyId);
     if (!summary) return 'Patient';
 
     if (summary.nextVisit) {
-      return `Patient · Next visit ${shortDate(new Date(summary.nextVisit.startsAt))}`;
+      return `Patient Â· Next visit ${shortDate(new Date(summary.nextVisit.startsAt))}`;
     }
     return summary.visitCount
-      ? `Patient · ${summary.visitCount} visit${summary.visitCount === 1 ? '' : 's'}`
-      : 'Patient · Not yet seen';
+      ? `Patient Â· ${summary.visitCount} visit${summary.visitCount === 1 ? '' : 's'}`
+      : 'Patient Â· Not yet seen';
   }
 
   /**
    * Marks everything the other party sent in a thread as read.
+   *
+   * Optimistic: flags flip immediately, then the API call is fired and rolled
+   * back on error â€” same shape as confirm/cancel.
    */
   markConversationRead(conversationId: string): boolean {
     if (!this.conversations().some((summary) => summary.conversation.id === conversationId)) {
@@ -346,17 +351,32 @@ export class SecretarySession {
       }),
     );
 
+    this.gateway.markConversationRead(conversationId).subscribe({
+      error: () => {
+        this.messageState.update((messages) =>
+          messages.map((message) => {
+            if (message.conversationId !== conversationId) return message;
+            if (message.fromSecretary || message.readAt === null) return message;
+            return { ...message, readAt: null };
+          }),
+        );
+      },
+    });
+
     return changed;
   }
 
   /**
    * Appends a reply from the signed-in Secretary.
+   *
+   * Optimistic: the bubble appears immediately, then the API call is fired
+   * and rolled back on error â€” same shape as confirm/cancel.
    */
-  sendMessage(conversationId: string, body: string): ConversationMessage | null {
+  sendMessage(conversationId: string, body: string): Observable<ConversationMessage | null> {
     const text = body.trim();
-    if (!text) return null;
+    if (!text) return of(null);
     if (!this.conversations().some((summary) => summary.conversation.id === conversationId)) {
-      return null;
+      return of(null);
     }
 
     const message: ConversationMessage = {
@@ -368,8 +388,35 @@ export class SecretarySession {
       readAt: localIso(this.now()),
     };
 
+    // Optimistic update: the bubble appears immediately, synchronously.
     this.messageState.update((messages) => [...messages, message]);
-    return message;
+
+    // API call: fires when the caller subscribes. On error, roll back and propagate.
+    return this.gateway.sendMessage(conversationId, text).pipe(
+      map(() => message),
+      catchError((err) => {
+        this.messageState.update((messages) =>
+          messages.filter((m) => m.id !== message.id),
+        );
+        return throwError(() => err);
+      }),
+    );
+  }
+
+  /**
+   * Loads the messages of one conversation into the shared message store,
+   * merged in without duplicating ids. Called when a thread is opened.
+   */
+  loadConversationMessages(conversationId: string): void {
+    this.gateway.getConversationMessages(conversationId).subscribe({
+      next: (messages) => {
+        this.messageState.update((existing) => {
+          const ids = new Set(existing.map((m) => m.id));
+          return [...existing, ...messages.filter((m) => !ids.has(m.id))];
+        });
+      },
+      error: () => {},
+    });
   }
 
   private nextMessageId(): string {
@@ -555,7 +602,7 @@ export class SecretarySession {
   // Initial load from the API
   // ---------------------------------------------------------------------------
   constructor() {
-    // Profile first — everything else needs assignedDoctorId.
+    // Profile first â€” everything else needs assignedDoctorId.
     const p = this.auth.profile;
     if (p) {
       this.profileState.set({
@@ -617,9 +664,41 @@ export class SecretarySession {
       error: () => {},
     });
 
-    // Doctors and schedules come from the patient gateway (doctor directory).
-    // Loaded via the secretary gateway when endpoints exist; for now seeded
-    // from appointments so the desk has something to scope to.
+    // The assigned doctor and their published hours. Loaded once at startup so
+    // the dashboard can name the desk's doctor and the schedules page can show
+    // the week. Both come from the secretary's own profile: assignedDoctorId
+    // identifies the doctor, and the schedule endpoint publishes their hours.
+    this.gateway.getDoctor().subscribe({
+      next: (doctor) => {
+        this.doctorState.set([
+          {
+            id: doctor.id,
+            name: doctor.fullName,
+            email: '',
+            phone: '',
+            specialization: doctor.specialty,
+            licenseNumber: doctor.licenseNumber,
+            joinedOn: '',
+            status: doctor.status as AccountStatus,
+          },
+        ]);
+
+        this.gateway.getDoctorSchedule(doctor.id).subscribe({
+          next: (hours) => {
+            this.scheduleState.set({
+              [doctor.id]: hours.map((h) => ({
+                dayOfWeek: h.dayOfWeek,
+                enabled: !h.isClosed,
+                startTime: h.startTime,
+                endTime: h.endTime,
+              })),
+            });
+          },
+          error: () => {},
+        });
+      },
+      error: () => {},
+    });
   }
 }
 
@@ -632,5 +711,6 @@ function formatWeekHours(minutes: number): string {
 
 function oneline(body: string, limit = 110): string {
   const flat = body.replace(/\s+/g, ' ').trim();
-  return flat.length > limit ? `${flat.slice(0, limit - 1).trimEnd()}…` : flat;
+  return flat.length > limit ? `${flat.slice(0, limit - 1).trimEnd()}â€¦` : flat;
 }
+

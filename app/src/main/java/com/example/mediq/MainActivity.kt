@@ -52,11 +52,11 @@ class MainActivity : ComponentActivity() {
                 val navBackStackEntry by navController.currentBackStackEntryAsState()
                 val currentRoute = navBackStackEntry?.destination?.route
 
-                // Shown on every main tab except Messages and Message Chat,
-                // where the bottom bar is removed so the conversation fills the
-                // screen edge-to-edge.
+                // Shown on every main tab except the chat detail route
+                // (message_chat/...), where the bottom bar is removed so the
+                // conversation fills the screen edge-to-edge. The Messages list
+                // itself keeps the bar since it's a main tab.
                 val showBottomBar = mainTabForRoute(currentRoute) != null &&
-                    currentRoute != Screen.Messages.route &&
                     currentRoute?.startsWith("message_chat/") != true
 
                 Scaffold(

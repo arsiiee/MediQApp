@@ -2,45 +2,74 @@ package com.example.mediq.ui.screens.profile
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
-import com.example.mediq.ui.components.MediQBackHeader
-import com.example.mediq.ui.components.MediQSearchField
-import com.example.mediq.ui.navigation.Screen
 import com.example.mediq.data.api.RetrofitClient
+import com.example.mediq.ui.components.MediQPageHeader
+import com.example.mediq.ui.navigation.Screen
 import com.example.mediq.ui.session.MediQSession
 import com.example.mediq.ui.theme.MediQScaffoldBackground
 import com.example.mediq.ui.theme.MediQSpacing
+import com.example.mediq.ui.viewmodel.ProfileViewModel
 
 /**
  * Profile.
  *
  * Job: manage account and health data. Primary action: edit profile.
- *
- * [state] defaults to the mock source. Replacing it with a repository changes
- * this one call site.
  */
 @Composable
 fun ProfileScreen(
     navController: NavController,
-    state: ProfileUiState = ProfileSamples.content
+    viewModel: ProfileViewModel = viewModel()
 ) {
     var showSignOutDialog by remember { mutableStateOf(false) }
     val user by MediQSession.user.collectAsState()
+    val profile by viewModel.profile.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
+    val error by viewModel.error.collectAsState()
+    val authError by viewModel.authError.collectAsState()
+
+    // Load from the API whenever a signed-in user exists (including after
+    // sign-in or a sign-in/refresh that swaps the account). Never MockProfile.
+    LaunchedEffect(user) {
+        if (user != null) {
+            viewModel.loadProfile()
+        }
+    }
+
+    // A 401 means the access token is invalid/expired: the ViewModel has
+    // already signed the user out. Send them to the sign-in screen.
+    LaunchedEffect(authError) {
+        if (authError) {
+            navController.navigate(Screen.SignIn.route) { popUpTo(0) }
+        }
+    }
+
+    val state = when {
+        authError -> ProfileUiState.Loading
+        isLoading && profile == null -> ProfileUiState.Loading
+        error != null && profile == null -> ProfileUiState.Error(error.orEmpty())
+        profile != null -> ProfileUiState.Content(profile!!.toProfileData())
+        user != null -> ProfileUiState.Content(user!!.toProfileData())
+        isLoading -> ProfileUiState.Loading
+        else -> ProfileUiState.Error("We could not load your profile. Check your connection and try again.")
+    }
 
     ProfileContent(
-        state = state.withProfile(user),
+        state = state,
         actions = ProfileActions(
             onEdit = { navController.navigate(Screen.EditProfile.route) },
             onSignOut = { showSignOutDialog = true }
@@ -75,17 +104,7 @@ fun ProfileContent(
             ProfileUiState.Loading -> ProfileLoadingState()
             is ProfileUiState.Error -> ProfileErrorState(message = state.message, onRetry = {})
             is ProfileUiState.Content -> {
-                MediQBackHeader(title = "Profile", onBack = null)
-
-                var searchQuery by remember { mutableStateOf("") }
-
-                MediQSearchField(
-                    query = searchQuery,
-                    onChange = { searchQuery = it },
-                    placeholder = "Search profile..."
-                )
-
-                ProfileHeader(profile = state.profile)
+                MediQPageHeader(title = "Profile")
 
                 Column(
                     modifier = Modifier

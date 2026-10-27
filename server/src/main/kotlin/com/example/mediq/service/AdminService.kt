@@ -53,6 +53,8 @@ class AdminService(
 
     suspend fun updateAccountStatus(userId: String, status: AccountStatus): LoadState<UserProfile> = adminRepository.updateAccountStatus(userId, status)
 
+    suspend fun reassignSecretaryDoctor(userId: String, assignedDoctorId: String?): LoadState<UserProfile> = adminRepository.reassignSecretaryDoctor(userId, assignedDoctorId)
+
     suspend fun getDoctorsForAdmin(): LoadState<List<Doctor>> = adminRepository.getDoctorsForAdmin()
 }
 

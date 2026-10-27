@@ -19,6 +19,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.example.mediq.ui.navigation.Screen
 import com.example.mediq.ui.session.MediQSession
@@ -26,6 +27,7 @@ import com.example.mediq.ui.theme.MediQBackground
 import com.example.mediq.ui.theme.MediQGreen
 import com.example.mediq.ui.theme.MediQSize
 import com.example.mediq.ui.theme.MediQSpacing
+import com.example.mediq.ui.viewmodel.HomeViewModel
 
 /** Height of the green band behind the header. */
 private val HeaderHeight = MediQSize.homeHeader
@@ -45,11 +47,12 @@ private val CardTopOffset = MediQSize.homeCardOffset
 @Composable
 fun HomeScreen(
     navController: NavController,
-    state: HomeUiState = HomeSamples.content
+    viewModel: HomeViewModel = viewModel()
 ) {
+    val uiState by viewModel.uiState.collectAsState()
     var notificationsRead by rememberSaveable { mutableStateOf(false) }
     val user by MediQSession.user.collectAsState()
-    val signedInState = state.withPatient(user)
+    val signedInState = uiState.withPatient(user)
     val resolvedState = if (signedInState is HomeUiState.Content && notificationsRead) {
         signedInState.copy(unreadNotifications = 0)
     } else {
@@ -159,7 +162,8 @@ private fun HomeLoaded(
         item {
             SpecialtyChips(
                 specialties = state.specialties,
-                onSpecialtyClick = { actions.onBrowseDoctors() }
+                onSpecialtyClick = { actions.onBrowseDoctors() },
+                modifier = Modifier.padding(horizontal = MediQSpacing.gutter)
             )
         }
 

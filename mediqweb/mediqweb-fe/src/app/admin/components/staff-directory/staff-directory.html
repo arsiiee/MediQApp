@@ -61,6 +61,9 @@
     <ng-template uiTableCell="actions" let-row>
       @if (row.status === 'active') {
         <ui-button variant="ghost" size="sm" (click)="requestDisable(row)">Disable</ui-button>
+        @if (kind() === 'secretary') {
+          <ui-button variant="ghost" size="sm" (click)="requestReassign(row)">Reassign</ui-button>
+        }
       } @else {
         <ui-button variant="ghost" size="sm" (click)="enable(row)">Enable</ui-button>
       }
@@ -334,5 +337,51 @@
   <ng-container modalFooter>
     <ui-button (click)="cancelDisable()">Cancel</ui-button>
     <ui-button variant="danger" (click)="confirmDisable()">Disable account</ui-button>
+  </ng-container>
+</ui-modal>
+
+<!-- Reassigning keeps the account active but moves the secretary to a new
+     doctor's desk — their appointments, patients and schedules follow. -->
+<ui-modal
+  [open]="!!confirmReassignFor()"
+  size="sm"
+  [title]="'Reassign ' + singular()"
+  description="Pick the doctor this secretary will work under."
+  (closed)="cancelReassign()"
+>
+  @if (confirmReassignFor(); as account) {
+    <p class="row-confirm">
+      Reassign <strong>{{ account.name }}</strong> to:
+    </p>
+
+    <ui-form-field
+      label="New doctor"
+      controlId="reassign-doctor"
+      [required]="true"
+      hint="They will see only this doctor's appointments, patients and schedules."
+    >
+      <ui-dropdown
+        id="reassign-doctor"
+        [items]="assignedDoctorItems()"
+        [selected]="selectedDoctorId()"
+        placeholder="Select doctor"
+        (selectionChange)="onReassignDoctorChange($event)"
+      />
+    </ui-form-field>
+
+    @if (assignedDoctorItems().length === 0) {
+      <div class="form-error" role="alert">No active doctor to reassign to.</div>
+    }
+  }
+
+  <ng-container modalFooter>
+    <ui-button (click)="cancelReassign()">Cancel</ui-button>
+    <ui-button
+      variant="primary"
+      (click)="confirmReassign()"
+      [disabled]="!selectedDoctorId() || assignedDoctorItems().length === 0"
+    >
+      Reassign {{ roleLabel() }}
+    </ui-button>
   </ng-container>
 </ui-modal>

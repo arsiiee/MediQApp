@@ -1,68 +1,40 @@
 package com.example.mediq.ui.screens.secretarychat
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
-import com.example.mediq.ui.components.MediQBackHeader
-import com.example.mediq.ui.theme.MediQGreen
-import com.example.mediq.ui.theme.MediQOnBrand
-import com.example.mediq.ui.theme.MediQSize
+import androidx.compose.ui.text.style.TextAlign
+import com.example.mediq.ui.components.MediQPageHeader
 import com.example.mediq.ui.theme.MediQSpacing
+import com.example.mediq.ui.theme.MediQTextSecondary
 
-/** The green header with back and the secretary's name. */
+/** The light header with back, secretary name, and role/location subtitle. */
 @Composable
 internal fun ChatHeader(
     secretaryName: String,
     onBack: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    role: String? = null,
+    location: String? = null
 ) {
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .height(MediQSize.headerBar)
-            .background(MediQGreen)
-            .padding(horizontal = MediQSpacing.xs),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        IconButton(onClick = onBack) {
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                contentDescription = "Back to messages",
-                tint = MediQOnBrand,
-                modifier = Modifier.size(MediQSize.minTouchTarget)
-            )
-        }
-
-        Column {
-            Text(
-                text = secretaryName,
-                style = MaterialTheme.typography.titleMedium,
-                color = MediQOnBrand
-            )
-
-            Text(
-                text = "Clinic secretary · replies within an hour",
-                style = MaterialTheme.typography.bodySmall,
-                color = MediQOnBrand.copy(alpha = 0.85f)
-            )
+    val subtitle = buildString {
+        if (role != null) append(role)
+        if (location != null) {
+            if (role != null) append(" · ")
+            append(location)
         }
     }
+
+    MediQPageHeader(
+        title = secretaryName,
+        subtitle = subtitle.takeIf { it.isNotEmpty() },
+        onBack = onBack,
+        modifier = modifier
+    )
 }
 
 /** The notice pinned under the header. */
