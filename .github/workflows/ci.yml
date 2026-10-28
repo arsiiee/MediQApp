@@ -9,6 +9,13 @@ on:
 jobs:
   ktor-tests:
     runs-on: ubuntu-latest
+    paths:
+      - 'server/**'
+      - 'gradle/**'
+      - 'gradlew'
+      - 'gradlew.bat'
+      - 'settings.gradle.kts'
+      - 'build.gradle.kts'
     steps:
       - uses: actions/checkout@v4
       - name: Set up JDK 11
@@ -25,6 +32,8 @@ jobs:
 
   web-fe-tests:
     runs-on: ubuntu-latest
+    paths:
+      - 'mediqweb/mediqweb-fe/**'
     steps:
       - uses: actions/checkout@v4
       - name: Set up Node
@@ -54,6 +63,8 @@ jobs:
 
   hono-api-tests:
     runs-on: ubuntu-latest
+    paths:
+      - 'mediqweb/mediqapp-api/**'
     steps:
       - uses: actions/checkout@v4
       - name: Set up Node
@@ -72,6 +83,13 @@ jobs:
 
   android-tests:
     runs-on: ubuntu-latest
+    paths:
+      - 'app/**'
+      - 'gradle/**'
+      - 'gradlew'
+      - 'gradlew.bat'
+      - 'settings.gradle.kts'
+      - 'build.gradle.kts'
     steps:
       - uses: actions/checkout@v4
       - name: Set up JDK 11
@@ -86,6 +104,9 @@ jobs:
 
   openapi-validation:
     runs-on: ubuntu-latest
+    paths:
+      - 'server/src/main/resources/openapi/**'
+      - 'mediqweb/mediqweb-fe/**'
     steps:
       - uses: actions/checkout@v4
       - name: Validate OpenAPI spec
