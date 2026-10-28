@@ -76,7 +76,8 @@ object Database {
             val migrationsApplied = flyway.migrate()
             logger.info("Applied {} migrations", migrationsApplied)
         }.onFailure { e ->
-            logger.warn("Flyway migration notice: {}", e.message)
+            logger.error("Flyway migration failed", e)
+            throw e
         }
     }
 }
