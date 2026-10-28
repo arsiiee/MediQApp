@@ -1,0 +1,84 @@
+# ==============================================================================
+# MediQ Repository Root .gitignore
+# Multi-surface healthcare app: Android, Angular Web, Node BFF, Ktor Server
+# ==============================================================================
+
+# --- Environment & Secret Keys (CRITICAL: NEVER COMMIT) ---
+.env
+.env.*
+!.env.example
+local.properties
+*.keystore
+*.jks
+
+# --- OS & System Files ---
+.DS_Store
+Thumbs.db
+desktop.ini
+*.swp
+*.swo
+*~
+*.bak
+
+# --- PowerShell & Batch scripts ---
+# Ignore generated/*.tmp scripts; keep the repo's run/stop scripts and Gradle wrapper tracked.
+*.ps1
+*.bat
+!run-all.bat
+!run-all.ps1
+!run-mediq-server.ps1
+!stop-all.bat
+!stop-all.ps1
+!gradlew.bat
+!server/gradlew.bat
+
+# --- Logs ---
+*.log
+logs/
+server/logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# --- IDEs & Editors ---
+.idea/
+.vscode/
+*.iml
+*.iws
+*.ipr
+.kilo/
+.artifacts/
+temp-figma/
+
+# --- Android & Gradle ---
+.gradle/
+.kotlin/
+build/
+*/build/
+*/*/build/
+*.apk
+*.aab
+buildOutputCleanup/
+configuration-cache/
+
+# --- Node & Web Frontends ---
+node_modules/
+**/node_modules/
+dist/
+**/dist/
+.angular/
+**/.angular/
+.npm/
+
+# --- Testing & Coverage ---
+coverage/
+**/coverage/
+test-output.txt
+**/reports/
+
+# --- Supabase Local Temp Data ---
+supabase/.temp/
+.temp/
+
+# --- Docker Local Mounts ---
+postgres_data/
