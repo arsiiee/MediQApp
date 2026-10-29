@@ -15,9 +15,9 @@ export class AuthService {
   private refreshInFlight: Observable<AuthSession> | null = null;
 
   signIn(username: string, password: string): Observable<AuthSession> {
-    return this.http.post<AuthSession>(SIGN_IN, { username, password }).pipe(
-      tap((session) => this.authState.setSession(session)),
-    );
+    return this.http
+      .post<AuthSession>(SIGN_IN, { username, password })
+      .pipe(tap((session) => this.authState.setSession(session)));
   }
 
   setSessionFromGateway(session: AuthSession): void {
@@ -39,18 +39,24 @@ export class AuthService {
       this.authState.clear();
       return throwError(() => new Error('No refresh token'));
     }
-    this.refreshInFlight = this.http.post<AuthSession>(REFRESH, {}, {
-      headers: new HttpHeaders().set('Authorization', `Bearer ${refreshToken}`),
-    }).pipe(
-      tap((session) => this.authState.setSession(session)),
-      catchError((err) => {
-        this.authState.clear();
-        return throwError(() => err);
-      }),
-      finalize(() => {
-        this.refreshInFlight = null;
-      }),
-    );
+    this.refreshInFlight = this.http
+      .post<AuthSession>(
+        REFRESH,
+        {},
+        {
+          headers: new HttpHeaders().set('Authorization', `Bearer ${refreshToken}`),
+        },
+      )
+      .pipe(
+        tap((session) => this.authState.setSession(session)),
+        catchError((err) => {
+          this.authState.clear();
+          return throwError(() => err);
+        }),
+        finalize(() => {
+          this.refreshInFlight = null;
+        }),
+      );
     return this.refreshInFlight;
   }
 

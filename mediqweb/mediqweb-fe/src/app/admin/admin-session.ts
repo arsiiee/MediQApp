@@ -161,9 +161,7 @@ export class AdminSession {
 
     this.adminGateway.createStaffAccount(kind, draft).subscribe({
       next: (created: StaffAccount) => {
-        target.update((list) =>
-          list.map((a) => (a.id === '' ? created : a)),
-        );
+        target.update((list) => list.map((a) => (a.id === '' ? created : a)));
         this.record(`Created ${kind} account`, created.name, 'info');
         this.createErrorState.set(null);
       },
@@ -215,7 +213,9 @@ export class AdminSession {
       },
       error: () => {
         target.update((list) =>
-          list.map((a) => (a.id === id ? { ...a, assignedDoctorId: existing.assignedDoctorId } : a)),
+          list.map((a) =>
+            a.id === id ? { ...a, assignedDoctorId: existing.assignedDoctorId } : a,
+          ),
         );
       },
     });
@@ -226,9 +226,7 @@ export class AdminSession {
     const existing = this.patientsState().find((p) => p.id === id);
     if (!existing || existing.status === status) return false;
 
-    this.patientsState.update((list) =>
-      list.map((p) => (p.id === id ? { ...p, status } : p)),
-    );
+    this.patientsState.update((list) => list.map((p) => (p.id === id ? { ...p, status } : p)));
     // Ktor has no patient status endpoint; update optimistically only.
     this.record(
       status === 'active' ? 'Reactivated patient' : 'Deactivated patient',
@@ -252,9 +250,7 @@ export class AdminSession {
         this.specializationsState.set([]);
       },
       error: () => {
-        this.specializationsState.update((list) =>
-          list.filter((s) => s.id === ''),
-        );
+        this.specializationsState.update((list) => list.filter((s) => s.id === ''));
       },
     });
 
@@ -336,7 +332,7 @@ function toStaffAccount(
     role: api.role,
     specializationId,
     licenseNumber,
-    assignedDoctorId: api.role === 'secretary' ? api.assignedDoctorId ?? null : null,
+    assignedDoctorId: api.role === 'secretary' ? (api.assignedDoctorId ?? null) : null,
     joinedOn: api.createdAt,
     lastActiveOn: null,
   };

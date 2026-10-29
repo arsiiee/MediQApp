@@ -298,8 +298,6 @@ describe('DoctorAppointments', () => {
 
   it('says which decisions belong to the Secretary', () => {
     // Cancel remains the Secretary's decision; the page says so explicitly.
-    expect(text()).toContain(
-      'calling one off is the Secretary',
-    );
+    expect(text()).toContain('calling one off is the Secretary');
   });
 });

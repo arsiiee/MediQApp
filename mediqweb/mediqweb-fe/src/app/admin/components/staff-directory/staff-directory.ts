@@ -200,8 +200,7 @@ export class StaffDirectory {
     const field = this.form.controls.confirmPassword;
     if (!field.touched) return null;
     if (field.hasError('required')) return 'This field is required.';
-    if (field.value !== this.form.controls.password.value)
-      return 'Passwords do not match.';
+    if (field.value !== this.form.controls.password.value) return 'Passwords do not match.';
     return null;
   }
 
@@ -325,8 +324,16 @@ export class StaffDirectory {
     }
 
     this.saving.set(true);
-    const { name, email, username, password, status, specializationId, licenseNumber, assignedDoctorId } =
-      this.form.getRawValue();
+    const {
+      name,
+      email,
+      username,
+      password,
+      status,
+      specializationId,
+      licenseNumber,
+      assignedDoctorId,
+    } = this.form.getRawValue();
 
     const created = this.session.addStaffAccount(this.kind(), {
       name,
@@ -406,9 +413,8 @@ export class StaffDirectory {
     this.selectedDoctorId.set(null);
 
     if (changed) {
-      const doctor = this.session
-        .activeDoctorOptions()
-        .find((d) => d.id === doctorId)?.label ?? doctorId;
+      const doctor =
+        this.session.activeDoctorOptions().find((d) => d.id === doctorId)?.label ?? doctorId;
       this.toasts.success(`${account.name} reassigned`, `Now working under ${doctor}.`);
     } else {
       this.toasts.error('Not reassigned', `${account.name} could not be updated.`);

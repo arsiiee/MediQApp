@@ -5,8 +5,8 @@ import {
   BarChart,
   Card,
   Heatmap,
-    LineChart,
-    PieChart,
+  LineChart,
+  PieChart,
   StatCard,
   BADGE_TONE_TOKEN,
   type BadgeTone,
@@ -66,16 +66,7 @@ const LIFECYCLE: readonly { label: string; status: AppointmentStatus; tone: Badg
  */
 @Component({
   selector: 'app-admin-dashboard',
-  imports: [
-    DatePipe,
-    RouterLink,
-    BarChart,
-    Card,
-    Heatmap,
-    LineChart,
-    StatCard,
-    PieChart,
-  ],
+  imports: [DatePipe, RouterLink, BarChart, Card, Heatmap, LineChart, StatCard, PieChart],
   templateUrl: './admin-dashboard.html',
   styleUrl: './admin-dashboard.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

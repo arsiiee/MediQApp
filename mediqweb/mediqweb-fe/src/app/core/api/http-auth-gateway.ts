@@ -14,9 +14,9 @@ export class HttpAuthGateway {
   private authService = inject(AuthService);
 
   signIn(username: string, password: string): Observable<AuthSession> {
-    return this.http.post<AuthSession>(SIGN_IN, { username, password }).pipe(
-      tap((session) => this.authService.setSessionFromGateway(session)),
-    );
+    return this.http
+      .post<AuthSession>(SIGN_IN, { username, password })
+      .pipe(tap((session) => this.authService.setSessionFromGateway(session)));
   }
 
   getProfile(): Observable<UserProfile> {

@@ -573,154 +573,154 @@ describe('ForgotPassword', () => {
    * that, so this block exists to reproduce the real seam.
    */
   describe('the development mock code, end to end', () => {
-  let fixture: ComponentFixture<ForgotPassword>;
-  let service: PasswordManagementService;
+    let fixture: ComponentFixture<ForgotPassword>;
+    let service: PasswordManagementService;
 
-  function page(): any {
-    return fixture.componentInstance;
-  }
+    function page(): any {
+      return fixture.componentInstance;
+    }
 
-  function host(): HTMLElement {
-    return fixture.nativeElement as HTMLElement;
-  }
+    function host(): HTMLElement {
+      return fixture.nativeElement as HTMLElement;
+    }
 
-  function text(): string {
-    return host().querySelector('dialog')?.textContent ?? '';
-  }
+    function text(): string {
+      return host().querySelector('dialog')?.textContent ?? '';
+    }
 
-  async function settle(): Promise<void> {
-    fixture.detectChanges();
-    await fixture.whenStable();
-    fixture.detectChanges();
-  }
+    async function settle(): Promise<void> {
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+    }
 
-  async function request(email: string): Promise<void> {
-    page().emailForm.controls.email.setValue(email);
-    page().emailForm.controls.email.markAsTouched();
-    await settle();
-    page().requestCode();
-    await settle();
-  }
+    async function request(email: string): Promise<void> {
+      page().emailForm.controls.email.setValue(email);
+      page().emailForm.controls.email.markAsTouched();
+      await settle();
+      page().requestCode();
+      await settle();
+    }
 
-  /** Builds the flow with the development gate forced on or off. */
-  async function build(devMode: boolean): Promise<void> {
-    resetStoredPasswords();
-    TestBed.resetTestingModule();
-    TestBed.configureTestingModule({
-      providers: [
-        { provide: CLOCK, useValue: () => 0 },
-        { provide: DEV_MODE, useValue: devMode },
-      ],
+    /** Builds the flow with the development gate forced on or off. */
+    async function build(devMode: boolean): Promise<void> {
+      resetStoredPasswords();
+      TestBed.resetTestingModule();
+      TestBed.configureTestingModule({
+        providers: [
+          { provide: CLOCK, useValue: () => 0 },
+          { provide: DEV_MODE, useValue: devMode },
+        ],
+      });
+      service = TestBed.inject(PasswordManagementService);
+      fixture = TestBed.createComponent(ForgotPassword);
+      fixture.componentRef.setInput('open', true);
+      await settle();
+    }
+
+    beforeEach(async () => {
+      await build(true);
     });
-    service = TestBed.inject(PasswordManagementService);
-    fixture = TestBed.createComponent(ForgotPassword);
-    fixture.componentRef.setInput('open', true);
-    await settle();
-  }
 
-  beforeEach(async () => {
-    await build(true);
+    it('reaches the password form with 000000', async () => {
+      await request(REGISTERED);
+
+      page().verifyCode(DEV_MOCK_OTP);
+      await settle();
+
+      expect(page().step()).toBe('password');
+      expect(page().verified()).toBe(true);
+      expect(text()).toContain('Your code is verified');
+    });
+
+    it('completes the reset and the service really stores the password', async () => {
+      await request(REGISTERED);
+      page().verifyCode(DEV_MOCK_OTP);
+      await settle();
+
+      page().passwordForm.setValue({ newPassword: GOOD, confirmPassword: GOOD });
+      await settle();
+      expect(page().canSubmit()).toBe(true);
+
+      await page().resetPassword();
+      await settle();
+
+      expect(page().step()).toBe('done');
+      // Not "the dialog said so" — the password actually changed.
+      expect(storedPassword('doc-002', 'original')).toBe(GOOD);
+      expect(text()).toContain('Return to sign in');
+    });
+
+    it('still enforces the password policy and the confirmation', async () => {
+      await request(REGISTERED);
+      page().verifyCode(DEV_MOCK_OTP);
+      await settle();
+
+      page().passwordForm.setValue({ newPassword: 'short1', confirmPassword: 'short1' });
+      await settle();
+      expect(page().canSubmit()).toBe(false);
+
+      page().passwordForm.setValue({ newPassword: GOOD, confirmPassword: 'mismatch-9' });
+      await settle();
+      expect(page().canSubmit()).toBe(false);
+
+      await page().resetPassword();
+      await settle();
+      // Neither attempt wrote anything.
+      expect(storedPassword('doc-002', 'original')).toBe('original');
+      expect(page().step()).toBe('password');
+    });
+
+    it('leaves every other code rejected', async () => {
+      await request(REGISTERED);
+      const real = service.peekIssuedCode(page().challenge().challengeId) as string;
+
+      page().verifyCode(real === '999999' ? '111111' : '999999');
+      await settle();
+
+      expect(page().step()).toBe('code');
+      expect(text()).toContain('That code is not right');
+    });
+
+    it('is refused for an address no account uses', async () => {
+      await request(UNKNOWN);
+
+      page().verifyCode(DEV_MOCK_OTP);
+      await settle();
+
+      // No challenge was ever issued, so nothing can verify — the mock does not
+      // conjure one, and the user cannot reach the password form.
+      expect(page().step()).toBe('code');
+      expect(page().verified()).toBe(false);
+    });
+
+    it('is refused in a production build', async () => {
+      await build(false);
+      await request(REGISTERED);
+
+      page().verifyCode(DEV_MOCK_OTP);
+      await settle();
+
+      expect(page().step()).toBe('code');
+      expect(page().verified()).toBe(false);
+      expect(text()).toContain('That code is not right');
+    });
+
+    it('clears the flow when the dialog is closed afterwards', async () => {
+      await request(REGISTERED);
+      page().verifyCode(DEV_MOCK_OTP);
+      await settle();
+      const id = page().challenge().challengeId as string;
+
+      page().onDialogClosed();
+      await settle();
+
+      expect(service.getChallenge(id)).toBeNull();
+      expect(page().step()).toBe('email');
+      expect(page().otpControl.value).toBe('');
+      expect(page().emailForm.getRawValue().email).toBe('');
+    });
   });
-
-  it('reaches the password form with 000000', async () => {
-    await request(REGISTERED);
-
-    page().verifyCode(DEV_MOCK_OTP);
-    await settle();
-
-    expect(page().step()).toBe('password');
-    expect(page().verified()).toBe(true);
-    expect(text()).toContain('Your code is verified');
-  });
-
-  it('completes the reset and the service really stores the password', async () => {
-    await request(REGISTERED);
-    page().verifyCode(DEV_MOCK_OTP);
-    await settle();
-
-    page().passwordForm.setValue({ newPassword: GOOD, confirmPassword: GOOD });
-    await settle();
-    expect(page().canSubmit()).toBe(true);
-
-    await page().resetPassword();
-    await settle();
-
-    expect(page().step()).toBe('done');
-    // Not "the dialog said so" — the password actually changed.
-    expect(storedPassword('doc-002', 'original')).toBe(GOOD);
-    expect(text()).toContain('Return to sign in');
-  });
-
-  it('still enforces the password policy and the confirmation', async () => {
-    await request(REGISTERED);
-    page().verifyCode(DEV_MOCK_OTP);
-    await settle();
-
-    page().passwordForm.setValue({ newPassword: 'short1', confirmPassword: 'short1' });
-    await settle();
-    expect(page().canSubmit()).toBe(false);
-
-    page().passwordForm.setValue({ newPassword: GOOD, confirmPassword: 'mismatch-9' });
-    await settle();
-    expect(page().canSubmit()).toBe(false);
-
-    await page().resetPassword();
-    await settle();
-    // Neither attempt wrote anything.
-    expect(storedPassword('doc-002', 'original')).toBe('original');
-    expect(page().step()).toBe('password');
-  });
-
-  it('leaves every other code rejected', async () => {
-    await request(REGISTERED);
-    const real = service.peekIssuedCode(page().challenge().challengeId) as string;
-
-    page().verifyCode(real === '999999' ? '111111' : '999999');
-    await settle();
-
-    expect(page().step()).toBe('code');
-    expect(text()).toContain('That code is not right');
-  });
-
-  it('is refused for an address no account uses', async () => {
-    await request(UNKNOWN);
-
-    page().verifyCode(DEV_MOCK_OTP);
-    await settle();
-
-    // No challenge was ever issued, so nothing can verify — the mock does not
-    // conjure one, and the user cannot reach the password form.
-    expect(page().step()).toBe('code');
-    expect(page().verified()).toBe(false);
-  });
-
-  it('is refused in a production build', async () => {
-    await build(false);
-    await request(REGISTERED);
-
-    page().verifyCode(DEV_MOCK_OTP);
-    await settle();
-
-    expect(page().step()).toBe('code');
-    expect(page().verified()).toBe(false);
-    expect(text()).toContain('That code is not right');
-  });
-
-  it('clears the flow when the dialog is closed afterwards', async () => {
-    await request(REGISTERED);
-    page().verifyCode(DEV_MOCK_OTP);
-    await settle();
-    const id = page().challenge().challengeId as string;
-
-    page().onDialogClosed();
-    await settle();
-
-    expect(service.getChallenge(id)).toBeNull();
-    expect(page().step()).toBe('email');
-    expect(page().otpControl.value).toBe('');
-    expect(page().emailForm.getRawValue().email).toBe('');
-  });
-});
 
   /**
    * Closing through a host that owns `open`, the way the login page does.

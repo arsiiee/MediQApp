@@ -1,6 +1,11 @@
 import { Injectable, inject } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
-import { AUTH_GATEWAY, type AuthGateway, type StaffCredentials, type StaffRole } from './auth.gateway';
+import {
+  AUTH_GATEWAY,
+  type AuthGateway,
+  type StaffCredentials,
+  type StaffRole,
+} from './auth.gateway';
 import { HttpAuthGateway } from '../../../core/api/http-auth-gateway';
 
 /**

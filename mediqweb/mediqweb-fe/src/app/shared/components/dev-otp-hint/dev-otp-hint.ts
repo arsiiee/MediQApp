@@ -1,4 +1,11 @@
-import { ChangeDetectionStrategy, Component, computed, inject, input, isDevMode } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  inject,
+  input,
+  isDevMode,
+} from '@angular/core';
 import { PasswordManagementService } from '../../../core/services/password-management.service';
 
 // ============================================================================

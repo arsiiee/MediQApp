@@ -284,7 +284,6 @@ describe('SecretaryMessages', () => {
     expect(bubbles().some((bubble) => bubble.body.includes('wrong person'))).toBe(false);
   });
 
-
   it('says who the newest message was from in the list preview', () => {
     // Colour and position are not available to a screen reader, and "who do I
     // reply to" is the question the preview exists to answer.
@@ -420,5 +419,3 @@ describe('SecretaryMessages', () => {
     expect(page().draft()).toBe('Please confirm for 5:30 PM.');
   });
 });
-
-

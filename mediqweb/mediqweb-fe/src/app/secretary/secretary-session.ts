@@ -211,8 +211,7 @@ export class SecretarySession {
           lastVisit: past.length ? past[past.length - 1] : null,
           nextVisit: future.length ? future[0] : null,
           visitCount: history.filter(
-            (appointment) =>
-              appointment.status === 'completed' || appointment.status === 'no-show',
+            (appointment) => appointment.status === 'completed' || appointment.status === 'no-show',
           ).length,
         };
       });
@@ -395,9 +394,7 @@ export class SecretarySession {
     return this.gateway.sendMessage(conversationId, text).pipe(
       map(() => message),
       catchError((err) => {
-        this.messageState.update((messages) =>
-          messages.filter((m) => m.id !== message.id),
-        );
+        this.messageState.update((messages) => messages.filter((m) => m.id !== message.id));
         return throwError(() => err);
       }),
     );
@@ -616,8 +613,7 @@ export class SecretarySession {
     }
 
     this.gateway.getAppointments().subscribe({
-      next: (appointments) =>
-        this.appointmentState.set(appointments as unknown as Appointment[]),
+      next: (appointments) => this.appointmentState.set(appointments as unknown as Appointment[]),
       error: () => {},
     });
 
@@ -713,4 +709,3 @@ function oneline(body: string, limit = 110): string {
   const flat = body.replace(/\s+/g, ' ').trim();
   return flat.length > limit ? `${flat.slice(0, limit - 1).trimEnd()}â€¦` : flat;
 }
-

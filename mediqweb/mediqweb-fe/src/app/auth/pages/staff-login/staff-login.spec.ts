@@ -1,10 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
 import { PasswordManagementService } from '../../../core/services/password-management.service';
-import {
-  resetStoredPasswords,
-  storedPassword,
-} from '../../../core/services/password-store';
+import { resetStoredPasswords, storedPassword } from '../../../core/services/password-store';
 import { StaffLogin } from './staff-login';
 import { AUTH_GATEWAY, AuthGateway, StaffCredentials, StaffRole } from './auth.gateway';
 import { MockAuthGateway } from './mock-auth.gateway';
@@ -371,9 +368,10 @@ describe('StaffLogin password reset, end to end', () => {
     fixture.detectChanges();
   };
 
-  const flow = () => fixture.debugElement.children
-    .map((child) => child.componentInstance)
-    .find((instance) => instance && typeof instance.requestCode === 'function') as any;
+  const flow = () =>
+    fixture.debugElement.children
+      .map((child) => child.componentInstance)
+      .find((instance) => instance && typeof instance.requestCode === 'function') as any;
 
   it('resets the password and signs in with it', async () => {
     // Open the reset dialog from the link below the password field.
@@ -417,9 +415,9 @@ describe('StaffLogin password reset, end to end', () => {
 
     // The gateway is provided at component level rather than in the root injector,
     // so it is reached the way the app reaches it.
-    await expect(new MockAuthGateway().signIn({ identifier: 'doctor', password: GOOD })).resolves.toBe(
-      'doctor',
-    );
+    await expect(
+      new MockAuthGateway().signIn({ identifier: 'doctor', password: GOOD }),
+    ).resolves.toBe('doctor');
   });
 
   it('does not sign the user in by itself', async () => {

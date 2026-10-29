@@ -28,14 +28,10 @@ export const API_ROUTES = {
     SCHEDULE: '/doctor/schedule',
     SLOTS: (slotId?: string) =>
       slotId ? `/doctor/schedule/slots/${slotId}` : '/doctor/schedule/slots',
-    APPOINTMENTS: (id?: string) =>
-      id ? `/doctor/appointments/${id}` : '/doctor/appointments',
-    APPOINTMENT_STATUS: (id: string) =>
-      `/doctor/appointments/${id}/status`,
-    PATIENTS: (id?: string) =>
-      id ? `/doctor/patients/${id}` : '/doctor/patients',
-    PATIENT_RECORDS: (patientId: string) =>
-      `/doctor/patients/${patientId}/records`,
+    APPOINTMENTS: (id?: string) => (id ? `/doctor/appointments/${id}` : '/doctor/appointments'),
+    APPOINTMENT_STATUS: (id: string) => `/doctor/appointments/${id}/status`,
+    PATIENTS: (id?: string) => (id ? `/doctor/patients/${id}` : '/doctor/patients'),
+    PATIENT_RECORDS: (patientId: string) => `/doctor/patients/${patientId}/records`,
     RECORDS: '/doctor/records',
     PRESCRIPTIONS: (appointmentId?: string) =>
       appointmentId
@@ -48,24 +44,18 @@ export const API_ROUTES = {
     STATS: '/secretary/stats',
     APPOINTMENTS: (id?: string) =>
       id ? `/secretary/appointments/${id}` : '/secretary/appointments',
-    APPOINTMENT_CONFIRM: (id: string) =>
-      `/secretary/appointments/${id}/confirm`,
-    APPOINTMENT_CANCEL: (id: string) =>
-      `/secretary/appointments/${id}/cancel`,
-    PATIENTS: (id?: string) =>
-      id ? `/secretary/patients/${id}` : '/secretary/patients',
-    MESSAGES: (id?: string) =>
-      id ? `/secretary/messages/${id}` : '/secretary/messages',
+    APPOINTMENT_CONFIRM: (id: string) => `/secretary/appointments/${id}/confirm`,
+    APPOINTMENT_CANCEL: (id: string) => `/secretary/appointments/${id}/cancel`,
+    PATIENTS: (id?: string) => (id ? `/secretary/patients/${id}` : '/secretary/patients'),
+    MESSAGES: (id?: string) => (id ? `/secretary/messages/${id}` : '/secretary/messages'),
     MESSAGE_READ: (id: string) => `/secretary/messages/${id}/read`,
   } as const,
 
   // ---- Patient ----
   PATIENT: {
     PROFILE: '/patient/profile',
-    APPOINTMENTS: (id?: string) =>
-      id ? `/patient/appointments/${id}` : '/patient/appointments',
-    APPOINTMENT_CANCEL: (id: string) =>
-      `/patient/appointments/${id}/cancel`,
+    APPOINTMENTS: (id?: string) => (id ? `/patient/appointments/${id}` : '/patient/appointments'),
+    APPOINTMENT_CANCEL: (id: string) => `/patient/appointments/${id}/cancel`,
     DOCTORS: '/patient/doctors',
     SPECIALIZATIONS: '/patient/specializations',
     RECORDS: '/patient/records',
@@ -74,8 +64,7 @@ export const API_ROUTES = {
     PAYMENTS: '/patient/payments',
     NOTIFICATIONS: (id?: string) =>
       id ? `/patient/notifications/${id}` : '/patient/notifications',
-    NOTIFICATION_READ: (id: string) =>
-      `/patient/notifications/${id}/read`,
+    NOTIFICATION_READ: (id: string) => `/patient/notifications/${id}/read`,
   } as const,
 } as const;
 

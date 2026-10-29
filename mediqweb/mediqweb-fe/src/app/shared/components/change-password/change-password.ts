@@ -17,7 +17,14 @@ import {
   type OtpChallenge,
   type PasswordAccount,
 } from '../../../core/services/password-management.service';
-import { Button, Card, FormField, Modal, OtpInput, PasswordFields } from '../../../shared/components';
+import {
+  Button,
+  Card,
+  FormField,
+  Modal,
+  OtpInput,
+  PasswordFields,
+} from '../../../shared/components';
 // DEV-ONLY: delete this import, the `devPanel` field, and the DevOtpHint entry
 // in `imports` to remove the development code helper. See dev-otp-hint.ts.
 import { DevOtpHint } from '../../../shared/components/dev-otp-hint/dev-otp-hint';
@@ -184,7 +191,10 @@ export class ChangePassword {
       return;
     }
     this.error.set(
-      describeOtpFailure(result.reason, this.service.getChallenge(challenge.challengeId)?.attemptsRemaining ?? 0),
+      describeOtpFailure(
+        result.reason,
+        this.service.getChallenge(challenge.challengeId)?.attemptsRemaining ?? 0,
+      ),
     );
   }
 
@@ -253,7 +263,9 @@ export class ChangePassword {
    * filled in.
    */
   protected canSubmit(): boolean {
-    return this.challenge() !== null && this.verified() && this.passwordForm.valid && !this.loading();
+    return (
+      this.challenge() !== null && this.verified() && this.passwordForm.valid && !this.loading()
+    );
   }
 
   protected async submit(): Promise<void> {

@@ -226,10 +226,7 @@ export class SecretaryMessages {
         );
       },
       error: () => {
-        this.toasts.error(
-          'Send failed',
-          'Your message could not be delivered. Please try again.',
-        );
+        this.toasts.error('Send failed', 'Your message could not be delivered. Please try again.');
       },
     });
   }
@@ -244,4 +241,3 @@ export class SecretaryMessages {
     return this.session.conversationSubtitle(conversation);
   }
 }
-

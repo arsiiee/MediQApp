@@ -42,7 +42,10 @@ export class AuthState {
   }
 
   get isAuthenticated(): Observable<boolean> {
-    return this.session$.pipe(map((s) => s != null), distinctUntilChanged());
+    return this.session$.pipe(
+      map((s) => s != null),
+      distinctUntilChanged(),
+    );
   }
 
   get profile(): UserProfile | null {

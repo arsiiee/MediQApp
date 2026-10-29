@@ -72,19 +72,13 @@ export class HttpSecretaryGateway {
     return this.http.get<ClinicHours[]>(`${BASE}/secretary/doctor/${doctorId}/schedule`);
   }
 
-  sendMessage(
-    conversationId: string,
-    body: string,
-  ): Observable<ConversationMessage> {
+  sendMessage(conversationId: string, body: string): Observable<ConversationMessage> {
     return this.http
       .post<Message>(`${BASE}/messages/conversations/${conversationId}/messages`, body)
       .pipe(map(toConversationMessage));
   }
 
   markConversationRead(conversationId: string): Observable<void> {
-    return this.http.patch<void>(
-      `${BASE}/messages/conversations/${conversationId}/read`,
-      null,
-    );
+    return this.http.patch<void>(`${BASE}/messages/conversations/${conversationId}/read`, null);
   }
 }

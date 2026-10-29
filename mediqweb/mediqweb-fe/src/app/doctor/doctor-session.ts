@@ -185,8 +185,7 @@ export class DoctorSession {
           lastVisit: past.length ? past[past.length - 1] : null,
           nextVisit: future.length ? future[0] : null,
           visitCount: history.filter(
-            (appointment) =>
-              appointment.status === 'completed' || appointment.status === 'no-show',
+            (appointment) => appointment.status === 'completed' || appointment.status === 'no-show',
           ).length,
         };
       })
@@ -371,9 +370,7 @@ export class DoctorSession {
 
     this.gateway.saveDoctorAvailability(this.doctorId() ?? '', entry).subscribe({
       error: () => {
-        this.datedAvailabilityState.update((entries) =>
-          entries.filter((e) => e.date !== key),
-        );
+        this.datedAvailabilityState.update((entries) => entries.filter((e) => e.date !== key));
       },
     });
     return null;
@@ -386,18 +383,20 @@ export class DoctorSession {
     const before = this.datedAvailabilityState().length;
     this.datedAvailabilityState.update((entries) => entries.filter((e) => e.date !== date));
 
-    this.gateway.saveDoctorAvailability(this.doctorId() ?? '', {
-      date,
-      sessions: [],
-    }).subscribe({
-      error: () => {
-        // Re-fetch to restore previous state.
-        this.gateway.getDoctorAvailability(this.doctorId() ?? '').subscribe({
-          next: (entries) => this.datedAvailabilityState.set(entries),
-          error: () => {},
-        });
-      },
-    });
+    this.gateway
+      .saveDoctorAvailability(this.doctorId() ?? '', {
+        date,
+        sessions: [],
+      })
+      .subscribe({
+        error: () => {
+          // Re-fetch to restore previous state.
+          this.gateway.getDoctorAvailability(this.doctorId() ?? '').subscribe({
+            next: (entries) => this.datedAvailabilityState.set(entries),
+            error: () => {},
+          });
+        },
+      });
     return this.datedAvailabilityState().length !== before;
   }
 
@@ -442,8 +441,7 @@ export class DoctorSession {
 
     // Appointments for this doctor — filtered server-side by doctorId.
     this.gateway.getDoctorAppointments().subscribe({
-      next: (paged) =>
-        this.appointmentState.set((paged.items ?? []) as unknown as Appointment[]),
+      next: (paged) => this.appointmentState.set((paged.items ?? []) as unknown as Appointment[]),
       error: () => {},
     });
 

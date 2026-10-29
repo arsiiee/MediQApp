@@ -1,12 +1,7 @@
 import { DatePipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import {
-  AppointmentStatusBadge,
-  Avatar,
-  Card,
-  StatCard,
-} from '../../../shared/components';
+import { AppointmentStatusBadge, Avatar, Card, StatCard } from '../../../shared/components';
 import { SecretarySession } from '../../secretary-session';
 import type { Appointment } from '../../secretary.models';
 

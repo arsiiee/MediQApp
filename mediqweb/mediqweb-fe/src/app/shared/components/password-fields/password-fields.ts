@@ -50,9 +50,7 @@ export class PasswordFields {
   protected readonly confirmVisible = signal(false);
 
   /** The rule list doubles as the field hint until there is an error to show. */
-  protected readonly requirementsHint = computed(
-    () => this.requirements.join(' · ') + '.',
-  );
+  protected readonly requirementsHint = computed(() => this.requirements.join(' · ') + '.');
 
   protected isMet(index: number): boolean {
     return !unmetPasswordRequirements(this.newPassword().value ?? '').includes(

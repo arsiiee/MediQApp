@@ -19,13 +19,7 @@ import {
   maskEmail,
   type OtpChallenge,
 } from '../../../core/services/password-management.service';
-import {
-  Button,
-  FormField,
-  Modal,
-  OtpInput,
-  PasswordFields,
-} from '../../../shared/components';
+import { Button, FormField, Modal, OtpInput, PasswordFields } from '../../../shared/components';
 // DEV-ONLY: delete this import, the `devPanel` field, and the DevOtpHint entry
 // in `imports` to remove the development code helper. See dev-otp-hint.ts.
 import { DevOtpHint } from '../../../shared/components/dev-otp-hint/dev-otp-hint';
@@ -302,7 +296,9 @@ export class ForgotPassword {
 
   /** As in the change-password flow: a live challenge is part of being able to submit. */
   protected canSubmit(): boolean {
-    return this.challenge() !== null && this.verified() && this.passwordForm.valid && !this.loading();
+    return (
+      this.challenge() !== null && this.verified() && this.passwordForm.valid && !this.loading()
+    );
   }
 
   protected async resetPassword(): Promise<void> {

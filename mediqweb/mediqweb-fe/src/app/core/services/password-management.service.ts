@@ -49,8 +49,7 @@ export type OtpFailureReason =
 
 /** The outcome of checking a code. */
 export type OtpVerification =
-  | { readonly ok: true }
-  | { readonly ok: false; readonly reason: OtpFailureReason };
+  { readonly ok: true } | { readonly ok: false; readonly reason: OtpFailureReason };
 
 /** The outcome of asking for a replacement code. */
 export type OtpResend =
@@ -258,9 +257,7 @@ export class PasswordManagementService {
    */
   private accepts(stored: StoredChallenge, typed: string): boolean {
     if (stored.code === typed) return true;
-    return (
-      this.devMode && stored.purpose === 'forgot-password' && typed === DEV_MOCK_OTP
-    );
+    return this.devMode && stored.purpose === 'forgot-password' && typed === DEV_MOCK_OTP;
   }
 
   /** True while a challenge holds a verified, unexpired, unconsumed code. */

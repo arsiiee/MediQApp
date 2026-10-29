@@ -62,11 +62,11 @@ describe('ChangePassword', () => {
   }
 
   /**
- * Finds a button by its visible label.
- *
- * Searches the whole component, not just the dialog: the button that *opens* the
- * dialog lives on the card. Returns the element so a test can read `disabled`.
- */
+   * Finds a button by its visible label.
+   *
+   * Searches the whole component, not just the dialog: the button that *opens* the
+   * dialog lives on the card. Returns the element so a test can read `disabled`.
+   */
   function button(label: string): HTMLButtonElement | undefined {
     return [...host().querySelectorAll('button')]
       .map((el) => el as HTMLButtonElement)
@@ -418,7 +418,9 @@ describe('ChangePassword', () => {
       reveals[0].dispatchEvent(new MouseEvent('click', { bubbles: true }));
       fixture.detectChanges();
 
-      expect((dialog().querySelector('#change-password-new') as HTMLInputElement).type).toBe('text');
+      expect((dialog().querySelector('#change-password-new') as HTMLInputElement).type).toBe(
+        'text',
+      );
       expect((dialog().querySelector('#change-password-confirm') as HTMLInputElement).type).toBe(
         'password',
       );
@@ -432,9 +434,7 @@ describe('ChangePassword', () => {
       // nothing was drawn — asserting the rendered icon is what actually catches it.
       await reachPasswordStep();
 
-      const reveals = dialog().querySelectorAll<HTMLButtonElement>(
-        '.password-fields__reveal',
-      );
+      const reveals = dialog().querySelectorAll<HTMLButtonElement>('.password-fields__reveal');
       expect(reveals.length).toBe(2);
 
       for (const reveal of reveals) {

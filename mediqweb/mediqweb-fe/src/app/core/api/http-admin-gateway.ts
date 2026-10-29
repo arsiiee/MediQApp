@@ -36,10 +36,7 @@ export class HttpAdminGateway {
   }
 
   createStaffAccount(kind: 'doctor' | 'secretary', draft: StaffDraft): Observable<StaffAccount> {
-    return this.http.post<StaffAccount>(
-      `${BASE}/admin/accounts?kind=${kind}`,
-      draft,
-    );
+    return this.http.post<StaffAccount>(`${BASE}/admin/accounts?kind=${kind}`, draft);
   }
 
   updateAccountStatus(id: string, status: AccountStatus): Observable<StaffAccount> {
@@ -59,17 +56,22 @@ export class HttpAdminGateway {
   }
 
   /** Doctor id -> {specializationId, licenseNumber}, from the doctors table. */
-  getDoctorSpecializations(): Observable<Map<string, { specializationId: string | null; licenseNumber: string | null }>> {
-    return this.http.get<DoctorWithSpecialization[]>(`${BASE}/admin/doctors`).pipe(
-      map((doctors) =>
-        new Map(
-          doctors.map((d) => [
-            d.id,
-            { specializationId: d.specializationId, licenseNumber: d.licenseNumber },
-          ]),
+  getDoctorSpecializations(): Observable<
+    Map<string, { specializationId: string | null; licenseNumber: string | null }>
+  > {
+    return this.http
+      .get<DoctorWithSpecialization[]>(`${BASE}/admin/doctors`)
+      .pipe(
+        map(
+          (doctors) =>
+            new Map(
+              doctors.map((d) => [
+                d.id,
+                { specializationId: d.specializationId, licenseNumber: d.licenseNumber },
+              ]),
+            ),
         ),
-      ),
-    );
+      );
   }
 
   getAuditLogs(): Observable<AuditEntry[]> {

@@ -1,7 +1,4 @@
-import {
-  resetStoredPasswords,
-  storePassword,
-} from '../../../core/services/password-store';
+import { resetStoredPasswords, storePassword } from '../../../core/services/password-store';
 import { MOCK_STAFF_ACCOUNTS, MockAuthGateway } from './mock-auth.gateway';
 
 describe('MockAuthGateway', () => {
@@ -77,9 +74,7 @@ describe('MockAuthGateway', () => {
       const doctor = MOCK_STAFF_ACCOUNTS.find((account) => account.role === 'doctor')!;
       storePassword(doctor.accountId, 'clinic-portal-2026');
 
-      await expect(attempt('doctor', '123123')).rejects.toThrow(
-        'Email or password is incorrect.',
-      );
+      await expect(attempt('doctor', '123123')).rejects.toThrow('Email or password is incorrect.');
     });
 
     it('leaves the other accounts alone', async () => {

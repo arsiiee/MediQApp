@@ -27,11 +27,29 @@ import { Router } from '@angular/router';
   `,
   styles: [
     `
-      .dashboard { max-width: 900px; margin: 24px auto; font-family: system-ui, sans-serif; }
-      header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
-      h1 { font-size: 1.5rem; margin: 0; }
-      .user { color: #555; font-size: 0.95rem; }
-      .error { color: #c0392b; font-size: 0.9rem; }
+      .dashboard {
+        max-width: 900px;
+        margin: 24px auto;
+        font-family: system-ui, sans-serif;
+      }
+      header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1rem;
+      }
+      h1 {
+        font-size: 1.5rem;
+        margin: 0;
+      }
+      .user {
+        color: #555;
+        font-size: 0.95rem;
+      }
+      .error {
+        color: #c0392b;
+        font-size: 0.9rem;
+      }
     `,
   ],
 })

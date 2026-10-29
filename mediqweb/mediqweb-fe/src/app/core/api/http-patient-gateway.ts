@@ -60,7 +60,12 @@ export class HttpPatientGateway {
   }
 
   // ---- Doctor directory ----
-  getDoctors(params?: { specializationId?: string; search?: string; limit?: number; offset?: number }): Observable<Paged<Doctor>> {
+  getDoctors(params?: {
+    specializationId?: string;
+    search?: string;
+    limit?: number;
+    offset?: number;
+  }): Observable<Paged<Doctor>> {
     return this.http.get<Paged<Doctor>>(`${BASE}/doctors`, {
       params: params as unknown as Record<string, string>,
     });
@@ -107,50 +112,33 @@ export class HttpPatientGateway {
     return this.http.get<ScheduleDay[]>(`${BASE}/doctors/${doctorId}/schedule`);
   }
 
-  saveDoctorSchedule(
-    doctorId: string,
-    days: readonly ScheduleDay[],
-  ): Observable<void> {
+  saveDoctorSchedule(doctorId: string, days: readonly ScheduleDay[]): Observable<void> {
     return this.http.post<void>(`${BASE}/doctors/${doctorId}/schedule`, days);
   }
 
   // ---- Doctor area: dated availability overrides ----
   getDoctorAvailability(doctorId: string): Observable<DatedAvailability[]> {
-    return this.http.get<DatedAvailability[]>(
-      `${BASE}/doctors/${doctorId}/availability`,
-    );
+    return this.http.get<DatedAvailability[]>(`${BASE}/doctors/${doctorId}/availability`);
   }
 
-  saveDoctorAvailability(
-    doctorId: string,
-    entry: DatedAvailability,
-  ): Observable<void> {
+  saveDoctorAvailability(doctorId: string, entry: DatedAvailability): Observable<void> {
     return this.http.post<void>(`${BASE}/doctors/${doctorId}/availability`, entry);
   }
 
   // ---- Doctor area: record visit outcome ----
-  recordAppointmentOutcome(
-    appointmentId: string,
-    outcome: VisitOutcome,
-  ): Observable<Appointment> {
-    return this.http.patch<Appointment>(
-      `${BASE}/doctors/appointments/${appointmentId}/outcome`,
-      { outcome },
-    );
+  recordAppointmentOutcome(appointmentId: string, outcome: VisitOutcome): Observable<Appointment> {
+    return this.http.patch<Appointment>(`${BASE}/doctors/appointments/${appointmentId}/outcome`, {
+      outcome,
+    });
   }
 
   // ---- Doctor area: confirm a booking ----
   confirmAppointment(appointmentId: string): Observable<Appointment> {
-    return this.http.post<Appointment>(
-      `${BASE}/appointments/${appointmentId}/confirm`,
-      null,
-    );
+    return this.http.post<Appointment>(`${BASE}/appointments/${appointmentId}/confirm`, null);
   }
 
   // ---- Doctor area: appointments for this doctor ----
-  getDoctorAppointments(
-    filter?: AppointmentFilter,
-  ): Observable<Paged<Appointment>> {
+  getDoctorAppointments(filter?: AppointmentFilter): Observable<Paged<Appointment>> {
     return this.http.get<Paged<Appointment>>(`${BASE}/appointments`, {
       params: filter as unknown as Record<string, string>,
     });

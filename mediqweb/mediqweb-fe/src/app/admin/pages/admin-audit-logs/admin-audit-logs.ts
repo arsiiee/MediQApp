@@ -49,7 +49,7 @@ const SEVERITY_LABEL: Record<AuditSeverity, string> = {
  */
 @Component({
   selector: 'app-admin-audit-logs',
-  imports: [DatePipe, Button, Card, Dropdown, StatusBadge, Table, TableCell,     FilterBar],
+  imports: [DatePipe, Button, Card, Dropdown, StatusBadge, Table, TableCell, FilterBar],
   templateUrl: './admin-audit-logs.html',
   styleUrl: './admin-audit-logs.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

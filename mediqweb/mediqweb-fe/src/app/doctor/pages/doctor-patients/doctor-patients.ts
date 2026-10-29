@@ -57,17 +57,7 @@ interface PatientRow {
  */
 @Component({
   selector: 'app-doctor-patients',
-  imports: [
-    DatePipe,
-    RouterLink,
-    Avatar,
-    Card,
-    Dropdown,
-    FilterBar,
-    StatusBadge,
-    Table,
-    TableCell,
-  ],
+  imports: [DatePipe, RouterLink, Avatar, Card, Dropdown, FilterBar, StatusBadge, Table, TableCell],
   templateUrl: './doctor-patients.html',
   styleUrl: './doctor-patients.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

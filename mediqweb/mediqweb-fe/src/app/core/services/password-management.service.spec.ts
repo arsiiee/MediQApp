@@ -14,8 +14,16 @@ import {
 } from './password-management.service';
 import { resetStoredPasswords, storedPassword } from './password-store';
 
-const DOCTOR: PasswordAccount = { accountId: 'doc-002', email: 'rafael.santos@mediq.ph', role: 'doctor' };
-const SECRETARY: PasswordAccount = { accountId: 'sec-001', email: 'celine.villanueva@mediq.ph', role: 'secretary' };
+const DOCTOR: PasswordAccount = {
+  accountId: 'doc-002',
+  email: 'rafael.santos@mediq.ph',
+  role: 'doctor',
+};
+const SECRETARY: PasswordAccount = {
+  accountId: 'sec-001',
+  email: 'celine.villanueva@mediq.ph',
+  role: 'secretary',
+};
 
 /** A password that satisfies the policy: long enough, with a letter and a number. */
 const GOOD = 'clinic-portal-2026';
@@ -173,7 +181,9 @@ describe('PasswordManagementService', () => {
         ok: false,
         reason: 'invalid',
       });
-      expect(service.getChallenge(challenge.challengeId)?.attemptsRemaining).toBe(OTP_MAX_ATTEMPTS - 1);
+      expect(service.getChallenge(challenge.challengeId)?.attemptsRemaining).toBe(
+        OTP_MAX_ATTEMPTS - 1,
+      );
     });
 
     it('dies after five wrong guesses', async () => {
@@ -347,7 +357,9 @@ describe('PasswordManagementService', () => {
       const { challenge, code } = await issue();
       service.verifyOtp(challenge.challengeId, code);
 
-      expect(await service.completePasswordChange(challenge.challengeId, GOOD)).toEqual({ ok: true });
+      expect(await service.completePasswordChange(challenge.challengeId, GOOD)).toEqual({
+        ok: true,
+      });
       expect(storedPassword('doc-002', 'original')).toBe(GOOD);
     });
 
@@ -367,7 +379,9 @@ describe('PasswordManagementService', () => {
       const { challenge, code } = await issue(SECRETARY, 'forgot-password');
       expect(service.verifyOtp(challenge.challengeId, code)).toEqual({ ok: true });
 
-      expect(await service.completePasswordReset(challenge.challengeId, GOOD)).toEqual({ ok: true });
+      expect(await service.completePasswordReset(challenge.challengeId, GOOD)).toEqual({
+        ok: true,
+      });
       expect(storedPassword('sec-001', 'original')).toBe(GOOD);
     });
   });
@@ -432,9 +446,7 @@ describe('PasswordManagementService', () => {
       service = TestBed.inject(PasswordManagementService);
     }
 
-    async function resetChallenge(
-      account: PasswordAccount = DOCTOR,
-    ): Promise<OtpChallenge> {
+    async function resetChallenge(account: PasswordAccount = DOCTOR): Promise<OtpChallenge> {
       return (await service.requestPasswordResetOtp(account.email)) as OtpChallenge;
     }
 

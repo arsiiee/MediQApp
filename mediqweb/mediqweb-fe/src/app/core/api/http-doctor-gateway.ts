@@ -10,8 +10,15 @@ const BASE = `${environment.apiBaseUrl}`;
 export class HttpDoctorGateway {
   private http = inject(HttpClient);
 
-  getDoctors(params?: { specializationId?: string; search?: string; limit?: number; offset?: number }): Observable<Paged<Doctor>> {
-    return this.http.get<Paged<Doctor>>(`${BASE}/doctors`, { params: params as unknown as Record<string, string> });
+  getDoctors(params?: {
+    specializationId?: string;
+    search?: string;
+    limit?: number;
+    offset?: number;
+  }): Observable<Paged<Doctor>> {
+    return this.http.get<Paged<Doctor>>(`${BASE}/doctors`, {
+      params: params as unknown as Record<string, string>,
+    });
   }
 
   getDoctor(id: string): Observable<Doctor> {
