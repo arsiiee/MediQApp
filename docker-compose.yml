@@ -39,26 +39,6 @@ services:
       timeout: 10s
       retries: 3
 
-  hono-bff:
-    build:
-      context: ./mediqweb/mediqapp-api
-      dockerfile: Dockerfile
-    ports:
-      - "3000:3000"
-    environment:
-      - PORT=3000
-      - KTOR_BASE_URL=http://ktor-server:8099
-      - SUPABASE_URL=${SUPABASE_URL}
-      - SUPABASE_PUBLISHABLE_KEY=${SUPABASE_PUBLISHABLE_KEY}
-    depends_on:
-      ktor-server:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-
   web-fe:
     build:
       context: ./mediqweb/mediqweb-fe
@@ -66,10 +46,9 @@ services:
     ports:
       - "4200:80"
     depends_on:
-      - hono-bff
+      - ktor-server
     environment:
       - API_BASE_URL=${API_BASE_URL:-http://localhost:8099}
-      - BFF_BASE_URL=${BFF_BASE_URL:-http://localhost:3000}
 
 volumes:
   postgres_data:

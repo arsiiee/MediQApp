@@ -5,8 +5,8 @@ import { AuthSession, UserProfile } from './models';
 import { AuthService } from './auth.service';
 import { environment } from '../../../environments/environment';
 
-const SIGN_IN = `${environment.bffBaseUrl}/auth/sign-in`;
-const ME = `${environment.bffBaseUrl}/me`;
+const SIGN_IN = `${environment.apiBaseUrl}/auth/sign-in`;
+const ME = `${environment.apiBaseUrl}/profile`;
 
 @Injectable({ providedIn: 'root' })
 export class HttpAuthGateway {

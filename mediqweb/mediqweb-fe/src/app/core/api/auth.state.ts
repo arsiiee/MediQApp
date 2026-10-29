@@ -37,6 +37,10 @@ export class AuthState {
     return this.session$.value?.accessToken ?? null;
   }
 
+  get refreshToken(): string | null {
+    return this.session$.value?.refreshToken ?? null;
+  }
+
   get isAuthenticated(): Observable<boolean> {
     return this.session$.pipe(map((s) => s != null), distinctUntilChanged());
   }

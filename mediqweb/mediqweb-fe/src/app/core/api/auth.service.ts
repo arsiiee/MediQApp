@@ -1,13 +1,12 @@
 import { Injectable, inject } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Observable, throwError } from 'rxjs';
 import { catchError, finalize, tap } from 'rxjs';
 import { AuthSession } from './models';
 import { AuthState } from './auth.state';
 import { environment } from '../../../environments/environment';
-
-const SIGN_IN = `${environment.bffBaseUrl}/auth/sign-in`;
-const REFRESH = `${environment.bffBaseUrl}/auth/refresh`;
+const SIGN_IN = `${environment.apiBaseUrl}/auth/sign-in`;
+const REFRESH = `${environment.apiBaseUrl}/auth/refresh`;
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
@@ -35,7 +34,14 @@ export class AuthService {
     if (this.refreshInFlight) {
       return this.refreshInFlight;
     }
-    this.refreshInFlight = this.http.post<AuthSession>(REFRESH, {}).pipe(
+    const refreshToken = this.authState.refreshToken;
+    if (!refreshToken) {
+      this.authState.clear();
+      return throwError(() => new Error('No refresh token'));
+    }
+    this.refreshInFlight = this.http.post<AuthSession>(REFRESH, {}, {
+      headers: new HttpHeaders().set('Authorization', `Bearer ${refreshToken}`),
+    }).pipe(
       tap((session) => this.authState.setSession(session)),
       catchError((err) => {
         this.authState.clear();
