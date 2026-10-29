@@ -89,7 +89,7 @@ class AuthService(
                 body = "Your MediQ verification code is $code. It expires in $OTP_VALIDITY_MINUTES minutes."
             )
         } else {
-            logger.info("OTP for $contact (${request.purpose}): $code")
+            logger.info("OTP issued for contact {} purpose {}", contact, request.purpose)
         }
 
         return LoadState.Success(Unit)

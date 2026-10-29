@@ -59,8 +59,8 @@ fun Application.configureApplication() {
     val appLogger = LoggerFactory.getLogger(Application::class.java)
 
     // Configuration
-    val jwtSecret = environment.config.propertyOrNull("jwt.secret")?.getString()
-        ?: "mediq-dev-secret-change-in-production"
+    val jwtSecret = System.getenv("JWT_SECRET")
+        ?: throw IllegalStateException("JWT_SECRET is not set. Set the JWT_SECRET environment variable before starting the Ktor server.")
     val corsOrigins = System.getenv("CORS_ORIGINS")
         ?.let { origins ->
             origins.split(",")
