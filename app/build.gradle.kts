@@ -59,6 +59,7 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.datetime)
+    implementation(libs.retrofit.scalars)
 
     implementation(platform(libs.androidx.compose.bom))
 
@@ -73,6 +74,7 @@ dependencies {
     implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
+    implementation(libs.androidx.biometric)
 
     testImplementation(libs.junit)
 
@@ -112,4 +114,17 @@ tasks.register<JavaExec>("generateKotlinClient") {
 
 tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
     dependsOn("generateKotlinClient")
+    if (name.contains("Debug")) {
+        dependsOn("deleteGeneratedOpenApiTestSources")
+    }
+}
+
+// Remove generated OpenAPI test files from main source dir so they don't
+// break compileDebugKotlin (they reference kotest, a test-only dependency).
+tasks.register("deleteGeneratedOpenApiTestSources", Delete::class) {
+    dependsOn("generateKotlinClient")
+    delete(fileTree("$buildDir/generated/source/openapi/main/kotlin") {
+        include("**/*Test.kt")
+        include("**/*Test.java")
+    })
 }

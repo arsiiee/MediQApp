@@ -24,7 +24,7 @@ INSERT INTO specializations (id, name, description, doctor_count)
 SELECT * FROM (VALUES
   ('spec-1', 'Cardiology', 'Heart and cardiovascular system', 0),
   ('spec-2', 'Dermatology', 'Skin, hair, and nails', 0),
-  ('spec-3', 'Pediatrics', 'Children's health', 0),
+  ('spec-3', 'Pediatrics', 'Children''s health', 0),
   ('spec-4', 'Orthopedics', 'Bones, joints, and muscles', 0),
   ('spec-5', 'Neurology', 'Nervous system disorders', 0),
   ('spec-6', 'Psychiatry', 'Mental health', 0)
@@ -123,12 +123,12 @@ WHERE NOT EXISTS (SELECT 1 FROM messages);
 -- -------------------------------------------------------
 INSERT INTO appointments (id, patient_id, doctor_id, starts_at, duration_minutes, status, reason, created_at, updated_at, completed_at, outcome)
 SELECT * FROM (VALUES
-  ('appt-100', 'pat-1', 'doc-1', NOW() - INTERVAL '1 day' + INTERVAL '9 hour', 30, 'COMPLETED', 'Follow-up: blood pressure review', NOW(), NOW(), NULL, NULL),
-  ('appt-101', 'pat-2', 'doc-2', NOW() - INTERVAL '2 days' + INTERVAL '10 hour' + INTERVAL '30 minute', 45, 'COMPLETED', 'Follow-up: knee rehabilitation', NOW(), NOW(), NULL, NULL),
-  ('appt-102', 'pat-1', 'doc-3', NOW() - INTERVAL '3 days' + INTERVAL '15 hour', 20, 'COMPLETED', 'Child wellness check', NOW(), NOW(), NULL, NULL),
-  ('appt-103', 'pat-2', 'doc-1', NOW() - INTERVAL '5 days' + INTERVAL '11 hour', 30, 'COMPLETED', 'Hypertension check', NOW(), NOW(), NULL, NULL),
-  ('appt-104', 'pat-1', 'doc-2', NOW() - INTERVAL '7 days' + INTERVAL '14 hour', 30, 'COMPLETED', 'ECG reading and review', NOW(), NOW(), NULL, NULL),
-  ('appt-106', 'pat-2', 'doc-3', NOW() + INTERVAL '2 days' + INTERVAL '9 hour', 30, 'CONFIRMED', 'Dermatology consult', NOW(), NOW(), NULL, NULL)
+  ('appt-100', 'pat-1', 'doc-1', NOW() - INTERVAL '1 day' + INTERVAL '9 hour', 30, 'COMPLETED', 'Follow-up: blood pressure review', NOW(), NOW(), NULL::timestamp, NULL::varchar),
+  ('appt-101', 'pat-2', 'doc-2', NOW() - INTERVAL '2 days' + INTERVAL '10 hour' + INTERVAL '30 minute', 45, 'COMPLETED', 'Follow-up: knee rehabilitation', NOW(), NOW(), NULL::timestamp, NULL::varchar),
+  ('appt-102', 'pat-1', 'doc-3', NOW() - INTERVAL '3 days' + INTERVAL '15 hour', 20, 'COMPLETED', 'Child wellness check', NOW(), NOW(), NULL::timestamp, NULL::varchar),
+  ('appt-103', 'pat-2', 'doc-1', NOW() - INTERVAL '5 days' + INTERVAL '11 hour', 30, 'COMPLETED', 'Hypertension check', NOW(), NOW(), NULL::timestamp, NULL::varchar),
+  ('appt-104', 'pat-1', 'doc-2', NOW() - INTERVAL '7 days' + INTERVAL '14 hour', 30, 'COMPLETED', 'ECG reading and review', NOW(), NOW(), NULL::timestamp, NULL::varchar),
+  ('appt-106', 'pat-2', 'doc-3', NOW() + INTERVAL '2 days' + INTERVAL '9 hour', 30, 'CONFIRMED', 'Dermatology consult', NOW(), NOW(), NULL::timestamp, NULL::varchar)
 ) AS v(id, patient_id, doctor_id, starts_at, duration_minutes, status, reason, created_at, updated_at, completed_at, outcome)
 WHERE NOT EXISTS (SELECT 1 FROM appointments);
 

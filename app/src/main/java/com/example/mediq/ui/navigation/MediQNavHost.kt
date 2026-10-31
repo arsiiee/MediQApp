@@ -7,7 +7,9 @@ import androidx.navigation.compose.composable
 import com.example.mediq.ui.screens.*
 import com.example.mediq.ui.screens.appointmentdetails.AppointmentDetailsScreen
 import com.example.mediq.ui.screens.appointments.AppointmentsScreen
+import com.example.mediq.ui.screens.auth.BiometricUnlockScreen
 import com.example.mediq.ui.screens.auth.ForgotPasswordScreen
+import com.example.mediq.ui.screens.auth.SplashScreen
 import com.example.mediq.ui.screens.auth.RegisterCredentialsScreen
 import com.example.mediq.ui.screens.auth.RegisterDetailsScreen
 import com.example.mediq.ui.screens.auth.RegisterOtpScreen
@@ -35,6 +37,8 @@ fun MediQNavHost(navController: NavHostController, startDestination: String = Sc
         startDestination = startDestination
     ) {
         // Auth Flow
+        composable(Screen.Splash.route) { SplashScreen(navController) }
+        composable(Screen.BiometricUnlock.route) { BiometricUnlockScreen(navController) }
         composable(Screen.SignIn.route) { SignInScreen(navController) }
         composable(Screen.ForgotPassword.route) { ForgotPasswordScreen(navController) }
         composable(Screen.ResetPassword.route) { ResetPasswordScreen(navController) }

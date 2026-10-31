@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.fragment.app.FragmentActivity
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.mediq.ui.components.MediQBottomBar
@@ -20,7 +21,7 @@ import com.example.mediq.ui.navigation.Screen
 import com.example.mediq.ui.session.MediQSession
 import com.example.mediq.ui.theme.MediQTheme
 
-class MainActivity : ComponentActivity() {
+class MainActivity : FragmentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -36,7 +37,7 @@ class MainActivity : ComponentActivity() {
         ).show()
 
         val startDestination = if (MediQSession.user.value != null) {
-            Screen.Home.route
+            Screen.BiometricUnlock.route
         } else {
             Screen.SignIn.route
         }
