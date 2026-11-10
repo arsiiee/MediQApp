@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The MediQ API is reached over HTTPS only. Cleartext traffic is not
+  permitted for any domain, including the production API host.
+-->
+<network-security-config>
+    <domain-config cleartextTrafficPermitted="false">
+        <domain includeSubdomains="false">mediq-ktor-server.onrender.com</domain>
+    </domain-config>
+</network-security-config>

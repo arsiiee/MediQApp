@@ -1,0 +1,6 @@
+<svg width="24" height="17" viewBox="0 0 24 17" fill="none" xmlns="http://www.w3.org/2000/svg">
+<mask id="stroke0_602_254" fill="white">
+<path d="M3 0H21C22.6569 0 24 1.2536 24 2.8V14C24 15.5464 22.6569 16.8 21 16.8H3C1.34315 16.8 0 15.5464 0 14V2.8C0 1.2536 1.34315 0 3 0Z"/>
+</mask>
+<path d="M3 0H21C22.6569 0 24 1.2536 24 2.8V14C24 15.5464 22.6569 16.8 21 16.8H3C1.34315 16.8 0 15.5464 0 14V2.8C0 1.2536 1.34315 0 3 0Z" stroke-width="9.6" stroke-linecap="round" stroke="white" mask="url(#stroke0_602_254)"/>
+</svg>

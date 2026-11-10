@@ -1,9 +1,13 @@
 package com.example.mediq.ui.navigation
 
 sealed class Screen(val route: String) {
+
     // Auth Flow
     object Splash : Screen("splash")
+    object BiometricUnlock : Screen("biometric_unlock")
     object SignIn : Screen("sign_in")
+    object ForgotPassword : Screen("forgot_password")
+    object ResetPassword : Screen("reset_password")
     object RegisterDetails : Screen("register_details")
     object RegisterOTP : Screen("register_otp")
     object RegisterCredentials : Screen("register_credentials")
@@ -15,17 +19,39 @@ sealed class Screen(val route: String) {
     object Appointments : Screen("appointments")
     object Messages : Screen("messages")
     object Profile : Screen("profile")
+    object EditProfile : Screen("edit_profile")
+
+    // Message Chat
+    object MessageChat : Screen("message_chat/{conversationId}") {
+        fun createRoute(conversationId: String) =
+            "message_chat/$conversationId"
+    }
 
     // Detail Screens
     object DoctorDetails : Screen("doctor_details/{doctorId}") {
-        fun createRoute(doctorId: String) = "doctor_details/$doctorId"
+        fun createRoute(doctorId: String) =
+            "doctor_details/$doctorId"
     }
-    object BookingFlow : Screen("booking_flow/{doctorId}") {
-        fun createRoute(doctorId: String) = "booking_flow/$doctorId"
+
+    object BookingFlow : Screen("booking_flow/{doctorId}/{dateIndex}/{time}") {
+        fun createRoute(
+            doctorId: String,
+            dateIndex: Int,
+            time: String
+        ) = "booking_flow/$doctorId/$dateIndex/${android.net.Uri.encode(time)}"
     }
-    object BookingSuccess : Screen("booking_success")
+
+    object BookingSuccess : Screen("booking_success/{dateIndex}/{time}") {
+        fun createRoute(
+            dateIndex: Int,
+            time: String
+        ) = "booking_success/$dateIndex/${android.net.Uri.encode(time)}"
+    }
+
     object AppointmentDetails : Screen("appointment_details/{appointmentId}") {
-        fun createRoute(appointmentId: String) = "appointment_details/$appointmentId"
+        fun createRoute(appointmentId: String) =
+            "appointment_details/$appointmentId"
     }
+
     object Notifications : Screen("notifications")
 }

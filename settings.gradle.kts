@@ -24,3 +24,6 @@ dependencyResolutionManagement {
 
 rootProject.name = "MediQ"
 include(":app")
+// The Ktor server is a standalone Gradle build (server/settings.gradle.kts),
+// because it needs a different Ktor/kotlinx stack than the Android app.
+// Build it from the server/ directory: cd server && gradlew.bat build

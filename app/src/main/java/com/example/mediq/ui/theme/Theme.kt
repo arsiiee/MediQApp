@@ -1,7 +1,6 @@
 package com.example.mediq.ui.theme
 
 import android.app.Activity
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
@@ -42,7 +41,7 @@ private val LightColorScheme = lightColorScheme(
 
 @Composable
 fun MediQTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
+    darkTheme: Boolean = false,
     content: @Composable () -> Unit
 ) {
     val colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme
@@ -50,14 +49,27 @@ fun MediQTheme(
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context as Activity).window
-            window.statusBarColor = colorScheme.primary.toArgb()
-            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = darkTheme
+
+            /*
+             * The app chrome behind the system bars is light: Scaffold's container
+             * (MediQBackground) sits above the status bar and the bottom bar is
+             * white. Light bars therefore need dark icons, or they vanish into the
+             * background.
+             *
+             * If a screen ever draws a dark surface under the status bar, it must
+             * flip this for as long as it is visible.
+             */
+            WindowCompat.getInsetsController(window, view).apply {
+                isAppearanceLightStatusBars = true
+                isAppearanceLightNavigationBars = true
+            }
         }
     }
 
     MaterialTheme(
         colorScheme = colorScheme,
         typography = Typography,
+        shapes = MediQShapes,
         content = content
     )
 }

@@ -1,0 +1,14 @@
+<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+<mask id="stroke0_602_241" fill="white">
+<path d="M17 20V8Z"/>
+</mask>
+<path d="M17 20V8" stroke-width="8" stroke-linecap="round" stroke="white" mask="url(#stroke0_602_241)"/>
+<mask id="stroke1_602_241" fill="white">
+<path d="M12 20V12Z"/>
+</mask>
+<path d="M12 20V12" stroke-width="8" stroke-linecap="round" stroke="white" mask="url(#stroke1_602_241)"/>
+<mask id="stroke2_602_241" fill="white">
+<path d="M7 20V16Z"/>
+</mask>
+<path d="M7 20V16" stroke-width="8" stroke-linecap="round" stroke="white" mask="url(#stroke2_602_241)"/>
+</svg>

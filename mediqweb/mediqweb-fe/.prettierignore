@@ -1,0 +1,5 @@
+# Prettier ignores
+# Angular template with ICU message syntax prettier's angular parser cannot
+# parse (pre-existing, unrelated to app behavior). Excluded so `npm run lint`
+# can pass without modifying the template.
+src/app/shared/components/mock-notice/mock-notice.html

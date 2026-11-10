@@ -1,0 +1,41 @@
+{
+  "name": "mediqweb-fe",
+  "version": "1.0.0",
+  "private": true,
+  "description": "MediQ Angular web frontend",
+  "scripts": {
+    "ng": "ng",
+    "start": "ng serve",
+    "build": "ng build --configuration production",
+    "watch": "ng build --watch",
+    "test": "tsc --noEmit",
+    "lint": "npx prettier --check \"src/**/*.{ts,html}\""
+  },
+  "dependencies": {
+    "@angular/animations": "21.2.25",
+    "@angular/common": "21.2.25",
+    "@angular/compiler": "21.2.25",
+    "@angular/core": "21.2.25",
+    "@angular/forms": "21.2.25",
+    "@angular/localize": "21.2.25",
+    "@angular/platform-browser": "21.2.25",
+    "@angular/platform-browser-dynamic": "21.2.25",
+    "@angular/router": "21.2.25",
+    "@supabase/supabase-js": "^2.119.0",
+    "axios": "^1.8.0",
+    "chart.js": "4.4.0",
+    "rxjs": "7.8.0",
+    "tslib": "^2.3.0",
+    "zone.js": "0.15.0"
+  },
+  "devDependencies": {
+    "@angular-devkit/build-angular": "^21.2.25",
+    "@angular/cli": "21.2.25",
+    "@angular/compiler-cli": "21.2.25",
+    "@types/axios": "^0.14.0",
+    "@types/jasmine": "^5.1.0",
+    "eslint": "8.57.0",
+    "typescript": "5.9",
+    "vitest": "^4.1.11"
+  }
+}
