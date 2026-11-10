@@ -7,6 +7,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -22,61 +23,98 @@ import com.example.mediq.ui.theme.MediQGreen
 import com.example.mediq.ui.theme.MediQLightGreen
 import com.example.mediq.ui.theme.MediQSurface
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BookingFlowScreen(navController: NavController, doctorId: String?) {
     var reason by remember { mutableStateOf("") }
-    var confirmed by remember { mutableStateOf(false) }
+    var confirmed by remember { mutableStateOf(true) }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Book Appointment", fontWeight = FontWeight.Bold) },
-                navigationIcon = {
-                    IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
-            )
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.White)
+    ) {
+        // Top Green Header (Equal Height: 64.dp)
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(64.dp)
+                .background(MediQGreen)
+                .padding(horizontal = 16.dp),
+            contentAlignment = Alignment.CenterStart
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = { navController.popBackStack() }) {
+                    Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = Color.White)
+                }
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(text = "Book Appointment", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = Color.White)
+            }
         }
-    ) { innerPadding ->
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .background(Color.White)
-                .padding(innerPadding)
                 .padding(24.dp)
         ) {
-            Text(text = "BOOKING DETAILS", style = MaterialTheme.typography.labelSmall, color = Color.Gray)
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(text = "Dr. Maria Elena Sandoval", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-            Text(text = "Internal Medicine", color = Color.Gray)
-            
+            // Booking Details Card
+            Surface(
+                color = Color.White,
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color.LightGray.copy(alpha = 0.6f)),
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(text = "BOOKING DETAILS", style = MaterialTheme.typography.labelSmall, color = Color.Gray, fontWeight = FontWeight.Bold)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(text = "Dr. Maria Elena Sandoval", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                    Text(text = "Internal Medicine", color = Color.Gray, fontSize = 13.sp)
+                    
+                    Spacer(modifier = Modifier.height(12.dp))
+                    HorizontalDivider(color = Color.LightGray.copy(alpha = 0.5f))
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Text(text = "Monday, Sep 14, 2026", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(text = "9:30 AM", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = MediQGreen)
+                    
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.LocationOn, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(14.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(text = "Main Building — 2F · Clinic 204", color = Color.Gray, fontSize = 13.sp)
+                    }
+                }
+            }
+
             Spacer(modifier = Modifier.height(24.dp))
-            Text(text = "Monday, Sep 14, 2026", fontWeight = FontWeight.Bold, fontSize = 18.sp)
-            Text(text = "9:30 AM", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = MediQGreen)
-            Text(text = "Main Building — 2F — Clinic 204", color = Color.Gray)
-            
-            Spacer(modifier = Modifier.height(32.dp))
-            Text(text = "Reason for visit", fontWeight = FontWeight.SemiBold)
+            Text(text = "Reason for visit", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+            Spacer(modifier = Modifier.height(8.dp))
             OutlinedTextField(
                 value = reason,
                 onValueChange = { reason = it },
-                modifier = Modifier.fillMaxWidth().height(120.dp),
-                placeholder = { Text("Enter the reason for your consultation...") },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(120.dp),
+                placeholder = { Text("Enter the reason for your consultation...", color = Color.Gray) },
+                shape = RoundedCornerShape(12.dp),
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = MediQGreen,
                     unfocusedBorderColor = Color.LightGray
                 )
             )
-            
-            Spacer(modifier = Modifier.height(24.dp))
+
+            Spacer(modifier = Modifier.height(16.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Checkbox(checked = confirmed, onCheckedChange = { confirmed = it })
-                Text(text = "I confirm this booking and will arrive 15 minutes early.", style = MaterialTheme.typography.bodySmall)
+                Checkbox(
+                    checked = confirmed,
+                    onCheckedChange = { confirmed = it },
+                    colors = CheckboxDefaults.colors(checkedColor = MediQGreen)
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(text = "I confirm this booking and will arrive 15 minutes early.", style = MaterialTheme.typography.bodySmall, color = Color.DarkGray)
             }
-            
+
             Spacer(modifier = Modifier.weight(1f))
             Button(
                 onClick = { navController.navigate(Screen.BookingSuccess.route) },
@@ -84,9 +122,10 @@ fun BookingFlowScreen(navController: NavController, doctorId: String?) {
                     .fillMaxWidth()
                     .height(56.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = if (confirmed) MediQGreen else Color.LightGray),
+                shape = RoundedCornerShape(16.dp),
                 enabled = confirmed
             ) {
-                Text(text = "Confirm Booking", fontSize = 18.sp)
+                Text(text = "Confirm Booking", fontSize = 18.sp, fontWeight = FontWeight.Bold)
             }
         }
     }
@@ -135,13 +174,14 @@ fun BookingSuccessScreen(navController: NavController) {
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(56.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = MediQGreen)
+                colors = ButtonDefaults.buttonColors(containerColor = MediQGreen),
+                shape = RoundedCornerShape(16.dp)
             ) {
-                Text("View my appointments", fontSize = 18.sp)
+                Text("View my appointments", fontSize = 18.sp, fontWeight = FontWeight.Bold)
             }
             Spacer(modifier = Modifier.height(16.dp))
             TextButton(onClick = { /* Add to calendar */ }) {
-                Text("Add to Google Calendar", color = MediQGreen)
+                Text("Add to Google Calendar", color = MediQGreen, fontWeight = FontWeight.Bold)
             }
         }
     }

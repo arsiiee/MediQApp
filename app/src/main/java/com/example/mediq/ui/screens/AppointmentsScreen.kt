@@ -7,8 +7,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CalendarToday
+import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material3.*
-import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -31,37 +33,59 @@ fun AppointmentsScreen(navController: NavController) {
         modifier = Modifier
             .fillMaxSize()
             .background(Color.White)
-            .padding(16.dp)
     ) {
-        Text(text = "My appointments", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-        Spacer(modifier = Modifier.height(16.dp))
-        
-        TabRow(
-            selectedTabIndex = selectedTab,
-            containerColor = Color.Transparent,
-            contentColor = MediQGreen,
-            indicator = { tabPositions ->
-                TabRowDefaults.Indicator(
-                    Modifier.tabIndicatorOffset(tabPositions[selectedTab]),
-                    color = MediQGreen
-                )
-            }
+        // Top Green Header (Equal Height: 64.dp)
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(64.dp)
+                .background(MediQGreen)
+                .padding(horizontal = 16.dp),
+            contentAlignment = Alignment.CenterStart
         ) {
-            tabs.forEachIndexed { index, title ->
-                Tab(
-                    selected = selectedTab == index,
-                    onClick = { selectedTab = index },
-                    text = { Text(text = title) }
-                )
-            }
+            Text(text = "My Appointments", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = Color.White)
         }
-        
-        Spacer(modifier = Modifier.height(16.dp))
-        
-        if (selectedTab == 0) {
-            UpcomingAppointments(navController)
-        } else {
-            HistoryAppointments(navController)
+
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.White)
+                .padding(16.dp)
+        ) {
+            // Pill Tabs
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                tabs.forEachIndexed { index, title ->
+                    val selected = selectedTab == index
+                    Surface(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(48.dp)
+                            .clickable { selectedTab = index },
+                        color = if (selected) MediQGreen else MediQSurface,
+                        shape = RoundedCornerShape(24.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Text(
+                                text = title,
+                                color = if (selected) Color.White else Color.Gray,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 15.sp
+                            )
+                        }
+                    }
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(20.dp))
+            
+            if (selectedTab == 0) {
+                UpcomingAppointments(navController)
+            } else {
+                HistoryAppointments(navController)
+            }
         }
     }
 }
@@ -69,8 +93,8 @@ fun AppointmentsScreen(navController: NavController) {
 @Composable
 fun UpcomingAppointments(navController: NavController) {
     val appointments = listOf(
-        AppointmentData("Dr. Maria Elena Sandoval", "Internal Medicine", "Mon, Sep 14 · 9:30 AM", "Confirmed"),
-        AppointmentData("Dr. Kathleen Lim", "Dermatology", "Thu, Sep 17 · 10:00 AM", "Awaiting confirmation")
+        AppointmentData("Dr. Maria Elena Sandoval", "Internal Medicine", "Mon, Sep 14 · 9:30 AM", "Main Building — 2F — Clinic 204", "Follow-up for elevated blood pressure", "Confirmed"),
+        AppointmentData("Dr. Kathleen Lim", "Dermatology", "Thu, Sep 17 · 10:00 AM", "Annex Wing — 1F — Clinic 114", "Recurring skin rash on both arms", "Awaiting confirmation")
     )
 
     LazyColumn(verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -83,8 +107,8 @@ fun UpcomingAppointments(navController: NavController) {
 @Composable
 fun HistoryAppointments(navController: NavController) {
     val appointments = listOf(
-        AppointmentData("Dr. Ramon Dela Cruz", "Orthopedics", "Mon, Aug 24 · 2:00 PM", "Completed"),
-        AppointmentData("Dr. Grace Villanueva", "Ob-Gynecology", "Wed, Aug 12 · 11:30 AM", "Completed")
+        AppointmentData("Dr. Ramon Dela Cruz", "Orthopedics", "Mon, Aug 24 · 2:00 PM", "Main Building — 3F — Clinic 312", "Knee joint pain after workout", "Completed"),
+        AppointmentData("Dr. Grace Villanueva", "Ob-Gynecology", "Wed, Aug 12 · 11:30 AM", "Annex Wing — 4F — Clinic 402", "Annual routine check-up", "Completed")
     )
 
     LazyColumn(verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -94,38 +118,55 @@ fun HistoryAppointments(navController: NavController) {
     }
 }
 
-data class AppointmentData(val doctor: String, val specialty: String, val time: String, val status: String)
+data class AppointmentData(
+    val doctor: String,
+    val specialty: String,
+    val time: String,
+    val location: String,
+    val reason: String,
+    val status: String
+)
 
 @Composable
 fun AppointmentItem(appointment: AppointmentData, onClick: () -> Unit) {
     Surface(
         color = Color.White,
-        border = androidx.compose.foundation.BorderStroke(1.dp, Color.LightGray),
+        border = androidx.compose.foundation.BorderStroke(1.dp, Color.LightGray.copy(alpha = 0.6f)),
         shape = RoundedCornerShape(16.dp),
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onClick() }
     ) {
-        Row(modifier = Modifier.padding(16.dp)) {
-            Box(
-                modifier = Modifier
-                    .size(48.dp)
-                    .background(MediQLightGreen, CircleShape),
-                contentAlignment = Alignment.Center
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Top
             ) {
-                Text(text = appointment.doctor.split(" ").last().take(1), color = MediQGreen, fontWeight = FontWeight.Bold)
-            }
-            Spacer(modifier = Modifier.width(16.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(text = appointment.doctor, fontWeight = FontWeight.Bold)
-                Text(text = appointment.specialty, color = Color.Gray, fontSize = 14.sp)
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(text = appointment.time, fontWeight = FontWeight.Medium)
-            }
-            Column(horizontalAlignment = Alignment.End) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier
+                            .size(48.dp)
+                            .background(MediQLightGreen, CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = appointment.doctor.split(" ").let { it.firstOrNull()?.take(1) + (it.getOrNull(1)?.take(1) ?: "") },
+                            color = MediQGreen,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 15.sp
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column {
+                        Text(text = appointment.doctor, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                        Text(text = appointment.specialty, color = Color.Gray, fontSize = 13.sp)
+                    }
+                }
+
                 Surface(
                     color = when (appointment.status) {
-                        "Confirmed" -> Color(0xFFE3F2FD)
+                        "Confirmed" -> Color(0xFFE8F5E9)
                         "Completed" -> Color(0xFFE8F5E9)
                         else -> Color(0xFFFFF3E0)
                     },
@@ -133,24 +174,47 @@ fun AppointmentItem(appointment: AppointmentData, onClick: () -> Unit) {
                 ) {
                     Text(
                         text = appointment.status,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
                         color = when (appointment.status) {
-                            "Confirmed" -> Color(0xFF1976D2)
-                            "Completed" -> Color(0xFF388E3C)
-                            else -> Color(0xFFF57C00)
+                            "Confirmed" -> Color(0xFF2E7D32)
+                            "Completed" -> Color(0xFF2E7D32)
+                            else -> Color(0xFFE65100)
                         },
-                        fontSize = 12.sp
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold
                     )
                 }
-                Spacer(modifier = Modifier.height(16.dp))
-                Button(
-                    onClick = onClick,
-                    colors = ButtonDefaults.buttonColors(containerColor = MediQSurface),
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
-                    modifier = Modifier.height(32.dp)
-                ) {
-                    Text(text = if (appointment.status == "Completed") "View details" else "Manage", color = MediQGreen, fontSize = 12.sp)
-                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.CalendarToday, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(16.dp))
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(text = appointment.time, fontWeight = FontWeight.Medium, fontSize = 13.sp, color = Color.DarkGray)
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.LocationOn, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(16.dp))
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(text = appointment.location, fontSize = 13.sp, color = Color.Gray)
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Surface(
+                color = MediQSurface,
+                shape = RoundedCornerShape(8.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    text = "Reason: ${appointment.reason}",
+                    modifier = Modifier.padding(12.dp),
+                    fontSize = 13.sp,
+                    color = Color.DarkGray
+                )
             }
         }
     }

@@ -28,44 +28,67 @@ import com.example.mediq.ui.theme.MediQSurface
 
 @Composable
 fun HomeScreen(navController: NavController) {
-    LazyColumn(
+    Column(
         modifier = Modifier
             .fillMaxSize()
             .background(Color.White)
-            .padding(16.dp)
     ) {
-        item {
-            HomeHeader(navController)
-            Spacer(modifier = Modifier.height(24.dp))
-            NextConsultationCard(navController)
-            Spacer(modifier = Modifier.height(24.dp))
-            BookConsultationButton(navController)
-            Spacer(modifier = Modifier.height(32.dp))
-            BrowseBySpecialty()
-            Spacer(modifier = Modifier.height(32.dp))
-            MostOpenSlots(navController)
-        }
-    }
-}
-
-@Composable
-fun HomeHeader(navController: NavController) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Column {
-            Text(text = "Good day,", style = MaterialTheme.typography.bodyMedium, color = Color.Gray)
-            Text(text = "Jesse", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-        }
-        IconButton(
-            onClick = { navController.navigate(Screen.Notifications.route) },
+        // Top Green Header (Equal Height: 64.dp)
+        Box(
             modifier = Modifier
-                .clip(CircleShape)
-                .background(MediQSurface)
+                .fillMaxWidth()
+                .height(64.dp)
+                .background(MediQGreen)
+                .padding(horizontal = 16.dp),
+            contentAlignment = Alignment.Center
         ) {
-            Icon(Icons.Default.Notifications, contentDescription = "Notifications", tint = MediQGreen)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .background(MediQLightGreen, CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(text = "AZ", color = MediQGreen, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                    }
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Column {
+                        Text(text = "Good day, Arweyne", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = Color.White)
+                    }
+                }
+                IconButton(
+                    onClick = { navController.navigate(Screen.Notifications.route) },
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .background(Color.White.copy(alpha = 0.2f))
+                ) {
+                    Icon(Icons.Default.Notifications, contentDescription = "Notifications", tint = Color.White, modifier = Modifier.size(20.dp))
+                }
+            }
+        }
+
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.White)
+                .padding(16.dp)
+        ) {
+            item {
+                Spacer(modifier = Modifier.height(8.dp))
+                NextConsultationCard(navController)
+                Spacer(modifier = Modifier.height(24.dp))
+                BookConsultationButton(navController)
+                Spacer(modifier = Modifier.height(32.dp))
+                BrowseBySpecialty()
+                Spacer(modifier = Modifier.height(32.dp))
+                MostOpenSlots(navController)
+            }
         }
     }
 }
@@ -125,7 +148,7 @@ fun BookConsultationButton(navController: NavController) {
         colors = ButtonDefaults.buttonColors(containerColor = MediQGreen),
         shape = RoundedCornerShape(12.dp)
     ) {
-        Icon(Icons.Default.Notifications, contentDescription = null) // Replace with stethoscope icon
+        Icon(Icons.Default.Notifications, contentDescription = null)
         Spacer(modifier = Modifier.width(8.dp))
         Text(text = "Book a consultation", fontSize = 18.sp)
     }

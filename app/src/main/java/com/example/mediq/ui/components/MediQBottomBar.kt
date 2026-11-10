@@ -14,6 +14,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.unit.sp
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
@@ -49,7 +50,14 @@ fun MediQBottomBar(navController: NavHostController) {
             val selected = currentDestination?.hierarchy?.any { it.route == item.screen.route } == true
             NavigationBarItem(
                 icon = { Icon(item.icon, contentDescription = item.label) },
-                label = { Text(item.label) },
+                label = { 
+                    Text(
+                        text = item.label,
+                        maxLines = 1,
+                        softWrap = false,
+                        fontSize = 11.sp
+                    ) 
+                },
                 selected = selected,
                 onClick = {
                     navController.navigate(item.screen.route) {

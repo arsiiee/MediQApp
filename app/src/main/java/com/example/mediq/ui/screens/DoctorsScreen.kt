@@ -32,40 +32,57 @@ fun DoctorsScreen(navController: NavController) {
         modifier = Modifier
             .fillMaxSize()
             .background(Color.White)
-            .padding(16.dp)
     ) {
-        Text(text = "Search doctor name or specialty", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-        Spacer(modifier = Modifier.height(16.dp))
-        OutlinedTextField(
-            value = searchQuery,
-            onValueChange = { searchQuery = it },
-            modifier = Modifier.fillMaxWidth(),
-            placeholder = { Text("Search...") },
-            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-            shape = RoundedCornerShape(12.dp),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = MediQGreen,
-                unfocusedBorderColor = Color.LightGray
-            )
-        )
-        Spacer(modifier = Modifier.height(16.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            FilterChip(selected = true, onClick = {}, label = { Text("Filter by specialty") })
-            FilterChip(selected = false, onClick = {}, label = { Text("Filter by clinic location") })
+        // Top Green Header (Equal Height: 64.dp)
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(64.dp)
+                .background(MediQGreen)
+                .padding(horizontal = 16.dp),
+            contentAlignment = Alignment.CenterStart
+        ) {
+            Text(text = "Find A Doctor", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = Color.White)
         }
-        Spacer(modifier = Modifier.height(16.dp))
-        
-        val doctors = listOf(
-            DoctorInfo("Dr. Maria Elena Sandoval", "Internal Medicine", 14, 700, "Main Building — 2F — Clinic 204"),
-            DoctorInfo("Dr. Joel Marquez", "Pediatrics", 18, 500, "Annex Wing — 1F — Clinic 106"),
-            DoctorInfo("Dr. Antonio Reyes Jr.", "Cardiology", 20, 1000, "Annex Wing — 3F — Heart Station 301"),
-            DoctorInfo("Dr. Grace Villanueva", "Ob-Gynecology", 15, 800, "Annex Wing — 4F — Clinic 402"),
-            DoctorInfo("Dr. Ramon Dela Cruz", "Orthopedics", 13, 900, "Main Building — 3F — Clinic 312")
-        )
 
-        LazyColumn(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            items(doctors) { doctor ->
-                DoctorListItem(doctor, onClick = { navController.navigate(Screen.DoctorDetails.createRoute("1")) })
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.White)
+                .padding(16.dp)
+        ) {
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = { searchQuery = it },
+                modifier = Modifier.fillMaxWidth(),
+                placeholder = { Text("Search doctor name or specialty") },
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                shape = RoundedCornerShape(12.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = MediQGreen,
+                    unfocusedBorderColor = Color.LightGray
+                ),
+                singleLine = true
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilterChip(selected = true, onClick = {}, label = { Text("Filter by specialty") })
+                FilterChip(selected = false, onClick = {}, label = { Text("Filter by clinic location") })
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            val doctors = listOf(
+                DoctorInfo("Dr. Maria Elena Sandoval", "Internal Medicine", 14, 700, "Main Building — 2F — Clinic 204"),
+                DoctorInfo("Dr. Joel Marquez", "Pediatrics", 18, 500, "Annex Wing — 1F — Clinic 106"),
+                DoctorInfo("Dr. Antonio Reyes Jr.", "Cardiology", 20, 1000, "Annex Wing — 3F — Heart Station 301"),
+                DoctorInfo("Dr. Grace Villanueva", "Ob-Gynecology", 15, 800, "Annex Wing — 4F — Clinic 402"),
+                DoctorInfo("Dr. Ramon Dela Cruz", "Orthopedics", 13, 900, "Main Building — 3F — Clinic 312")
+            )
+
+            LazyColumn(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                items(doctors) { doctor ->
+                    DoctorListItem(doctor, onClick = { navController.navigate(Screen.DoctorDetails.createRoute("1")) })
+                }
             }
         }
     }

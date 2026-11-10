@@ -24,7 +24,7 @@ fun MediQNavHost(navController: NavHostController) {
         composable(Screen.Home.route) { HomeScreen(navController) }
         composable(Screen.Doctors.route) { DoctorsScreen(navController) }
         composable(Screen.Appointments.route) { AppointmentsScreen(navController) }
-        composable(Screen.Messages.route) { PlaceholderScreen("Messages") }
+        composable(Screen.Messages.route) { MessagesScreen(navController) }
         composable(Screen.Profile.route) { ProfileScreen(navController) }
 
         // Details
@@ -41,6 +41,12 @@ fun MediQNavHost(navController: NavHostController) {
             val appointmentId = backStackEntry.arguments?.getString("appointmentId")
             AppointmentDetailsScreen(navController, appointmentId)
         }
+        composable(Screen.ChatDetail.route) { backStackEntry ->
+            val chatName = backStackEntry.arguments?.getString("chatName") ?: "Chat"
+            ChatDetailScreen(navController, chatName)
+        }
         composable(Screen.Notifications.route) { NotificationsScreen(navController) }
+        composable(Screen.EditProfile.route) { EditProfileScreen(navController) }
+        composable(Screen.ChangePassword.route) { ChangePasswordScreen(navController) }
     }
 }
