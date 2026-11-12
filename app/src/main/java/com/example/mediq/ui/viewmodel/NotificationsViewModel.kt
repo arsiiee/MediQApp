@@ -48,6 +48,10 @@ class NotificationsViewModel(private val context: Context) : ViewModel() {
             try {
                 val apiNotifications = api.getNotifications()
                 _notifications.value = apiNotifications.map { toNotificationItem(it) }
+                // Post each notification as a real Android system notification so
+                // appointment events surface in the system shade as well as the
+                // in-app list.
+                NotificationHelper.notifyAll(context, _notifications.value)
             } catch (e: Exception) {
                 _error.value = e.message ?: "Failed to load notifications"
             } finally {

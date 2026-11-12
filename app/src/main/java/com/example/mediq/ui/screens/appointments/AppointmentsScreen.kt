@@ -18,6 +18,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.collectAsState
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
@@ -29,7 +30,6 @@ import com.example.mediq.ui.screens.appointments.AppointmentCancellationStore
 import com.example.mediq.ui.theme.MediQScaffoldBackground
 import com.example.mediq.ui.theme.MediQGreen
 import com.example.mediq.ui.viewmodel.AppointmentsViewModel
-import com.example.mediq.ui.viewmodel.NotificationsViewModel
 import kotlinx.coroutines.flow.map
 
 /** Where the patient came from, handed back by the detail screen. */
@@ -52,19 +52,15 @@ private const val CANCELLED_ID_KEY = "cancelled_appointment_id"
 @Composable
 fun AppointmentsScreen(
     navController: NavController,
-    viewModel: AppointmentsViewModel = viewModel(),
-    notificationsViewModel: NotificationsViewModel = viewModel()
+    viewModel: AppointmentsViewModel = viewModel()
 ) {
+    val context = LocalContext.current
     var selectedTabIndex by rememberSaveable { mutableIntStateOf(0) }
     var cancelledIds by rememberSaveable { mutableStateOf(emptySet<String>()) }
 
     val bookings by viewModel.appointments.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val error by viewModel.error.collectAsState()
-
-    val notificationCount by notificationsViewModel.notifications.map { list ->
-        list.count { item -> item.unread }
-    }.collectAsState(initial = 0).value
 
     LaunchedEffect(viewModel) {
         viewModel.loadAppointments()
@@ -117,8 +113,6 @@ fun AppointmentsScreen(
                 navController.navigate(Screen.AppointmentDetails.createRoute(id))
             },
             onRefresh = { viewModel.loadAppointments() },
-            notificationCount = notificationCount,
-            onNotificationClick = { navController.navigate(Screen.Notifications.route) },
             onTabSelected = { selectedTabIndex = it.ordinal }
         )
     )
@@ -139,27 +133,6 @@ fun AppointmentsContent(
             title = "My appointments",
             subtitle = "Upcoming and past visits"
         )
-
-        if (actions.notificationCount > 0) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                horizontalArrangement = androidx.compose.foundation.layout.Arrangement.End
-            ) {
-                Row(
-                    modifier = Modifier
-                        .background(MediQGreen)
-                        .padding(horizontal = 8.dp, vertical = 4.dp)
-                ) {
-                    Text(
-                        text = "${actions.notificationCount} unread",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onPrimary
-                    )
-                }
-            }
-        }
 
         AppointmentTabs(selected = selectedTab, onSelect = actions.onTabSelected)
 
