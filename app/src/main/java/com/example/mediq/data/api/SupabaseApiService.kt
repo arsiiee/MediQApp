@@ -776,16 +776,41 @@ class SupabaseApiService {
         val session = SupabaseClient.accessToken
             ?: throw RuntimeException("Not authenticated")
         Log.d("MediQBookingDiag", "cancelAppointment id=$id patientId=$patientId reasonLen=${reason.length}")
-        try {
+
+        // Primary path: RPC (supports server-side validation/notifications)
+        val rpcError = try {
             val resp = httpRequest("POST", "${SupabaseClient.restUrl}/rpc/cancel_appointment", auth = true,
                 body = jsonBody(
                     "p_appointment_id" to id,
                     "p_patient_id" to patientId,
                     "p_cancel_reason" to reason))
             Log.d("MediQBookingDiag", "cancelAppointment RPC response=$resp")
+            null
         } catch (e: Exception) {
-            Log.e("MediQBookingDiag", "cancelAppointment RPC failed: ${e.message}", e)
-            throw e
+            Log.w("MediQBookingDiag", "cancelAppointment RPC failed, will try REST fallback: ${e.message}", e)
+            e
+        }
+
+        if (rpcError == null) {
+            Companion.appointmentsCache.clear()
+            return@withContext
+        }
+
+        // Fallback: direct REST update (dev/Ktor sessions may bypass auth.uid/RPC edge cases)
+        try {
+            val patchBody = jsonBody(
+                "status" to "CANCELLED",
+                "cancel_reason" to reason.trim().ifBlank { null },
+                "updated_at" to java.time.Instant.now().toString()
+            )
+            val url = "${SupabaseClient.restUrl}/appointments?id=eq.$id&status=in.(BOOKED,CONFIRMED)"
+            val resp = httpRequest("PATCH", url, auth = true, body = patchBody)
+            Log.d("MediQBookingDiag", "cancelAppointment REST fallback response=$resp")
+            Companion.appointmentsCache.clear()
+        } catch (fallback: Exception) {
+            Log.e("MediQBookingDiag", "cancelAppointment REST fallback failed: ${fallback.message}", fallback)
+            // Surface original RPC error for diagnostics, with fallback context
+            throw RuntimeException("${rpcError.message}; fallback failed: ${fallback.message}", fallback)
         }
     }
 
