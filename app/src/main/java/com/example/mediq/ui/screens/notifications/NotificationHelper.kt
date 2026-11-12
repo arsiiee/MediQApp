@@ -13,20 +13,15 @@ import androidx.core.content.ContextCompat
 
 /**
  * Posts real Android system notifications for the appointment-related events
- * shown on the Notifications screen:
- *
- * - appointment confirmed
- * - reminder (tomorrow)
- * - reschedule approved
- * - appointment cancelled
- *
- * These mirror the four [NotificationType] categories so a patient receives the
- * same update in the system shade as they see in the in-app list.
+ * shown on the Notifications screen.
  */
 object NotificationHelper {
 
     private const val CHANNEL_ID = "mediq_appointments"
     private const val CHANNEL_NAME = "MediQ Appointments"
+
+    /** Maximum number of unread notifications to show as Android system notifications at once. */
+    const val MAX_SYSTEM_NOTIFICATIONS = 5
 
     /** Creates the notification channel (Android 8+) required to post notifications. */
     fun init(context: Context) {
@@ -68,9 +63,10 @@ object NotificationHelper {
 
         val launchIntent =
             context.packageManager.getLaunchIntentForPackage(context.packageName)
-                ?: Intent(context, Class.forName("${context.packageName}.MainActivity")).apply {
+                ?: Intent().apply {
+                    setClassName(context.packageName, "${context.packageName}.MainActivity")
                     flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-                }.also { it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
+                }
 
         val pendingIntent = PendingIntent.getActivity(
             context,
@@ -83,6 +79,7 @@ object NotificationHelper {
             .setSmallIcon(android.R.drawable.ic_dialog_info)
             .setContentTitle(title)
             .setContentText(message)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(message))
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setAutoCancel(true)
             .setContentIntent(pendingIntent)
@@ -90,15 +87,26 @@ object NotificationHelper {
 
         try {
             NotificationManagerCompat.from(context).notify(id, notification)
-        } catch (e: SecurityException) {
+        } catch (_: SecurityException) {
             // POST_NOTIFICATIONS not granted; notification cannot be posted.
         }
     }
 
-    /** Posts all four appointment notification categories as real system notifications. */
-    fun notifyAll(context: Context, items: List<NotificationItem>) {
-        for ((index, item) in items.withIndex()) {
-            notify(context, id = index + 1, title = item.title, message = item.message)
+    /** Stable Android notification id derived from the API notification id. */
+    fun stableNotificationId(id: String): Int = id.hashCode()
+
+    /** Posts system notifications for unread items only (avoids re-popping read history). */
+    fun notifyUnread(context: Context, items: List<NotificationItem>) {
+        items.filter { it.unread }.forEach { item ->
+            notify(context, id = stableNotificationId(item.id), title = item.title, message = item.message)
+        }
+    }
+
+    /** Clears a posted system notification (e.g. after marking read). */
+    fun cancel(context: Context, apiId: String) {
+        try {
+            NotificationManagerCompat.from(context).cancel(stableNotificationId(apiId))
+        } catch (_: Exception) {
         }
     }
 }

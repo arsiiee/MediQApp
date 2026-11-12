@@ -18,7 +18,6 @@ private fun AppointmentsUpcomingPreview() {
         AppointmentsContent(
             state = AppointmentsSamples.content,
             selectedTab = AppointmentsTab.Upcoming,
-            onTabSelected = {},
             actions = AppointmentsActions()
         )
     }
@@ -31,7 +30,6 @@ private fun AppointmentsHistoryPreview() {
         AppointmentsContent(
             state = AppointmentsSamples.content,
             selectedTab = AppointmentsTab.History,
-            onTabSelected = {},
             actions = AppointmentsActions()
         )
     }
@@ -44,7 +42,6 @@ private fun AppointmentsEmptyPreview() {
         AppointmentsContent(
             state = AppointmentsSamples.empty,
             selectedTab = AppointmentsTab.Upcoming,
-            onTabSelected = {},
             actions = AppointmentsActions()
         )
     }
@@ -57,7 +54,6 @@ private fun AppointmentsPastOnlyPreview() {
         AppointmentsContent(
             state = AppointmentsSamples.pastOnly,
             selectedTab = AppointmentsTab.Upcoming,
-            onTabSelected = {},
             actions = AppointmentsActions()
         )
     }
@@ -70,7 +66,6 @@ private fun AppointmentsLoadingPreview() {
         AppointmentsContent(
             state = AppointmentsSamples.loading,
             selectedTab = AppointmentsTab.Upcoming,
-            onTabSelected = {},
             actions = AppointmentsActions()
         )
     }
@@ -83,7 +78,6 @@ private fun AppointmentsErrorPreview() {
         AppointmentsContent(
             state = AppointmentsSamples.error,
             selectedTab = AppointmentsTab.Upcoming,
-            onTabSelected = {},
             actions = AppointmentsActions()
         )
     }

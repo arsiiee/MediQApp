@@ -17,16 +17,14 @@ object SecretaryChatSamples {
     val maria: ChatUiState = ChatUiState.Content(
         conversationId = "maria_secretary",
         secretaryName = "Ms. Liza Fuentes",
-        role = "Secretary",
-        location = "Main Building, 2F",
+        doctorName = "Dr. Maria Elena Sandoval",
         messages = mockMessagesFor("maria_secretary")
     )
 
     val kathleen: ChatUiState = ChatUiState.Content(
         conversationId = "kathleen_secretary",
         secretaryName = "Ms. Karen Lopez",
-        role = "Secretary",
-        location = "Annex Wing, 1F",
+        doctorName = "Dr. Kathleen Lim",
         messages = mockMessagesFor("kathleen_secretary")
     )
 }

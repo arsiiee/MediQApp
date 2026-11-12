@@ -1,6 +1,7 @@
 package com.example.mediq.ui.screens.notifications
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,7 +15,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -25,7 +25,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.mediq.ui.components.MediQNotice
 import com.example.mediq.ui.theme.MediQBackground
 import com.example.mediq.ui.theme.MediQGreen
 import com.example.mediq.ui.theme.MediQSize
@@ -41,12 +40,15 @@ import com.example.mediq.ui.theme.MediQTextSecondary
 @Composable
 internal fun NotificationCard(
     item: NotificationItem,
+    onClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val iconData = NotificationIcons[item.type] ?: NotificationIcons[NotificationType.CONFIRMED]!!
 
     Surface(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier),
         shape = MaterialTheme.shapes.large,
         color = MediQBackground
     ) {
@@ -108,7 +110,7 @@ internal fun NotificationCard(
                 Text(
                     text = item.time,
                     style = MaterialTheme.typography.labelSmall,
-                    color = com.example.mediq.ui.theme.MediQTextSecondary
+                    color = MediQTextSecondary
                 )
             }
         }
@@ -119,16 +121,17 @@ internal fun NotificationCard(
 @Composable
 internal fun NotificationsList(
     items: List<NotificationItem>,
+    onOpen: (NotificationItem) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
-    androidx.compose.foundation.layout.Column(
+    Column(
         modifier = modifier
             .fillMaxSize()
             .padding(horizontal = MediQSpacing.gutter, vertical = MediQSpacing.md),
         verticalArrangement = Arrangement.spacedBy(MediQSpacing.md)
     ) {
         items.forEach { item ->
-            NotificationCard(item = item)
+            NotificationCard(item = item, onClick = { onOpen(item) })
         }
     }
 }
@@ -137,19 +140,32 @@ internal fun NotificationsList(
 @Composable
 internal fun NotificationsLoadingState() {
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Text(text = "Loading notifications...", style = MaterialTheme.typography.bodyMedium, color = com.example.mediq.ui.theme.MediQTextSecondary)
+        Text(
+            text = "Loading notifications...",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MediQTextSecondary
+        )
     }
 }
 
 @Composable
 internal fun NotificationsEmptyState() {
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        androidx.compose.foundation.layout.Column(
+        Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(MediQSpacing.lg)
+            verticalArrangement = Arrangement.spacedBy(MediQSpacing.lg)
         ) {
-            Text(text = "No notifications yet", style = MaterialTheme.typography.titleLarge, color = com.example.mediq.ui.theme.MediQTextPrimary)
-            Text(text = "Updates about your appointments will appear here.", style = MaterialTheme.typography.bodyMedium, color = com.example.mediq.ui.theme.MediQTextSecondary, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+            Text(
+                text = "No notifications yet",
+                style = MaterialTheme.typography.titleLarge,
+                color = MediQTextPrimary
+            )
+            Text(
+                text = "Updates about your appointments will appear here.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MediQTextSecondary,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+            )
         }
     }
 }
@@ -157,12 +173,21 @@ internal fun NotificationsEmptyState() {
 @Composable
 internal fun NotificationsErrorState(message: String, onRetry: () -> Unit) {
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        androidx.compose.foundation.layout.Column(
+        Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(MediQSpacing.lg)
+            verticalArrangement = Arrangement.spacedBy(MediQSpacing.lg)
         ) {
-            Text(text = message, style = MaterialTheme.typography.bodyMedium, color = com.example.mediq.ui.theme.MediQTextSecondary, textAlign = androidx.compose.ui.text.style.TextAlign.Center, modifier = Modifier.padding(horizontal = MediQSpacing.gutter))
-            androidx.compose.material3.Button(onClick = onRetry, modifier = Modifier.heightIn(min = MediQSize.minTouchTarget)) {
+            Text(
+                text = message,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MediQTextSecondary,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                modifier = Modifier.padding(horizontal = MediQSpacing.gutter)
+            )
+            androidx.compose.material3.Button(
+                onClick = onRetry,
+                modifier = Modifier.heightIn(min = MediQSize.minTouchTarget)
+            ) {
                 Text(text = "Retry", style = MaterialTheme.typography.labelLarge)
             }
         }

@@ -1,65 +1,71 @@
 package com.example.mediq.ui.screens.doctordetails
 
+import com.example.mediq.data.model.ClinicHours
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Behaviour of [buildSlotStatuses] and the counts read from it.
+ * Behaviour of dynamic slot generation and status mapping.
  *
- * Plain JVM tests: both are pure functions, so no emulator is involved.
+ * Plain JVM tests: functions are pure, so no emulator is involved.
  */
 class DoctorSlotsTest {
 
     @Test
-    fun `every slot in the day gets a status`() {
-        val statuses = buildSlotStatuses(
-            available = setOf("9:00 AM"),
-            blocked = setOf("10:00 AM")
+    fun `slots are generated from clinic hours windows`() {
+        val slots = generateSlotLabelsForDay(
+            listOf(
+                ClinicHours(dayOfWeek = 1, startTime = "09:00:00", endTime = "10:30:00"),
+                ClinicHours(dayOfWeek = 1, startTime = "13:00:00", endTime = "14:00:00")
+            )
         )
 
-        assertEquals(AllTimeSlots.size, statuses.size)
+        assertEquals(
+            listOf("9:00 AM", "9:30 AM", "10:00 AM", "1:00 PM", "1:30 PM"),
+            slots
+        )
     }
 
     @Test
-    fun `a slot the clinic opened is available`() {
-        val statuses = buildSlotStatuses(
-            available = setOf("9:00 AM"),
-            blocked = emptySet()
+    fun `continuous windows include midday slots like 12pm`() {
+        val slots = generateSlotLabelsForDay(
+            listOf(ClinicHours(dayOfWeek = 1, startTime = "09:00:00", endTime = "17:00:00"))
         )
 
-        assertEquals(TimeSlotStatus.AVAILABLE, statuses["9:00 AM"])
+        assertTrue("12:00 PM" in slots)
+        assertTrue("12:30 PM" in slots)
+        assertTrue("1:00 PM" in slots)
     }
 
     @Test
-    fun `a slot nobody opened is reserved, not free`() {
-        val statuses = buildSlotStatuses(
-            available = setOf("9:00 AM"),
-            blocked = setOf("10:00 AM")
+    fun `booked and past slots are marked unavailable while open slots stay available`() {
+        val options = buildSlotOptionsForDay(
+            clinicHoursForDay = listOf(
+                ClinicHours(dayOfWeek = 1, startTime = "09:00:00", endTime = "11:00:00")
+            ),
+            isToday = true,
+            nowMinutes = 9 * 60, // 9:00 AM is past/current boundary
+            userBookedTimes = setOf("9:30 AM"),
+            otherBookedTimes = setOf("10:00 AM")
         )
 
-        assertEquals(TimeSlotStatus.RESERVED, statuses["9:30 AM"])
+        val statuses = options.associate { it.time to it.status }
+        assertEquals(TimeSlotStatus.BLOCKED, statuses["9:00 AM"])
+        assertEquals(TimeSlotStatus.USER_BOOKED, statuses["9:30 AM"])
         assertEquals(TimeSlotStatus.BLOCKED, statuses["10:00 AM"])
+        assertEquals(TimeSlotStatus.AVAILABLE, statuses["10:30 AM"])
     }
 
     @Test
-    fun `a slot in both sets counts as available`() {
-        val statuses = buildSlotStatuses(
-            available = setOf("9:00 AM"),
-            blocked = setOf("9:00 AM")
-        )
-
-        assertEquals(TimeSlotStatus.AVAILABLE, statuses["9:00 AM"])
-    }
-
-    @Test
-    fun `open slots are counted from the statuses, not written by hand`() {
+    fun `open slots are counted from generated schedule`() {
         val day = DateSchedule(
-            option = DateOption(day = "Mon", date = 21),
-            statuses = buildSlotStatuses(
-                available = setOf("9:00 AM", "9:30 AM"),
-                blocked = setOf("10:00 AM")
+            option = DateOption(day = "Mon", date = 21, fullDate = "2026-09-21"),
+            slots = listOf(
+                TimeSlotOption("9:00 AM", TimeSlotStatus.AVAILABLE),
+                TimeSlotOption("9:30 AM", TimeSlotStatus.AVAILABLE),
+                TimeSlotOption("10:00 AM", TimeSlotStatus.BLOCKED)
             )
         )
 
@@ -70,7 +76,8 @@ class DoctorSlotsTest {
     fun `a schedule with nothing open reports no open slots`() {
         val full = DoctorDetailsUiState.Content(
             doctor = DoctorDetailsSamples.profile,
-            schedule = DoctorDetailsSamples.scheduleWithNothingOpen()
+            schedule = DoctorDetailsSamples.scheduleWithNothingOpen(),
+            userBookings = emptyList()
         )
 
         assertFalse(full.hasOpenSlots)

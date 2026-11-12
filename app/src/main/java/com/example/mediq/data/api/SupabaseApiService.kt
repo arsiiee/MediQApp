@@ -662,29 +662,52 @@ class SupabaseApiService {
     // ========================================================================
 
     suspend fun getNotifications(unread: Boolean = false): List<Notification> = withContext(Dispatchers.Default) {
-        val session = SupabaseClient.accessToken
-            ?: throw RuntimeException("Not authenticated")
-        val userId = getCurrentUserId(session)
-        var url = "${SupabaseClient.restUrl}/notifications?select=*&user_id=eq.$userId"
+        SupabaseClient.accessToken ?: throw RuntimeException("Not authenticated")
+        // RLS scopes rows to the signed-in owner (tolerant of id-mapping drift).
+        // Avoid client-side user_id filters that can hide legitimately owned rows.
+        var url = "${SupabaseClient.restUrl}/notifications?select=*&order=created_at.desc"
         if (unread) url += "&is_read=eq.false"
-        val body = fetchJson(url, session)
+        val body = fetchJson(url, SupabaseClient.accessToken!!)
         val arr = JSONArray(body)
         return@withContext arr.map { parseNotification(it) }
     }
 
     suspend fun markNotificationRead(id: String): Unit = withContext(Dispatchers.Default) {
-        val session = SupabaseClient.accessToken
-            ?: throw RuntimeException("Not authenticated")
-        httpRequest("PATCH", "${SupabaseClient.restUrl}/notifications?id=eq.$id", auth = true,
-            body = jsonBody("is_read" to true))
+        SupabaseClient.accessToken ?: throw RuntimeException("Not authenticated")
+        try {
+            httpRequest(
+                "POST",
+                "${SupabaseClient.restUrl}/rpc/mark_notification_read",
+                auth = true,
+                body = jsonBody("p_notification_id" to id),
+            )
+        } catch (_: Exception) {
+            httpRequest(
+                "PATCH",
+                "${SupabaseClient.restUrl}/notifications?id=eq.$id",
+                auth = true,
+                body = jsonBody("is_read" to true),
+            )
+        }
     }
 
     suspend fun markAllNotificationsRead(): Unit = withContext(Dispatchers.Default) {
-        val session = SupabaseClient.accessToken
-            ?: throw RuntimeException("Not authenticated")
-        val userId = getCurrentUserId(session)
-        httpRequest("PATCH", "${SupabaseClient.restUrl}/notifications?user_id=eq.$userId&is_read=eq.false", auth = true,
-            body = jsonBody("is_read" to true))
+        SupabaseClient.accessToken ?: throw RuntimeException("Not authenticated")
+        try {
+            httpRequest(
+                "POST",
+                "${SupabaseClient.restUrl}/rpc/mark_all_notifications_read",
+                auth = true,
+            )
+        } catch (_: Exception) {
+            val userId = getCurrentUserId(SupabaseClient.accessToken!!)
+            httpRequest(
+                "PATCH",
+                "${SupabaseClient.restUrl}/notifications?user_id=eq.$userId&is_read=eq.false",
+                auth = true,
+                body = jsonBody("is_read" to true),
+            )
+        }
     }
 
     // ========================================================================
@@ -1035,16 +1058,40 @@ class SupabaseApiService {
             "SYSTEM" -> NotificationType.SYSTEM
             else -> NotificationType.SYSTEM
         }
+
+        val dataMap: Map<String, String>? = run {
+            val raw = obj.opt("data")
+            when (raw) {
+                is JSONObject -> raw.keys().asSequence().associateWith { k -> raw.optString(k, "") }
+                is String -> {
+                    val s = raw.trim()
+                    if (s.isEmpty() || s.equals("null", ignoreCase = true)) null
+                    else if (s.startsWith("{") && s.endsWith("}")) {
+                        try {
+                            val jo = JSONObject(s)
+                            jo.keys().asSequence().associateWith { k -> jo.optString(k, "") }
+                        } catch (_: Exception) {
+                            mapOf("value" to s)
+                        }
+                    } else {
+                        // Common case: send_notification stores appointment id in `data`.
+                        mapOf("appointmentId" to s)
+                    }
+                }
+                else -> null
+            }
+        }
+
         return Notification(
             id = obj.getString("id"),
             userId = obj.getString("user_id"),
             type = type,
             title = obj.getString("title"),
             body = obj.getString("body"),
-            data = null,
+            data = dataMap,
             isRead = obj.optBoolean("is_read", false),
             createdAt = obj.getString("created_at"),
-            readAt = obj.optString("read_at", null),
+            readAt = obj.optString("read_at", null).takeUnless { it.isNullOrBlank() || it == "null" },
         )
     }
 }

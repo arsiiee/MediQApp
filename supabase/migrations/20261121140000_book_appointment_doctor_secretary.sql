@@ -9,7 +9,7 @@
 CREATE OR REPLACE FUNCTION public.book_appointment(
     p_patient_id VARCHAR,
     p_doctor_id VARCHAR,
-    p_starts_at TIMESTAMP,
+    p_starts_at VARCHAR,
     p_duration_minutes INTEGER,
     p_reason TEXT
 )
@@ -24,6 +24,8 @@ DECLARE
     v_avail INTEGER;
     v_new_id UUID := gen_random_uuid();
     v_role VARCHAR;
+    v_starts_at TIMESTAMP;
+    v_duration_interval INTERVAL;
 BEGIN
     v_role := mediq_current_role();
 
@@ -31,6 +33,15 @@ BEGIN
     IF v_role NOT IN ('PATIENT', 'DOCTOR', 'SECRETARY') THEN
         RAISE EXCEPTION 'Only patients, doctors, and secretaries can book appointments';
     END IF;
+
+    -- Cast the incoming timestamp string to a real timestamp
+    BEGIN
+        v_starts_at := p_starts_at::timestamp;
+    EXCEPTION WHEN OTHERS THEN
+        RAISE EXCEPTION 'Invalid starts_at timestamp: %', p_starts_at;
+    END;
+
+    v_duration_interval := (p_duration_minutes || ' minutes')::interval;
 
     -- Resolve the patient id
     IF v_role = 'PATIENT' THEN
@@ -54,8 +65,8 @@ BEGIN
     FROM appointments
     WHERE doctor_id = p_doctor_id
       AND status <> 'CANCELLED'
-      AND starts_at < p_starts_at + (p_duration_minutes || ' minutes')::interval
-      AND starts_at + (p_duration_minutes || ' minutes')::interval > p_starts_at;
+      AND starts_at < v_starts_at + v_duration_interval
+      AND starts_at + v_duration_interval > v_starts_at;
 
     IF v_conflict > 0 THEN
         RAISE EXCEPTION 'Doctor already has an appointment at that time';
@@ -65,14 +76,14 @@ BEGIN
     SELECT COUNT(*) INTO v_avail
     FROM availabilities
     WHERE doctor_id = p_doctor_id
-      AND date = p_starts_at::date;
+      AND date = v_starts_at::date;
 
     IF v_avail = 0 THEN
         RAISE EXCEPTION 'Doctor is not available on that date';
     END IF;
 
     INSERT INTO appointments (id, patient_id, doctor_id, starts_at, duration_minutes, status, reason, created_at, updated_at)
-    VALUES (v_new_id, v_patient_id, p_doctor_id, p_starts_at, p_duration_minutes, 'BOOKED', p_reason, NOW(), NOW());
+    VALUES (v_new_id, v_patient_id, p_doctor_id, v_starts_at, p_duration_minutes, 'BOOKED', p_reason, NOW(), NOW());
 
     RETURN v_new_id;
 END;

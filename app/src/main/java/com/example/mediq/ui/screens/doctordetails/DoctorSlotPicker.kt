@@ -33,6 +33,8 @@ import com.example.mediq.ui.theme.MediQSpacing
 import com.example.mediq.ui.theme.MediQSuccess
 import com.example.mediq.ui.theme.MediQTextPrimary
 import com.example.mediq.ui.theme.MediQTextSecondary
+import com.example.mediq.ui.theme.MediQWarning
+import com.example.mediq.ui.theme.MediQWarningContainer
 
 /**
  * "Choose a time slot": the day strip, the grid, the legend and the way out.
@@ -43,8 +45,9 @@ import com.example.mediq.ui.theme.MediQTextSecondary
 @Composable
 internal fun DoctorSlotPicker(
     schedule: List<DateSchedule>,
-    onContinue: (dateIndex: Int, time: String) -> Unit,
-    modifier: Modifier = Modifier
+    onContinue: (selected: DateOption, time: String) -> Unit,
+    modifier: Modifier = Modifier,
+    alreadyHasBooking: Boolean = false
 ) {
     // The first day with something to book, so the grid opens on real options.
     var selectedDateIndex by remember(schedule) {
@@ -74,14 +77,28 @@ internal fun DoctorSlotPicker(
 
         Spacer(Modifier.height(MediQSpacing.xs))
 
+        val hoursSummary = selectedDay.slots
+            .takeIf { it.isNotEmpty() }
+            ?.let { "${it.first().time} – ${it.last().time}" }
         Text(
-            text = "Clinic hours are 9:00 AM–5:00 PM. Reserved and blocked " +
-                    "slots cannot be selected.",
+            text = if (hoursSummary == null) {
+                "No published clinic hours for this day."
+            } else {
+                "Showing available clinic times for this day ($hoursSummary). " +
+                    "Reserved, booked, blocked, and past slots cannot be selected."
+            },
             style = MaterialTheme.typography.bodyMedium,
             color = MediQTextSecondary
         )
 
         Spacer(Modifier.height(MediQSpacing.md))
+
+        // If the patient already has a booking with this doctor, show a banner
+        // and disable the slot grid entirely.
+        if (alreadyHasBooking) {
+            AlreadyBookedBookingBlocker()
+            Spacer(Modifier.height(MediQSpacing.md))
+        }
 
         Row(
             modifier = Modifier
@@ -102,15 +119,19 @@ internal fun DoctorSlotPicker(
 
         Spacer(Modifier.height(MediQSpacing.md))
 
-        if (selectedDay.openSlots == 0) {
+        if (selectedDay.slots.isEmpty()) {
+            NoOpenSlotsOnThisDay(
+                message = "No clinic hours published for this day. Pick another day above."
+            )
+            Spacer(Modifier.height(MediQSpacing.sm))
+        } else if (selectedDay.openSlots == 0) {
             NoOpenSlotsOnThisDay()
             Spacer(Modifier.height(MediQSpacing.sm))
         }
 
-        AllTimeSlots.chunked(3).forEach { rowSlots ->
+        selectedDay.slots.chunked(3).forEach { rowSlots ->
             TimeSlotRow(
                 slots = rowSlots,
-                statuses = selectedDay.statuses,
                 selectedTime = selectedTime,
                 onSelect = { selectedTime = it }
             )
@@ -132,26 +153,55 @@ internal fun DoctorSlotPicker(
 
         ContinueButton(
             time = selectedTime,
-            enabled = selectedTime != null,
+            enabled = alreadyHasBooking.not() && selectedTime != null,
             onClick = {
                 selectedTime?.let { time ->
-                    onContinue(selectedDateIndex, time)
+                    onContinue(schedule[selectedDateIndex].option, time)
                 }
             }
         )
     }
 }
 
+/** Banner shown when the patient already has a booking with this doctor.
+ *  Explains that they cannot book another slot with the same doctor. */
+@Composable
+private fun AlreadyBookedBookingBlocker() {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.medium,
+        color = MediQWarningContainer
+    ) {
+        Column(
+            modifier = Modifier.padding(MediQSpacing.md)
+        ) {
+            Text(
+                text = "You already have an appointment with this doctor.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MediQWarning
+            )
+            Text(
+                text = "Please cancel your existing appointment before booking another.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MediQTextSecondary
+            )
+        }
+    }
+}
+
 /** A day with nothing left to book says so instead of showing a dead grid. */
 @Composable
-private fun NoOpenSlotsOnThisDay(modifier: Modifier = Modifier) {
+private fun NoOpenSlotsOnThisDay(
+    modifier: Modifier = Modifier,
+    message: String = "No open slots on this day. Pick another day above."
+) {
     Surface(
         modifier = modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.medium,
         color = MediQNeutralContainer
     ) {
         Text(
-            text = "No open slots on this day. Pick another day above.",
+            text = message,
             style = MaterialTheme.typography.bodySmall,
             color = MediQTextSecondary,
             modifier = Modifier.padding(MediQSpacing.md)
@@ -159,11 +209,10 @@ private fun NoOpenSlotsOnThisDay(modifier: Modifier = Modifier) {
     }
 }
 
-/**
- * The screen's primary action.
+/** The screen's primary action.
  *
  * It says what it will do: the chosen time while there is one, otherwise why
- * it cannot be pressed yet. The disabled state is the one place the button
+ * it cannot be pressed. The disabled state is the one place the button
  * leaves [MediQGreen].
  */
 @Composable

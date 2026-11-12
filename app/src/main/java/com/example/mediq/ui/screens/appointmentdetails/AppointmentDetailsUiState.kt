@@ -20,6 +20,6 @@ data class AppointmentDetailsActions(
     val onBack: () -> Unit = {},
     val onRetry: () -> Unit = {},
     val onChatWithSecretary: (conversationId: String) -> Unit = {},
-    /** Confirms the cancellation; the caller reports it back to the list. */
-    val onCancelAppointment: (appointmentId: String) -> Unit = {}
+    /** Confirms the cancellation with a reason; the caller reports it back to the list. */
+    val onCancelAppointment: (appointmentId: String, reason: String) -> Unit = { _, _ -> }
 )

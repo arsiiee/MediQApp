@@ -34,46 +34,32 @@ object DoctorDetailsSamples {
      */
     private val schedule = listOf(
         DateSchedule(
-            option = DateOption(day = "Mon", date = 21),
-            statuses = buildSlotStatuses(
-                available = setOf("10:00 AM"),
-                blocked = setOf("1:00 PM", "3:30 PM", "4:30 PM")
-            )
+            option = DateOption(day = "Mon", date = 21, fullDate = "2026-09-21"),
+            slots = slotsFor("10:00 AM", blocked = listOf("1:00 PM", "3:30 PM", "4:30 PM"))
         ),
         DateSchedule(
-            option = DateOption(day = "Wed", date = 23),
-            statuses = buildSlotStatuses(
-                available = setOf("9:00 AM", "9:30 AM", "10:00 AM", "10:30 AM"),
-                blocked = setOf("11:30 AM", "2:00 PM", "4:30 PM")
-            )
+            option = DateOption(day = "Wed", date = 23, fullDate = "2026-09-23"),
+            slots = slotsFor("9:00 AM", "9:30 AM", "10:00 AM", "10:30 AM", blocked = listOf("11:30 AM", "2:00 PM", "4:30 PM"))
         ),
         DateSchedule(
-            option = DateOption(day = "Fri", date = 25),
-            statuses = buildSlotStatuses(
-                available = setOf("10:00 AM", "10:30 AM"),
-                blocked = setOf("11:30 AM", "1:30 PM", "3:30 PM", "4:30 PM")
-            )
+            option = DateOption(day = "Fri", date = 25, fullDate = "2026-09-25"),
+            slots = slotsFor("10:00 AM", "10:30 AM", blocked = listOf("11:30 AM", "1:30 PM", "3:30 PM", "4:30 PM"))
         ),
         DateSchedule(
-            option = DateOption(day = "Mon", date = 28),
-            statuses = buildSlotStatuses(
-                available = setOf("9:30 AM", "11:00 AM"),
-                blocked = setOf("11:30 AM", "2:30 PM", "4:00 PM")
-            )
+            option = DateOption(day = "Mon", date = 28, fullDate = "2026-09-28"),
+            slots = slotsFor("9:30 AM", "11:00 AM", blocked = listOf("11:30 AM", "2:30 PM", "4:00 PM"))
         ),
         DateSchedule(
-            option = DateOption(day = "Wed", date = 30),
-            statuses = buildSlotStatuses(
-                available = setOf("9:00 AM", "10:00 AM", "11:00 AM"),
-                blocked = setOf("11:30 AM", "3:00 PM", "4:30 PM")
-            )
+            option = DateOption(day = "Wed", date = 30, fullDate = "2026-09-30"),
+            slots = slotsFor("9:00 AM", "10:00 AM", "11:00 AM", blocked = listOf("11:30 AM", "3:00 PM", "4:30 PM"))
         )
     )
 
     /** Loaded, with bookable slots. */
     val content = DoctorDetailsUiState.Content(
         doctor = profile,
-        schedule = schedule
+        schedule = schedule,
+        userBookings = emptyList()
     )
 
     /** Loaded, but every slot on every day is taken or blocked. */
@@ -93,7 +79,26 @@ object DoctorDetailsSamples {
      */
     fun scheduleWithNothingOpen(): List<DateSchedule> = schedule.map { day ->
         day.copy(
-            statuses = day.statuses.mapValues { TimeSlotStatus.BLOCKED }
+            slots = day.slots.map { it.copy(status = TimeSlotStatus.BLOCKED) }
         )
+    }
+
+    private fun slotsFor(
+        vararg available: String,
+        blocked: List<String> = emptyList()
+    ): List<TimeSlotOption> {
+        val labels = (available.toList() + blocked).distinct().sortedBy { time12hToMinutes(it) }
+        val availableSet = available.toSet()
+        val blockedSet = blocked.toSet()
+        return labels.map { time ->
+            TimeSlotOption(
+                time = time,
+                status = when {
+                    time in availableSet -> TimeSlotStatus.AVAILABLE
+                    time in blockedSet -> TimeSlotStatus.BLOCKED
+                    else -> TimeSlotStatus.RESERVED
+                }
+            )
+        }
     }
 }

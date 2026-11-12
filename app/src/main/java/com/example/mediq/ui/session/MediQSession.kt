@@ -107,6 +107,7 @@ object MediQSession {
         val fullName: String,
         val email: String,
         val phoneNumber: String?,
+        val dateOfBirth: String?,
     )
 
     /**
@@ -115,12 +116,14 @@ object MediQSession {
      */
     private var pendingRegistration: RegistrationPending? = null
 
-    /** Bind this session to a context and restore any persisted account. */
-    fun init(context: Context) {
+    /** Bind this session to a context and optionally restore any persisted account. */
+    fun init(context: Context, restoreSession: Boolean = true) {
         val app = context.applicationContext
         prefs = app.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         filesDir = app.filesDir
-        restore()
+        if (restoreSession) {
+            restore()
+        }
     }
 
     /** Restore the persisted account into memory. Safe to call repeatedly. */
@@ -168,11 +171,12 @@ object MediQSession {
      * Remembers the details step, which is the only step that learns a
      * patient's real name, email, and optional number.
      */
-    fun beginRegistration(fullName: String, email: String, phoneNumber: String) {
+    fun beginRegistration(fullName: String, email: String, phoneNumber: String, dateOfBirth: String) {
         pendingRegistration = RegistrationPending(
             fullName = fullName.trim(),
             email = email.trim(),
-            phoneNumber = phoneNumber.trim().ifEmpty { null }
+            phoneNumber = phoneNumber.trim().ifEmpty { null },
+            dateOfBirth = dateOfBirth.trim().ifEmpty { null },
         )
     }
 
@@ -232,7 +236,7 @@ object MediQSession {
      * patient to the sign-in screen.
      */
     fun completeRegistration(username: String) {
-        val pending = pendingRegistration ?: RegistrationPending("", "", null)
+        val pending = pendingRegistration ?: RegistrationPending("", "", null, null)
         rememberAccount(username, pending.fullName, pending.email, pending.phoneNumber)
         pendingRegistration = null
     }

@@ -1,0 +1,281 @@
+{
+  "communities": {
+    "0": [
+      "alignment",
+      "bookingdetailscard",
+      "bookingdetailscard_bookingdetailscard",
+      "bookingdetailscard_kt_composable",
+      "bookingdetailscard_kt_modifier",
+      "bookingresultcontent",
+      "checkcircle",
+      "column",
+      "height",
+      "horizontaldivider",
+      "icon",
+      "locationon",
+      "materialtheme",
+      "mediqdivider",
+      "mediqgreen",
+      "mediqlightgreen",
+      "mediqspacing",
+      "mediqtextprimary",
+      "mediqtextsecondary",
+      "row",
+      "size",
+      "spacer",
+      "surface",
+      "textalign",
+      "width"
+    ],
+    "1": [
+      "background",
+      "bookingrequest",
+      "bookingscreens",
+      "bookingscreens_bookingflowcontent",
+      "bookingscreens_bookingflowscreen",
+      "bookingscreens_bookingsuccessscreen",
+      "bookingscreens_kt_composable",
+      "bookingscreens_time12htoiso",
+      "bookingviewmodel",
+      "collectasstate",
+      "doctor",
+      "launch",
+      "launchedeffect",
+      "localcontext",
+      "mediqpageheader",
+      "mediqscaffoldbackground",
+      "mediqsession",
+      "modifier",
+      "navcontroller",
+      "remember",
+      "remembercoroutinescope",
+      "screen",
+      "supabaseapiservice",
+      "viewmodel"
+    ],
+    "2": [
+      "bookingform_bookingform",
+      "bookingform_kt_composable",
+      "bookingform_kt_modifier",
+      "bookingsamples",
+      "bookingsamples_bookingsamples",
+      "bookingsamples_bookingsamples_dateiso",
+      "bookingsamples_bookingsamples_datelabel",
+      "bookingsamples_bookingsamples_success",
+      "bookingsamples_bookingsamples_summary",
+      "bookinguistate",
+      "bookinguistate_bookingsubmission",
+      "bookinguistate_bookingsuccessstate",
+      "bookinguistate_bookingsummary",
+      "bookinguistate_conflict",
+      "bookinguistate_error",
+      "bookinguistate_idle",
+      "bookinguistate_slottaken",
+      "bookinguistate_submitting",
+      "bookinguistate_success",
+      "datetimeformatter",
+      "doctordetailssamples"
+    ],
+    "3": [
+      "bookingpreviews",
+      "bookingpreviews_bookingconflictpreview",
+      "bookingpreviews_kt_composable",
+      "bookingresultcontent_bookingconflictbody",
+      "bookingresultcontent_bookingsuccessbody",
+      "bookingresultcontent_kt_composable",
+      "bookingresultcontent_kt_modifier",
+      "bookingresultscaffold_kt_composable",
+      "bookingresultscaffold_kt_modifier",
+      "bookingresultscaffold_primaryresultbutton",
+      "bookingresultscaffold_resultcolumn",
+      "bookingresultscaffold_resultmark",
+      "bookingresultscaffold_secondaryresultbutton",
+      "bookingscreens_bookingsuccesscontent",
+      "bookinguistate_bookingactions",
+      "color",
+      "imagevector",
+      "mediqtheme",
+      "preview"
+    ],
+    "4": [
+      "bookingformcontrols",
+      "bookingformcontrols_confirmationrow",
+      "bookingformcontrols_confirmbutton",
+      "bookingformcontrols_kt_composable",
+      "bookingformcontrols_kt_modifier",
+      "buttondefaults",
+      "checkbox",
+      "checkboxdefaults",
+      "clickable",
+      "mediqdisabledcontainer",
+      "mediqonbrand",
+      "mediqsize",
+      "role",
+      "text"
+    ],
+    "5": [
+      "bookingform",
+      "fillmaxsize",
+      "getvalue",
+      "heightin",
+      "mediqbackground",
+      "mediqborder",
+      "mediqtextplaceholder",
+      "mutablestateof",
+      "outlinedtextfield",
+      "outlinedtextfielddefaults",
+      "remembersaveable",
+      "setvalue",
+      "verticalscroll"
+    ],
+    "6": [
+      "bookingnotices",
+      "bookingnotices_kt_composable",
+      "bookingnotices_kt_modifier",
+      "bookingnotices_submissionnotice",
+      "calendarmonth",
+      "cloudoff",
+      "icons",
+      "mediqerror",
+      "mediqerrorcontainer",
+      "mediqnotice",
+      "mediqwarning",
+      "mediqwarningcontainer"
+    ],
+    "7": [
+      "arrangement",
+      "bookingresultscaffold",
+      "borderstroke",
+      "button",
+      "columnscope",
+      "fillmaxwidth",
+      "mediqstatusmark",
+      "outlinedbutton",
+      "padding",
+      "rememberscrollstate"
+    ]
+  },
+  "cohesion": {
+    "0": 0.10666666666666667,
+    "1": 0.11231884057971014,
+    "2": 0.12380952380952381,
+    "3": 0.19298245614035087,
+    "4": 0.18681318681318682,
+    "5": 0.15384615384615385,
+    "6": 0.19696969696969696,
+    "7": 0.2
+  },
+  "gods": [
+    {
+      "id": "bookingform_bookingform",
+      "label": "BookingForm()",
+      "degree": 11
+    },
+    {
+      "id": "bookingresultcontent_bookingsuccessbody",
+      "label": "BookingSuccessBody()",
+      "degree": 10
+    },
+    {
+      "id": "bookinguistate_bookingsubmission",
+      "label": "BookingSubmission",
+      "degree": 9
+    },
+    {
+      "id": "bookingresultcontent_bookingconflictbody",
+      "label": "BookingConflictBody()",
+      "degree": 8
+    },
+    {
+      "id": "bookingscreens_bookingsuccesscontent",
+      "label": "BookingSuccessContent()",
+      "degree": 8
+    },
+    {
+      "id": "bookinguistate_bookingactions",
+      "label": "BookingActions",
+      "degree": 8
+    },
+    {
+      "id": "bookingsamples_bookingsamples",
+      "label": "BookingSamples",
+      "degree": 7
+    },
+    {
+      "id": "bookingscreens_bookingflowcontent",
+      "label": "BookingFlowContent()",
+      "degree": 7
+    },
+    {
+      "id": "bookinguistate_bookingsummary",
+      "label": "BookingSummary",
+      "degree": 7
+    },
+    {
+      "id": "bookingnotices_submissionnotice",
+      "label": "SubmissionNotice()",
+      "degree": 6
+    }
+  ],
+  "surprises": [
+    {
+      "source": "BookingForm()",
+      "target": "BookingDetailsCard()",
+      "source_files": [
+        "BookingForm.kt",
+        "BookingDetailsCard.kt"
+      ],
+      "confidence": "INFERRED",
+      "relation": "calls",
+      "why": "inferred connection - not explicitly stated in source; bridges separate communities"
+    },
+    {
+      "source": "BookingForm()",
+      "target": "ConfirmationRow()",
+      "source_files": [
+        "BookingForm.kt",
+        "BookingFormControls.kt"
+      ],
+      "confidence": "INFERRED",
+      "relation": "calls",
+      "why": "inferred connection - not explicitly stated in source; bridges separate communities"
+    },
+    {
+      "source": "BookingForm()",
+      "target": "ConfirmButton()",
+      "source_files": [
+        "BookingForm.kt",
+        "BookingFormControls.kt"
+      ],
+      "confidence": "INFERRED",
+      "relation": "calls",
+      "why": "inferred connection - not explicitly stated in source; bridges separate communities"
+    },
+    {
+      "source": "BookingForm()",
+      "target": "SubmissionNotice()",
+      "source_files": [
+        "BookingForm.kt",
+        "BookingNotices.kt"
+      ],
+      "confidence": "INFERRED",
+      "relation": "calls",
+      "why": "inferred connection - not explicitly stated in source; bridges separate communities"
+    },
+    {
+      "source": "BookingFlowContent()",
+      "target": "BookingForm()",
+      "source_files": [
+        "BookingScreens.kt",
+        "BookingForm.kt"
+      ],
+      "confidence": "INFERRED",
+      "relation": "calls",
+      "why": "inferred connection - not explicitly stated in source; bridges separate communities"
+    }
+  ],
+  "tokens": {
+    "input": 0,
+    "output": 0
+  }
+}

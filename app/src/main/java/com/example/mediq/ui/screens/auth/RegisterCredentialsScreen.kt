@@ -90,7 +90,7 @@ fun RegisterCredentialsScreen(
                         fullName = pending?.fullName ?: "",
                         email = pending?.email ?: "",
                         mobileNumber = pending?.phoneNumber,
-                        dateOfBirth = "1970-01-01",
+                        dateOfBirth = pending?.dateOfBirth ?: "",
                         role = UserRole.PATIENT,
                     )
                     viewModel.register(request)

@@ -1,5 +1,6 @@
 package com.example.mediq.ui.screens.auth
 
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -50,6 +51,8 @@ internal fun AuthField(
     modifier: Modifier = Modifier,
     hint: String? = null,
     enabled: Boolean = true,
+    readOnly: Boolean = false,
+    interactionSource: MutableInteractionSource? = null,
     keyboardType: KeyboardType = KeyboardType.Text,
     visualTransformation: VisualTransformation = VisualTransformation.None,
     trailingIcon: (@Composable () -> Unit)? = null
@@ -67,6 +70,8 @@ internal fun AuthField(
             value = value,
             onValueChange = onValueChange,
             enabled = enabled,
+            readOnly = readOnly,
+            interactionSource = interactionSource ?: androidx.compose.runtime.remember { MutableInteractionSource() },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
             isError = error != null,

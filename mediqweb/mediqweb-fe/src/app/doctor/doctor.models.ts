@@ -90,6 +90,8 @@ export interface PatientSummary {
 
 export interface DoctorProfile {
   readonly id: string;
+  /** `doctors.id` (e.g. `doc-001`) — used for schedule/availability queries. */
+  readonly doctorId: string;
   readonly name: string;
   /**
    * How the clinic reaches this doctor.

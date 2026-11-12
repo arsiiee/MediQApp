@@ -27,7 +27,13 @@ export class SupabaseService {
         'Supabase URL and Anon Key must be configured in environment'
       );
     }
-    this.supabase = createClient(url, key);
+    this.supabase = createClient(url, key, {
+      auth: {
+        autoRefreshToken: true,
+        persistSession: true,
+        detectSessionInUrl: true,
+      },
+    });
   }
 
   get client(): SupabaseClient {

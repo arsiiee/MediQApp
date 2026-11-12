@@ -34,6 +34,10 @@ object BookingSamples {
             dateIsos.getOrElse(dateIndex) { dateIsos.first() }
         )
 
+    /** The chosen day as an ISO date, or the first one when the index is out of range. */
+    fun dateIso(dateIndex: Int): String =
+        dateIsos.getOrElse(dateIndex) { dateIsos.first() }
+
     fun summary(
         dateIndex: Int,
         time: String

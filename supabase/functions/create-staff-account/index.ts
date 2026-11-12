@@ -77,6 +77,10 @@ serve(async (req) => {
       })
     }
 
+    const usernameClean = String(username).trim()
+    const emailClean = String(email).trim().toLowerCase()
+    const roleUpper = String(role).toUpperCase()
+
     // Create auth user via service-role client (bypasses RLS)
     if (!supabaseServiceKey) {
       return new Response(JSON.stringify({ error: 'Server misconfigured: SERVICE_ROLE_KEY not set in Edge Function environment' }), {
@@ -91,39 +95,66 @@ serve(async (req) => {
       auth: { autoRefreshToken: false, persistSession: false },
     })
 
+    // Preflight duplicate checks for clearer errors (users/profiles have unique username)
+    const { data: existingUsername, error: usernameCheckErr } = await adminClient
+      .from('users')
+      .select('id, auth_user_id, email')
+      .ilike('username', usernameClean)
+      .maybeSingle()
+    if (usernameCheckErr) throw usernameCheckErr
+    const { data: existingEmailRow, error: emailCheckErr } = await adminClient
+      .from('users')
+      .select('id, auth_user_id')
+      .ilike('email', emailClean)
+      .maybeSingle()
+    if (emailCheckErr) throw emailCheckErr
+
     let userId: string
-    let authResult: any
     // Check if email already exists in Supabase Auth
     const { data: listData, error: listErr } = await adminClient.auth.admin.listUsers()
     if (listErr) throw listErr
     const existingUsers = (listData as any)?.users || (listData as any) || []
-    const existing = existingUsers.find((u: any) => u.email === email)
-    if (existing) {
-      userId = existing.id
-      authResult = { user: existing }
-      // Update password for existing user
-      await adminClient.auth.admin.updateUserById(userId, { password })
+    const existingAuth = existingUsers.find((u: any) => String(u.email || '').toLowerCase() === emailClean)
+
+    if (existingUsername && (!existingAuth || String(existingUsername.auth_user_id || existingUsername.id) !== String(existingAuth.id))) {
+      return new Response(JSON.stringify({ error: 'Username is already taken.' }), {
+        status: 409,
+        headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+      })
+    }
+    if (existingEmailRow && (!existingAuth || String(existingEmailRow.auth_user_id || existingEmailRow.id) !== String(existingAuth.id))) {
+      return new Response(JSON.stringify({ error: 'Email is already registered.' }), {
+        status: 409,
+        headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+      })
+    }
+
+    if (existingAuth) {
+      userId = existingAuth.id
+      const { error: updateErr } = await adminClient.auth.admin.updateUserById(userId, { password, email_confirm: true })
+      if (updateErr) throw updateErr
     } else {
-      const result = await adminClient.auth.admin.createUser({
-        email,
+      const { data: createData, error: createErr } = await adminClient.auth.admin.createUser({
+        email: emailClean,
         password,
         email_confirm: true,
       })
-      authResult = result
-      userId = result.user.id
+      if (createErr) throw createErr
+      if (!createData?.user?.id) throw new Error('Auth user creation returned no user id')
+      userId = createData.user.id
     }
 
     const now = new Date().toISOString()
-    const roleUpper = role.toUpperCase()
 
     // Insert into users table (Ktor domain model) — upsert
-    await adminClient.from('users').upsert({
+    const { error: usersErr } = await adminClient.from('users').upsert({
       id: userId,
-      username,
-      full_name: fullName,
-      email,
+      auth_user_id: userId,
+      username: usernameClean,
+      full_name: String(fullName).trim(),
+      email: emailClean,
       mobile_number: mobileNumber || '',
-      date_of_birth: dateOfBirth || '',
+      date_of_birth: dateOfBirth || '1970-01-01',
       role: roleUpper,
       status: 'ACTIVE',
       doctor_id: null,
@@ -131,25 +162,32 @@ serve(async (req) => {
       created_at: now,
       updated_at: now,
     }, { onConflict: 'id' })
+    if (usersErr) throw usersErr
 
     // Insert into profiles table (upsert in case of auto-trigger)
-    await adminClient.from('profiles').upsert({
+    const { error: profilesErr } = await adminClient.from('profiles').upsert({
       user_id: userId,
-      username,
-      full_name: fullName,
-      email,
+      username: usernameClean,
+      full_name: String(fullName).trim(),
+      email: emailClean,
+      mobile_number: mobileNumber || null,
       role: roleUpper,
       status: 'ACTIVE',
+      assigned_doctor_id: assignedDoctorId || null,
     }, { onConflict: 'user_id' })
+    if (profilesErr) throw profilesErr
 
     // Insert into doctors table if doctor — upsert
     if (roleUpper === 'DOCTOR') {
-      await adminClient.from('doctors').upsert({
+      if (!specializationId) {
+        throw new Error('specializationId is required for doctor accounts')
+      }
+      const { error: doctorsErr } = await adminClient.from('doctors').upsert({
         id: userId,
         user_id: userId,
-        full_name: fullName,
+        full_name: String(fullName).trim(),
         specialty: '',
-        specialization_id: specializationId || '',
+        specialization_id: specializationId,
         license_number: licenseNumber || '',
         years_of_experience: 0,
         fee_centavos: 0,
@@ -162,6 +200,7 @@ serve(async (req) => {
         created_at: now,
         updated_at: now,
       }, { onConflict: 'id' })
+      if (doctorsErr) throw doctorsErr
     }
 
     return new Response(

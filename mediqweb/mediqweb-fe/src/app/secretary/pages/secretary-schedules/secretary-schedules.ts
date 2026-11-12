@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
+﻿import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { Avatar, Card, StatusBadge, type BadgeTone } from '../../../shared/components';
 import { DAY_NAMES, formatDuration } from '../../secretary.dates';
 import { SecretarySession } from '../../secretary-session';
@@ -6,16 +6,6 @@ import type { DoctorSummary, ScheduleDay } from '../../secretary.models';
 
 /**
  * The assigned doctor's published week.
- *
- * This page used to lay every doctor's week out side by side, because a Secretary's
- * real question was "who is free on Thursday?" — a question only a clinic-wide desk
- * has to ask. A Secretary assigned to one doctor has one week to book inside, so the
- * page is that week, and the "who else is free" question is somebody else's.
- *
- * Read-only on purpose: a doctor publishes their own hours from the Doctor area,
- * and a Secretary editing them would make the published week depend on who last
- * touched the booking screen. Changing a doctor's availability is the Doctor's
- * action; an Administrator can still take a doctor off the roster entirely.
  */
 @Component({
   selector: 'app-secretary-schedules',
@@ -40,19 +30,19 @@ export class SecretarySchedules {
   }
 
   protected isEnabled(day: ScheduleDay): boolean {
-    return day.enabled;
+    return day.sessions.length > 0;
   }
 
-  /** `09:00 – 12:00`, or an em dash for a closed day. */
-  protected window(day: ScheduleDay): string {
-    if (!day.enabled) return '—';
-    return `${day.startTime} – ${day.endTime}`;
+  /** Renders all published windows for the day, or an em dash when closed. */
+  protected windows(day: ScheduleDay): readonly string[] {
+    if (!day.sessions.length) return ['—'];
+    return day.sessions.map((session) => `${session.startTime} – ${session.endTime}`);
   }
 
   /** The summary line above the week's hours. */
   protected publishedFor(summary: DoctorSummary): string {
     const days = this.daysFor(summary);
-    const open = days.filter((day) => day.enabled).length;
+    const open = days.filter((day) => day.sessions.length > 0).length;
     const minutes = this.session.weeklyMinutes(summary.doctor.id);
     if (!open) return 'Not publishing any hours';
 

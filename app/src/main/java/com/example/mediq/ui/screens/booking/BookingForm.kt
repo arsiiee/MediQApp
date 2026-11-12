@@ -39,9 +39,10 @@ internal fun BookingForm(
     summary: BookingSummary,
     submission: BookingSubmission,
     actions: BookingActions,
+    reason: String,
+    onReasonChange: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var reason by rememberSaveable { mutableStateOf("") }
     var confirmed by rememberSaveable { mutableStateOf(false) }
 
     val isSubmitting = submission == BookingSubmission.Submitting
@@ -70,7 +71,7 @@ internal fun BookingForm(
 
         OutlinedTextField(
             value = reason,
-            onValueChange = { reason = it },
+            onValueChange = onReasonChange,
             enabled = !isSubmitting,
             modifier = Modifier
                 .fillMaxWidth()

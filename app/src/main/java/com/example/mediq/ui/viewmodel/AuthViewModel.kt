@@ -46,11 +46,26 @@ class AuthViewModel : ViewModel() {
     fun register(request: RegisterRequest) {
         viewModelScope.launch {
             _uiState.value = AuthUiState.Loading
-try {
-            val session = api.register(request) ?: return@launch
-            currentUser = session.profile
-            MediQSession.setTokens(session.accessToken, session.refreshToken)
-            _uiState.value = AuthUiState.Success(session.profile)
+            try {
+                var session = api.register(request)
+                if (session == null) {
+                    // Some Supabase projects require email confirmation and return no session.
+                    // Try an immediate sign-in so registration still completes when confirmation is not required.
+                    session = try {
+                        api.signIn(SignInRequest(request.email.ifBlank { request.username }, request.password))
+                    } catch (_: Exception) {
+                        null
+                    }
+                }
+                if (session == null) {
+                    _uiState.value = AuthUiState.Error(
+                        "Account created. Confirm your email, then sign in."
+                    )
+                    return@launch
+                }
+                currentUser = session.profile
+                MediQSession.setTokens(session.accessToken, session.refreshToken, SupabaseClient.authUserId)
+                _uiState.value = AuthUiState.Success(session.profile)
             } catch (e: Exception) {
                 _uiState.value = AuthUiState.Error(registerMessage(e))
             }

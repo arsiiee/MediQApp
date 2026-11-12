@@ -65,22 +65,6 @@ fun SignInScreen(
         }
     }
 
-    // Auto-login so you don't have to type credentials
-    LaunchedEffect(Unit) {
-        if (sessionUser == null) {
-            scope.launch {
-                val profile = viewModel.signIn("jlmandahinog65115@liceo.edu.ph", "qasxq2ew") ?: return@launch
-                MediQSession.signIn(
-                    SignedInUser(
-                        username = profile.username,
-                        fullName = profile.fullName,
-                        email = profile.email,
-                        phoneNumber = profile.mobileNumber
-                    )
-                )
-            }
-        }
-    }
 
     SignInContent(
         state = signInState,

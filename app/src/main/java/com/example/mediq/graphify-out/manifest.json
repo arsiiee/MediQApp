@@ -1,0 +1,842 @@
+{
+  "MainActivity.kt": {
+    "mtime": 1794392223.2710986,
+    "seen": 1794472629.2530577,
+    "ast_hash": "d18def402b22bab7cfb6dcb0570afd71",
+    "semantic_hash": "d18def402b22bab7cfb6dcb0570afd71"
+  },
+  "data/api/SupabaseApiService.kt": {
+    "mtime": 1794460657.6145477,
+    "seen": 1794472629.2530642,
+    "ast_hash": "74e788639231c11f037e1425f278f8c0",
+    "semantic_hash": "74e788639231c11f037e1425f278f8c0"
+  },
+  "data/api/SupabaseClient.kt": {
+    "mtime": 1794380862.6552885,
+    "seen": 1794472629.2530673,
+    "ast_hash": "b094418c4d1a1ed287edc86f34039542",
+    "semantic_hash": "b094418c4d1a1ed287edc86f34039542"
+  },
+  "data/model/Models.kt": {
+    "mtime": 1794438653.7547815,
+    "seen": 1794472629.2530694,
+    "ast_hash": "87892c71e2dfdd6bc7c41e7997aeb1a8",
+    "semantic_hash": "87892c71e2dfdd6bc7c41e7997aeb1a8"
+  },
+  "ui/components/MediQBottomBar.kt": {
+    "mtime": 1794174256.536228,
+    "seen": 1794472629.2530708,
+    "ast_hash": "9cb58ec40b74a0e091d5e5f9e82692d8",
+    "semantic_hash": "9cb58ec40b74a0e091d5e5f9e82692d8"
+  },
+  "ui/components/MediQNotice.kt": {
+    "mtime": 1794174256.536228,
+    "seen": 1794472629.253072,
+    "ast_hash": "436bb02150b2fc01582acd771f818807",
+    "semantic_hash": "436bb02150b2fc01582acd771f818807"
+  },
+  "ui/components/MediQPageHeader.kt": {
+    "mtime": 1794174256.543193,
+    "seen": 1794472629.253074,
+    "ast_hash": "3bf1c4c351779eb02464726b77ba1a47",
+    "semantic_hash": "3bf1c4c351779eb02464726b77ba1a47"
+  },
+  "ui/components/MediQSearchField.kt": {
+    "mtime": 1794174256.5571616,
+    "seen": 1794472629.2530751,
+    "ast_hash": "4631c4c9de28e36ed4e8028d5c2952c0",
+    "semantic_hash": "4631c4c9de28e36ed4e8028d5c2952c0"
+  },
+  "ui/components/MediQStatusMark.kt": {
+    "mtime": 1794174256.5571616,
+    "seen": 1794472629.2530766,
+    "ast_hash": "14d700e07e6a27af6fa7b49f490054ea",
+    "semantic_hash": "14d700e07e6a27af6fa7b49f490054ea"
+  },
+  "ui/navigation/MediQNavHost.kt": {
+    "mtime": 1794456731.1598084,
+    "seen": 1794472629.2530775,
+    "ast_hash": "341723de9e57c7397b252531fd49e787",
+    "semantic_hash": "341723de9e57c7397b252531fd49e787"
+  },
+  "ui/navigation/Routes.kt": {
+    "mtime": 1794470971.1985488,
+    "seen": 1794472629.2530787,
+    "ast_hash": "9161eb1b4c701849a5f5e8a827a0f624",
+    "semantic_hash": "9161eb1b4c701849a5f5e8a827a0f624"
+  },
+  "ui/screens/appointmentdetails/AppointmentCancelSheet.kt": {
+    "mtime": 1794459288.7231696,
+    "seen": 1794472629.2530806,
+    "ast_hash": "72ba0435bbb988a6bd73e392596761ed",
+    "semantic_hash": "72ba0435bbb988a6bd73e392596761ed"
+  },
+  "ui/screens/appointmentdetails/AppointmentDetailsLoaded.kt": {
+    "mtime": 1794461116.109095,
+    "seen": 1794472629.2530818,
+    "ast_hash": "a9ab45b9004d3a8e42a938300b2009ea",
+    "semantic_hash": "a9ab45b9004d3a8e42a938300b2009ea"
+  },
+  "ui/screens/appointmentdetails/AppointmentDetailsPreviews.kt": {
+    "mtime": 1794174256.590062,
+    "seen": 1794472629.2530832,
+    "ast_hash": "371a1fefaf5dd3c8986a33a3e8d25990",
+    "semantic_hash": "371a1fefaf5dd3c8986a33a3e8d25990"
+  },
+  "ui/screens/appointmentdetails/AppointmentDetailsSamples.kt": {
+    "mtime": 1794174256.5910616,
+    "seen": 1794472629.2530844,
+    "ast_hash": "9a5ccfe6d1cfbf821e4e919a42d21d95",
+    "semantic_hash": "9a5ccfe6d1cfbf821e4e919a42d21d95"
+  },
+  "ui/screens/appointmentdetails/AppointmentDetailsScreen.kt": {
+    "mtime": 1794471298.942947,
+    "seen": 1794472629.2530859,
+    "ast_hash": "f88a096df078177109c2f7d11844ac43",
+    "semantic_hash": "f88a096df078177109c2f7d11844ac43"
+  },
+  "ui/screens/appointmentdetails/AppointmentDetailsStates.kt": {
+    "mtime": 1794174256.5990622,
+    "seen": 1794472629.2530873,
+    "ast_hash": "2cc09f2db3566fdadb2a274f2cab0e50",
+    "semantic_hash": "2cc09f2db3566fdadb2a274f2cab0e50"
+  },
+  "ui/screens/appointmentdetails/AppointmentDetailsUiState.kt": {
+    "mtime": 1794459324.7204587,
+    "seen": 1794472629.2530885,
+    "ast_hash": "0dc78faf88cc15808aad81ea139d6c2c",
+    "semantic_hash": "0dc78faf88cc15808aad81ea139d6c2c"
+  },
+  "ui/screens/appointmentdetails/AppointmentInfoCard.kt": {
+    "mtime": 1794472417.754025,
+    "seen": 1794472629.25309,
+    "ast_hash": "ea4c7410536ca573ff28e3fea929d3bb",
+    "semantic_hash": "ea4c7410536ca573ff28e3fea929d3bb"
+  },
+  "ui/screens/appointments/AppointmentCancellationStore.kt": {
+    "mtime": 1794174256.6050608,
+    "seen": 1794472629.253091,
+    "ast_hash": "ae929ca43ba6ead88b2376cd50a87d7e",
+    "semantic_hash": "ae929ca43ba6ead88b2376cd50a87d7e"
+  },
+  "ui/screens/appointments/AppointmentCard.kt": {
+    "mtime": 1794174256.6060631,
+    "seen": 1794472629.2530923,
+    "ast_hash": "75cb1bbb094599c36b2cdfe6bcd85c9d",
+    "semantic_hash": "75cb1bbb094599c36b2cdfe6bcd85c9d"
+  },
+  "ui/screens/appointments/AppointmentRules.kt": {
+    "mtime": 1794174256.6070611,
+    "seen": 1794472629.2530935,
+    "ast_hash": "7f457607dc1294e56e55ecb8e8e8c0fe",
+    "semantic_hash": "7f457607dc1294e56e55ecb8e8e8c0fe"
+  },
+  "ui/screens/appointments/AppointmentStatus.kt": {
+    "mtime": 1794174256.6070611,
+    "seen": 1794472629.2530954,
+    "ast_hash": "a5c46b014a8a48aa6a4bdbbe40fea1e3",
+    "semantic_hash": "a5c46b014a8a48aa6a4bdbbe40fea1e3"
+  },
+  "ui/screens/appointments/AppointmentStatusChip.kt": {
+    "mtime": 1794174256.6080606,
+    "seen": 1794472629.2530968,
+    "ast_hash": "161783da7926b8c889632990cf4fc33c",
+    "semantic_hash": "161783da7926b8c889632990cf4fc33c"
+  },
+  "ui/screens/appointments/AppointmentsList.kt": {
+    "mtime": 1794402057.4223263,
+    "seen": 1794472629.2530982,
+    "ast_hash": "fda94ae1076c33d2ce5a92d9dc4bbee8",
+    "semantic_hash": "fda94ae1076c33d2ce5a92d9dc4bbee8"
+  },
+  "ui/screens/appointments/AppointmentsPreviews.kt": {
+    "mtime": 1794404241.60545,
+    "seen": 1794472629.2530997,
+    "ast_hash": "0f24d381f504d13d5741feedd7891cfd",
+    "semantic_hash": "0f24d381f504d13d5741feedd7891cfd"
+  },
+  "ui/screens/appointments/AppointmentsSamples.kt": {
+    "mtime": 1794174256.615791,
+    "seen": 1794472629.253101,
+    "ast_hash": "bc7c538c2efabc8480ffbbc9e034a40c",
+    "semantic_hash": "bc7c538c2efabc8480ffbbc9e034a40c"
+  },
+  "ui/screens/appointments/AppointmentsScreen.kt": {
+    "mtime": 1794406681.0778878,
+    "seen": 1794472629.2531025,
+    "ast_hash": "519207c5dcb111bf6556b27ba01ee6ea",
+    "semantic_hash": "519207c5dcb111bf6556b27ba01ee6ea"
+  },
+  "ui/screens/appointments/AppointmentsStates.kt": {
+    "mtime": 1794174256.6450987,
+    "seen": 1794472629.253104,
+    "ast_hash": "bf63c12ba9d1dbdbb4fa876317e9c927",
+    "semantic_hash": "bf63c12ba9d1dbdbb4fa876317e9c927"
+  },
+  "ui/screens/appointments/AppointmentsTabs.kt": {
+    "mtime": 1794174256.6460993,
+    "seen": 1794472629.253105,
+    "ast_hash": "9d9fff83c05c33e9eaa0a664a71d1296",
+    "semantic_hash": "9d9fff83c05c33e9eaa0a664a71d1296"
+  },
+  "ui/screens/appointments/AppointmentsUiState.kt": {
+    "mtime": 1794395873.0665493,
+    "seen": 1794472629.2531066,
+    "ast_hash": "04d467341796cec255750e4eadaac002",
+    "semantic_hash": "04d467341796cec255750e4eadaac002"
+  },
+  "ui/screens/auth/AuthButtons.kt": {
+    "mtime": 1794174256.6471002,
+    "seen": 1794472629.253108,
+    "ast_hash": "bb9d68601c7e74cd32ed4e7b2c8d4d4f",
+    "semantic_hash": "bb9d68601c7e74cd32ed4e7b2c8d4d4f"
+  },
+  "ui/screens/auth/AuthFields.kt": {
+    "mtime": 1794174256.6481,
+    "seen": 1794472629.2531092,
+    "ast_hash": "3fa45f956dbe2b7cd60442f019c2f57c",
+    "semantic_hash": "3fa45f956dbe2b7cd60442f019c2f57c"
+  },
+  "ui/screens/auth/AuthHeroBand.kt": {
+    "mtime": 1794174256.6481,
+    "seen": 1794472629.2531106,
+    "ast_hash": "dca2bb4187104f2ae8345f3215de62f1",
+    "semantic_hash": "dca2bb4187104f2ae8345f3215de62f1"
+  },
+  "ui/screens/auth/AuthPreviews.kt": {
+    "mtime": 1794174256.6491027,
+    "seen": 1794472629.2531118,
+    "ast_hash": "02dffc3d79772f3f3b10998274c94302",
+    "semantic_hash": "02dffc3d79772f3f3b10998274c94302"
+  },
+  "ui/screens/auth/AuthSamples.kt": {
+    "mtime": 1794174256.6530986,
+    "seen": 1794472629.253113,
+    "ast_hash": "c53a99eb3b62b845f029e14c84cefc35",
+    "semantic_hash": "c53a99eb3b62b845f029e14c84cefc35"
+  },
+  "ui/screens/auth/AuthUiState.kt": {
+    "mtime": 1794174256.6600997,
+    "seen": 1794472629.2531142,
+    "ast_hash": "383e0934007491983ed343ab94977216",
+    "semantic_hash": "383e0934007491983ed343ab94977216"
+  },
+  "ui/screens/auth/AuthValidation.kt": {
+    "mtime": 1794174256.6650984,
+    "seen": 1794472629.2531154,
+    "ast_hash": "63b21c5ac6629cf5c77799d6d9adb241",
+    "semantic_hash": "63b21c5ac6629cf5c77799d6d9adb241"
+  },
+  "ui/screens/auth/BiometricUnlockScreen.kt": {
+    "mtime": 1794174256.6970139,
+    "seen": 1794472629.2531166,
+    "ast_hash": "c32e8d7edaab69270b83ce48f2606873",
+    "semantic_hash": "c32e8d7edaab69270b83ce48f2606873"
+  },
+  "ui/screens/auth/ForgotPasswordScreen.kt": {
+    "mtime": 1794285130.3432977,
+    "seen": 1794472629.2531178,
+    "ast_hash": "1cea700dc0d088d65cd00e0dc6cce0ef",
+    "semantic_hash": "1cea700dc0d088d65cd00e0dc6cce0ef"
+  },
+  "ui/screens/auth/RegisterCredentialsScreen.kt": {
+    "mtime": 1794174256.7256334,
+    "seen": 1794472629.253119,
+    "ast_hash": "8d705d0475f60e92a237b405efa4acac",
+    "semantic_hash": "8d705d0475f60e92a237b405efa4acac"
+  },
+  "ui/screens/auth/RegisterDetailsScreen.kt": {
+    "mtime": 1794282786.4262571,
+    "seen": 1794472629.2531202,
+    "ast_hash": "5b05f8990f72d9d62c09ef6c526a58bd",
+    "semantic_hash": "5b05f8990f72d9d62c09ef6c526a58bd"
+  },
+  "ui/screens/auth/RegisterOtpParts.kt": {
+    "mtime": 1794282860.4577682,
+    "seen": 1794472629.2531216,
+    "ast_hash": "09155ace0156a3f40aa133c03a9af56a",
+    "semantic_hash": "09155ace0156a3f40aa133c03a9af56a"
+  },
+  "ui/screens/auth/RegisterOtpPreviews.kt": {
+    "mtime": 1794283458.8059924,
+    "seen": 1794472629.2531233,
+    "ast_hash": "7b1d772763007c8b52d8bdb9b1010b6b",
+    "semantic_hash": "7b1d772763007c8b52d8bdb9b1010b6b"
+  },
+  "ui/screens/auth/RegisterOtpScreen.kt": {
+    "mtime": 1794283419.4834116,
+    "seen": 1794472629.2531247,
+    "ast_hash": "ecf6b9aa060ea92d702e99db592c608b",
+    "semantic_hash": "ecf6b9aa060ea92d702e99db592c608b"
+  },
+  "ui/screens/auth/RegisterPreviews.kt": {
+    "mtime": 1794174256.7371163,
+    "seen": 1794472629.253126,
+    "ast_hash": "895e45a4de97938d2b70ffc78ee0378a",
+    "semantic_hash": "895e45a4de97938d2b70ffc78ee0378a"
+  },
+  "ui/screens/auth/RegisterSuccessScreen.kt": {
+    "mtime": 1794174256.7381146,
+    "seen": 1794472629.253127,
+    "ast_hash": "09f80715fa128ce30b1f60b3d23ea6f7",
+    "semantic_hash": "09f80715fa128ce30b1f60b3d23ea6f7"
+  },
+  "ui/screens/auth/RegistrationProgress.kt": {
+    "mtime": 1794174256.7531133,
+    "seen": 1794472629.2531285,
+    "ast_hash": "3d50c0328a9bc4aad961fb14875f865e",
+    "semantic_hash": "3d50c0328a9bc4aad961fb14875f865e"
+  },
+  "ui/screens/auth/ResetPasswordScreen.kt": {
+    "mtime": 1794285125.9700203,
+    "seen": 1794472629.2531297,
+    "ast_hash": "08950ebbeeddbf89494d8b623d469296",
+    "semantic_hash": "08950ebbeeddbf89494d8b623d469296"
+  },
+  "ui/screens/auth/SignInParts.kt": {
+    "mtime": 1794174256.7676232,
+    "seen": 1794472629.253131,
+    "ast_hash": "00444a47b372f73893ab694e5c614f0d",
+    "semantic_hash": "00444a47b372f73893ab694e5c614f0d"
+  },
+  "ui/screens/auth/SignInScreen.kt": {
+    "mtime": 1794389002.0604906,
+    "seen": 1794472629.253132,
+    "ast_hash": "4f9cbce2f69a37200364e6e3635bb9f8",
+    "semantic_hash": "4f9cbce2f69a37200364e6e3635bb9f8"
+  },
+  "ui/screens/auth/SplashScreen.kt": {
+    "mtime": 1794174256.7686236,
+    "seen": 1794472629.2531333,
+    "ast_hash": "9178deca45e76c39e22d6d3035d3f599",
+    "semantic_hash": "9178deca45e76c39e22d6d3035d3f599"
+  },
+  "ui/screens/booking/BookingDetailsCard.kt": {
+    "mtime": 1794174256.7696233,
+    "seen": 1794472629.2531345,
+    "ast_hash": "341cf1620504826f9c081f8d2c9a7447",
+    "semantic_hash": "341cf1620504826f9c081f8d2c9a7447"
+  },
+  "ui/screens/booking/BookingForm.kt": {
+    "mtime": 1794435927.9367476,
+    "seen": 1794472629.253136,
+    "ast_hash": "fb5c64c275801d6b05b9c5770031c586",
+    "semantic_hash": "fb5c64c275801d6b05b9c5770031c586"
+  },
+  "ui/screens/booking/BookingFormControls.kt": {
+    "mtime": 1794174256.7706227,
+    "seen": 1794472629.253137,
+    "ast_hash": "3279b2a9edd59635739baf307c4e4b86",
+    "semantic_hash": "3279b2a9edd59635739baf307c4e4b86"
+  },
+  "ui/screens/booking/BookingNotices.kt": {
+    "mtime": 1794174256.7716298,
+    "seen": 1794472629.2531385,
+    "ast_hash": "d498a225e4832572b35c40e10941b251",
+    "semantic_hash": "d498a225e4832572b35c40e10941b251"
+  },
+  "ui/screens/booking/BookingPreviews.kt": {
+    "mtime": 1794174256.7716298,
+    "seen": 1794472629.2531397,
+    "ast_hash": "1fe18cd1f266de745018c8cb385c556d",
+    "semantic_hash": "1fe18cd1f266de745018c8cb385c556d"
+  },
+  "ui/screens/booking/BookingResultContent.kt": {
+    "mtime": 1794174256.772625,
+    "seen": 1794472629.253141,
+    "ast_hash": "4faaa64d5928ecada3fe67f588239843",
+    "semantic_hash": "4faaa64d5928ecada3fe67f588239843"
+  },
+  "ui/screens/booking/BookingResultScaffold.kt": {
+    "mtime": 1794174256.772625,
+    "seen": 1794472629.2531426,
+    "ast_hash": "f195b676b7eebff02e5cbc3e915d3a5c",
+    "semantic_hash": "f195b676b7eebff02e5cbc3e915d3a5c"
+  },
+  "ui/screens/booking/BookingSamples.kt": {
+    "mtime": 1794435934.0904448,
+    "seen": 1794472629.2531435,
+    "ast_hash": "4779b7b585e26a59d7b20f47f264dc53",
+    "semantic_hash": "4779b7b585e26a59d7b20f47f264dc53"
+  },
+  "ui/screens/booking/BookingScreens.kt": {
+    "mtime": 1794449282.8038924,
+    "seen": 1794472629.253145,
+    "ast_hash": "1b07f963aab50095daf747fda53e02fd",
+    "semantic_hash": "1b07f963aab50095daf747fda53e02fd"
+  },
+  "ui/screens/booking/BookingUiState.kt": {
+    "mtime": 1794174256.7821693,
+    "seen": 1794472629.2531464,
+    "ast_hash": "18ee9e44da8defff8ba8eb0669773479",
+    "semantic_hash": "18ee9e44da8defff8ba8eb0669773479"
+  },
+  "ui/screens/doctordetails/DoctorClinicHours.kt": {
+    "mtime": 1794174256.7831385,
+    "seen": 1794472629.2531476,
+    "ast_hash": "fe737429f602597619eb9c8d3e5e97ba",
+    "semantic_hash": "fe737429f602597619eb9c8d3e5e97ba"
+  },
+  "ui/screens/doctordetails/DoctorDateCard.kt": {
+    "mtime": 1794174256.7841368,
+    "seen": 1794472629.253149,
+    "ast_hash": "0e3578278e0308831602df08d36d7057",
+    "semantic_hash": "0e3578278e0308831602df08d36d7057"
+  },
+  "ui/screens/doctordetails/DoctorDetailsLoaded.kt": {
+    "mtime": 1794463808.8656595,
+    "seen": 1794472629.2531507,
+    "ast_hash": "4acd6c3994d652592b4d1ebd62385664",
+    "semantic_hash": "4acd6c3994d652592b4d1ebd62385664"
+  },
+  "ui/screens/doctordetails/DoctorDetailsPreviews.kt": {
+    "mtime": 1794453728.1263936,
+    "seen": 1794472629.253152,
+    "ast_hash": "841f1574f2ded861b0aaf556eb2f64bd",
+    "semantic_hash": "841f1574f2ded861b0aaf556eb2f64bd"
+  },
+  "ui/screens/doctordetails/DoctorDetailsSamples.kt": {
+    "mtime": 1794453734.429202,
+    "seen": 1794472629.253153,
+    "ast_hash": "08255f1b9d09d8ef1058aac1c9bfd13f",
+    "semantic_hash": "08255f1b9d09d8ef1058aac1c9bfd13f"
+  },
+  "ui/screens/doctordetails/DoctorDetailsScreen.kt": {
+    "mtime": 1794461710.0530536,
+    "seen": 1794472629.2531543,
+    "ast_hash": "7bca1dc5e813516cb5a3d16844ad3187",
+    "semantic_hash": "7bca1dc5e813516cb5a3d16844ad3187"
+  },
+  "ui/screens/doctordetails/DoctorDetailsSkeleton.kt": {
+    "mtime": 1794174256.7931373,
+    "seen": 1794472629.2531555,
+    "ast_hash": "9a8147daf4a1e1d8230d9c09a66ec1ec",
+    "semantic_hash": "9a8147daf4a1e1d8230d9c09a66ec1ec"
+  },
+  "ui/screens/doctordetails/DoctorDetailsStates.kt": {
+    "mtime": 1794174256.7931373,
+    "seen": 1794472629.2531567,
+    "ast_hash": "3783d6432469815996a6b0e525756008",
+    "semantic_hash": "3783d6432469815996a6b0e525756008"
+  },
+  "ui/screens/doctordetails/DoctorDetailsUiState.kt": {
+    "mtime": 1794453621.5433302,
+    "seen": 1794472629.253158,
+    "ast_hash": "4a2c793dc5bbbcac2bb65d7d07229671",
+    "semantic_hash": "4a2c793dc5bbbcac2bb65d7d07229671"
+  },
+  "ui/screens/doctordetails/DoctorProfileCard.kt": {
+    "mtime": 1794472266.3868198,
+    "seen": 1794472629.2531593,
+    "ast_hash": "f9489541d89386e559cdc4b9f11fa57c",
+    "semantic_hash": "f9489541d89386e559cdc4b9f11fa57c"
+  },
+  "ui/screens/doctordetails/DoctorSlotControls.kt": {
+    "mtime": 1794453596.573748,
+    "seen": 1794472629.2531605,
+    "ast_hash": "d337e694b2886df45c9f5f8b5a7bdf92",
+    "semantic_hash": "d337e694b2886df45c9f5f8b5a7bdf92"
+  },
+  "ui/screens/doctordetails/DoctorSlotPicker.kt": {
+    "mtime": 1794463834.5384533,
+    "seen": 1794472629.2531617,
+    "ast_hash": "12ba91dcc1b44e92806528a7ecc3e7be",
+    "semantic_hash": "12ba91dcc1b44e92806528a7ecc3e7be"
+  },
+  "ui/screens/doctordetails/DoctorSlots.kt": {
+    "mtime": 1794174256.796181,
+    "seen": 1794472629.253163,
+    "ast_hash": "42da6f74a9adc1fb2fae6633c19fa287",
+    "semantic_hash": "42da6f74a9adc1fb2fae6633c19fa287"
+  },
+  "ui/screens/doctors/DoctorListItem.kt": {
+    "mtime": 1794174256.7982008,
+    "seen": 1794472629.2531643,
+    "ast_hash": "600b242b89506f96e6edc4a5357f0eb4",
+    "semantic_hash": "600b242b89506f96e6edc4a5357f0eb4"
+  },
+  "ui/screens/doctors/DoctorSamples.kt": {
+    "mtime": 1794174256.7991378,
+    "seen": 1794472629.2531655,
+    "ast_hash": "c71dbcf2c401302c826a9cdf52e53510",
+    "semantic_hash": "c71dbcf2c401302c826a9cdf52e53510"
+  },
+  "ui/screens/doctors/DoctorsFilter.kt": {
+    "mtime": 1794174256.8001368,
+    "seen": 1794472629.253167,
+    "ast_hash": "58a4bb1dff0f75e5da883f2c8e952823",
+    "semantic_hash": "58a4bb1dff0f75e5da883f2c8e952823"
+  },
+  "ui/screens/doctors/DoctorsPreviews.kt": {
+    "mtime": 1794174256.8001368,
+    "seen": 1794472629.253168,
+    "ast_hash": "c1d83e3b55ac6b807e8daa7010e7cae2",
+    "semantic_hash": "c1d83e3b55ac6b807e8daa7010e7cae2"
+  },
+  "ui/screens/doctors/DoctorsScreen.kt": {
+    "mtime": 1794174256.808138,
+    "seen": 1794472629.2531693,
+    "ast_hash": "96d5615880a6ba931835c6435f967eaf",
+    "semantic_hash": "96d5615880a6ba931835c6435f967eaf"
+  },
+  "ui/screens/doctors/DoctorsSearchControls.kt": {
+    "mtime": 1794174256.8091376,
+    "seen": 1794472629.253171,
+    "ast_hash": "3be69f05e169eaddc819a9bdd979f0a9",
+    "semantic_hash": "3be69f05e169eaddc819a9bdd979f0a9"
+  },
+  "ui/screens/doctors/DoctorsStates.kt": {
+    "mtime": 1794174256.8091376,
+    "seen": 1794472629.2531722,
+    "ast_hash": "6ea90cfea90045449724b53bda0b1325",
+    "semantic_hash": "6ea90cfea90045449724b53bda0b1325"
+  },
+  "ui/screens/doctors/DoctorsUiState.kt": {
+    "mtime": 1794174256.8171382,
+    "seen": 1794472629.2531736,
+    "ast_hash": "b4205da1c07b107d9f0fe15beefbb566",
+    "semantic_hash": "b4205da1c07b107d9f0fe15beefbb566"
+  },
+  "ui/screens/home/HomeHeader.kt": {
+    "mtime": 1794459703.6723578,
+    "seen": 1794472629.2531748,
+    "ast_hash": "5a29d826c681ce4504c06538dccd6bbd",
+    "semantic_hash": "5a29d826c681ce4504c06538dccd6bbd"
+  },
+  "ui/screens/home/HomePreviews.kt": {
+    "mtime": 1794174256.8201365,
+    "seen": 1794472629.253176,
+    "ast_hash": "bf406495bf2f448dc97367c8b5d0c2c5",
+    "semantic_hash": "bf406495bf2f448dc97367c8b5d0c2c5"
+  },
+  "ui/screens/home/HomePrimitives.kt": {
+    "mtime": 1794174256.8201365,
+    "seen": 1794472629.2531774,
+    "ast_hash": "abe3e7c737a8ac51d7621e6a6ebc1d4b",
+    "semantic_hash": "abe3e7c737a8ac51d7621e6a6ebc1d4b"
+  },
+  "ui/screens/home/HomeSamples.kt": {
+    "mtime": 1794174256.821135,
+    "seen": 1794472629.2531798,
+    "ast_hash": "081b626eff0f6842f7672db88be4ea3e",
+    "semantic_hash": "081b626eff0f6842f7672db88be4ea3e"
+  },
+  "ui/screens/home/HomeScreen.kt": {
+    "mtime": 1794459676.1494567,
+    "seen": 1794472629.2531812,
+    "ast_hash": "8f917b43b598a99081164ec1ba16fa04",
+    "semantic_hash": "8f917b43b598a99081164ec1ba16fa04"
+  },
+  "ui/screens/home/HomeStates.kt": {
+    "mtime": 1794174256.8291829,
+    "seen": 1794472629.2531824,
+    "ast_hash": "74c24b5cea911050cbb6be5b431c9508",
+    "semantic_hash": "74c24b5cea911050cbb6be5b431c9508"
+  },
+  "ui/screens/home/HomeUiState.kt": {
+    "mtime": 1794471632.8781173,
+    "seen": 1794472629.2531838,
+    "ast_hash": "2bb4e8a3ea2d9932ad8d6b8899216718",
+    "semantic_hash": "2bb4e8a3ea2d9932ad8d6b8899216718"
+  },
+  "ui/screens/home/NextConsultationCard.kt": {
+    "mtime": 1794174256.8676708,
+    "seen": 1794472629.253185,
+    "ast_hash": "2b2e80b14a7a33181ceb674ff90cf74b",
+    "semantic_hash": "2b2e80b14a7a33181ceb674ff90cf74b"
+  },
+  "ui/screens/home/NoUpcomingAppointmentCard.kt": {
+    "mtime": 1794174256.8736687,
+    "seen": 1794472629.2531862,
+    "ast_hash": "8191a403757704de447fe07485835626",
+    "semantic_hash": "8191a403757704de447fe07485835626"
+  },
+  "ui/screens/home/OpenSlotsCard.kt": {
+    "mtime": 1794174256.881318,
+    "seen": 1794472629.2531877,
+    "ast_hash": "80e51fd709d547e240d28f98f2d14fe7",
+    "semantic_hash": "80e51fd709d547e240d28f98f2d14fe7"
+  },
+  "ui/screens/home/SpecialtyChips.kt": {
+    "mtime": 1794174256.888224,
+    "seen": 1794472629.2531886,
+    "ast_hash": "fe573da702bf4e310176a4d0838accea",
+    "semantic_hash": "fe573da702bf4e310176a4d0838accea"
+  },
+  "ui/screens/messages/ConversationCard.kt": {
+    "mtime": 1794470763.2908316,
+    "seen": 1794472629.2531898,
+    "ast_hash": "6ecd4f33f0bfc94bad2cdac71e790fff",
+    "semantic_hash": "6ecd4f33f0bfc94bad2cdac71e790fff"
+  },
+  "ui/screens/messages/MessagesPreviews.kt": {
+    "mtime": 1794174256.8915107,
+    "seen": 1794472629.2531912,
+    "ast_hash": "1b987e793c32cb3786327094f39552e7",
+    "semantic_hash": "1b987e793c32cb3786327094f39552e7"
+  },
+  "ui/screens/messages/MessagesSamples.kt": {
+    "mtime": 1794174256.8925097,
+    "seen": 1794472629.2531924,
+    "ast_hash": "483e331a68ea682f5c292b8511451ccd",
+    "semantic_hash": "483e331a68ea682f5c292b8511451ccd"
+  },
+  "ui/screens/messages/MessagesScreen.kt": {
+    "mtime": 1794470976.2711098,
+    "seen": 1794472629.2531936,
+    "ast_hash": "c4367790f1f6414f4f33cbf9e84aba98",
+    "semantic_hash": "c4367790f1f6414f4f33cbf9e84aba98"
+  },
+  "ui/screens/messages/MessagesStates.kt": {
+    "mtime": 1794402703.1181264,
+    "seen": 1794472629.253195,
+    "ast_hash": "81bff79ee0ad1faa83030ee866da8043",
+    "semantic_hash": "81bff79ee0ad1faa83030ee866da8043"
+  },
+  "ui/screens/messages/MessagesUiState.kt": {
+    "mtime": 1794463633.5392902,
+    "seen": 1794472629.253196,
+    "ast_hash": "703053742be79d28b0091723a86b4bcd",
+    "semantic_hash": "703053742be79d28b0091723a86b4bcd"
+  },
+  "ui/screens/notifications/NotificationHelper.kt": {
+    "mtime": 1794174256.9066243,
+    "seen": 1794472629.2531972,
+    "ast_hash": "5b425d372059f321ce3c9136f62d265b",
+    "semantic_hash": "5b425d372059f321ce3c9136f62d265b"
+  },
+  "ui/screens/notifications/NotificationsParts.kt": {
+    "mtime": 1794174256.9075503,
+    "seen": 1794472629.2531986,
+    "ast_hash": "cbdf23db654b532a1ba064cc43d0c9e5",
+    "semantic_hash": "cbdf23db654b532a1ba064cc43d0c9e5"
+  },
+  "ui/screens/notifications/NotificationsPreviews.kt": {
+    "mtime": 1794174256.9085495,
+    "seen": 1794472629.2531998,
+    "ast_hash": "0d05acae450842321c0ee36ead8a4b3b",
+    "semantic_hash": "0d05acae450842321c0ee36ead8a4b3b"
+  },
+  "ui/screens/notifications/NotificationsSamples.kt": {
+    "mtime": 1794174256.9085495,
+    "seen": 1794472629.2532012,
+    "ast_hash": "322acfc69cf4bcd70b20e6d5cce97f80",
+    "semantic_hash": "322acfc69cf4bcd70b20e6d5cce97f80"
+  },
+  "ui/screens/notifications/NotificationsScreen.kt": {
+    "mtime": 1794174256.9175532,
+    "seen": 1794472629.2532024,
+    "ast_hash": "fb38409f6010a4826850b2c6869ccc42",
+    "semantic_hash": "fb38409f6010a4826850b2c6869ccc42"
+  },
+  "ui/screens/notifications/NotificationsUiState.kt": {
+    "mtime": 1794459393.2899752,
+    "seen": 1794472629.2532036,
+    "ast_hash": "07b20c142bb437741a4dba59b1feae51",
+    "semantic_hash": "07b20c142bb437741a4dba59b1feae51"
+  },
+  "ui/screens/profile/EditProfileForm.kt": {
+    "mtime": 1794174256.9266071,
+    "seen": 1794472629.2532048,
+    "ast_hash": "e089a75e4d7400ed904ee6cbe93768a7",
+    "semantic_hash": "e089a75e4d7400ed904ee6cbe93768a7"
+  },
+  "ui/screens/profile/EditProfileScreen.kt": {
+    "mtime": 1794174256.9286351,
+    "seen": 1794472629.253206,
+    "ast_hash": "8a40c97094d4231982d1691a34cfb898",
+    "semantic_hash": "8a40c97094d4231982d1691a34cfb898"
+  },
+  "ui/screens/profile/ProfileDetailsCard.kt": {
+    "mtime": 1794379241.8282654,
+    "seen": 1794472629.2532074,
+    "ast_hash": "cb1678a54478234d79079533d7b64820",
+    "semantic_hash": "cb1678a54478234d79079533d7b64820"
+  },
+  "ui/screens/profile/ProfilePreviews.kt": {
+    "mtime": 1794174256.9326365,
+    "seen": 1794472629.2532089,
+    "ast_hash": "8338d64a3bce511a99cc06978199f540",
+    "semantic_hash": "8338d64a3bce511a99cc06978199f540"
+  },
+  "ui/screens/profile/ProfileSamples.kt": {
+    "mtime": 1794174256.9336321,
+    "seen": 1794472629.25321,
+    "ast_hash": "68f9078bd0cfece406e506bb8f27d8a1",
+    "semantic_hash": "68f9078bd0cfece406e506bb8f27d8a1"
+  },
+  "ui/screens/profile/ProfileScreen.kt": {
+    "mtime": 1794401108.4361289,
+    "seen": 1794472629.2532115,
+    "ast_hash": "c6d0b92984ab9b5c01b340180cfdc7e0",
+    "semantic_hash": "c6d0b92984ab9b5c01b340180cfdc7e0"
+  },
+  "ui/screens/profile/ProfileStates.kt": {
+    "mtime": 1794174256.9386613,
+    "seen": 1794472629.2532127,
+    "ast_hash": "4e275298c35a55e237824d5830acc091",
+    "semantic_hash": "4e275298c35a55e237824d5830acc091"
+  },
+  "ui/screens/profile/ProfileUiState.kt": {
+    "mtime": 1794379233.2693956,
+    "seen": 1794472629.2532136,
+    "ast_hash": "36a6b4a27a3fb9c273501683be50df64",
+    "semantic_hash": "36a6b4a27a3fb9c273501683be50df64"
+  },
+  "ui/screens/secretarychat/ChatBubble.kt": {
+    "mtime": 1794471969.9353511,
+    "seen": 1794472629.253215,
+    "ast_hash": "546e123dbc15c25cfc6d322218c02e89",
+    "semantic_hash": "546e123dbc15c25cfc6d322218c02e89"
+  },
+  "ui/screens/secretarychat/ChatHeader.kt": {
+    "mtime": 1794471198.4486918,
+    "seen": 1794472629.2532163,
+    "ast_hash": "41710c37897c78a8d4b0ee27b553e1f4",
+    "semantic_hash": "41710c37897c78a8d4b0ee27b553e1f4"
+  },
+  "ui/screens/secretarychat/ChatInput.kt": {
+    "mtime": 1794471976.6967156,
+    "seen": 1794472629.2532175,
+    "ast_hash": "a61da853248d34e092d96b375357e9f6",
+    "semantic_hash": "a61da853248d34e092d96b375357e9f6"
+  },
+  "ui/screens/secretarychat/SecretaryChatPreviews.kt": {
+    "mtime": 1794174256.9821508,
+    "seen": 1794472629.2532187,
+    "ast_hash": "1bbc9dd28fc0ca4300d0549e958bfbcf",
+    "semantic_hash": "1bbc9dd28fc0ca4300d0549e958bfbcf"
+  },
+  "ui/screens/secretarychat/SecretaryChatSamples.kt": {
+    "mtime": 1794457131.2838774,
+    "seen": 1794472629.2532198,
+    "ast_hash": "f7692b798a152fc8f58e951f2f2134f6",
+    "semantic_hash": "f7692b798a152fc8f58e951f2f2134f6"
+  },
+  "ui/screens/secretarychat/SecretaryChatScreen.kt": {
+    "mtime": 1794472028.2352295,
+    "seen": 1794472629.253221,
+    "ast_hash": "41ef0a41f934faa32528fb331059bcf7",
+    "semantic_hash": "41ef0a41f934faa32528fb331059bcf7"
+  },
+  "ui/screens/secretarychat/SecretaryChatUiState.kt": {
+    "mtime": 1794471131.4876676,
+    "seen": 1794472629.2532225,
+    "ast_hash": "5d7eda6ab70b8586ab1f10d0bd9927b5",
+    "semantic_hash": "5d7eda6ab70b8586ab1f10d0bd9927b5"
+  },
+  "ui/session/DateTimeFormatter.kt": {
+    "mtime": 1794174256.9891791,
+    "seen": 1794472629.2532234,
+    "ast_hash": "89618fc007c47b118aebda44b0c3ba90",
+    "semantic_hash": "89618fc007c47b118aebda44b0c3ba90"
+  },
+  "ui/session/DisplayName.kt": {
+    "mtime": 1794452117.798233,
+    "seen": 1794472629.2532246,
+    "ast_hash": "5125a9e95e271bff7fd9e27e93e46318",
+    "semantic_hash": "5125a9e95e271bff7fd9e27e93e46318"
+  },
+  "ui/session/MediQSession.kt": {
+    "mtime": 1794395345.9654732,
+    "seen": 1794472629.253226,
+    "ast_hash": "a500c7028d0c2e883ca60dd3379571a3",
+    "semantic_hash": "a500c7028d0c2e883ca60dd3379571a3"
+  },
+  "ui/theme/Color.kt": {
+    "mtime": 1794174256.99115,
+    "seen": 1794472629.2532272,
+    "ast_hash": "acf787679e7f5234893f3fffb167e95f",
+    "semantic_hash": "acf787679e7f5234893f3fffb167e95f"
+  },
+  "ui/theme/Shape.kt": {
+    "mtime": 1794174256.9921494,
+    "seen": 1794472629.2532284,
+    "ast_hash": "36ed3bc1667f19c56256db814f272006",
+    "semantic_hash": "36ed3bc1667f19c56256db814f272006"
+  },
+  "ui/theme/Spacing.kt": {
+    "mtime": 1794174256.9971817,
+    "seen": 1794472629.2532299,
+    "ast_hash": "317e1b8bd67b149dd2dc5677753172dd",
+    "semantic_hash": "317e1b8bd67b149dd2dc5677753172dd"
+  },
+  "ui/theme/Theme.kt": {
+    "mtime": 1794174256.99815,
+    "seen": 1794472629.253231,
+    "ast_hash": "d0f8b67c9275d4f05a62c863448778c7",
+    "semantic_hash": "d0f8b67c9275d4f05a62c863448778c7"
+  },
+  "ui/theme/Type.kt": {
+    "mtime": 1794174256.99815,
+    "seen": 1794472629.2532322,
+    "ast_hash": "734cd2dde2890a26f3cf98734db4af2f",
+    "semantic_hash": "734cd2dde2890a26f3cf98734db4af2f"
+  },
+  "ui/viewmodel/AppointmentsViewModel.kt": {
+    "mtime": 1794457423.4330163,
+    "seen": 1794472629.2532334,
+    "ast_hash": "8eb54b8e98445d12bfc92baf021bf4ee",
+    "semantic_hash": "8eb54b8e98445d12bfc92baf021bf4ee"
+  },
+  "ui/viewmodel/AuthViewModel.kt": {
+    "mtime": 1794381459.4825692,
+    "seen": 1794472629.2532346,
+    "ast_hash": "1a4f117c38f1ebb76bc42d4a8a069a1d",
+    "semantic_hash": "1a4f117c38f1ebb76bc42d4a8a069a1d"
+  },
+  "ui/viewmodel/BiometricViewModel.kt": {
+    "mtime": 1794174257.0456684,
+    "seen": 1794472629.253236,
+    "ast_hash": "debd737af896fe8121f67358c13b6707",
+    "semantic_hash": "debd737af896fe8121f67358c13b6707"
+  },
+  "ui/viewmodel/BookingViewModel.kt": {
+    "mtime": 1794462680.946265,
+    "seen": 1794472629.2532372,
+    "ast_hash": "496c99f012f19d3fbae1035beae6c35f",
+    "semantic_hash": "496c99f012f19d3fbae1035beae6c35f"
+  },
+  "ui/viewmodel/ChatViewModel.kt": {
+    "mtime": 1794460950.7034924,
+    "seen": 1794472629.2532384,
+    "ast_hash": "76b0793f71d0138ac1a474ba2bf087f0",
+    "semantic_hash": "76b0793f71d0138ac1a474ba2bf087f0"
+  },
+  "ui/viewmodel/DoctorDetailsViewModel.kt": {
+    "mtime": 1794453705.379106,
+    "seen": 1794472629.2532399,
+    "ast_hash": "5aa96e2c12dbfdf9d98feddc9447da5d",
+    "semantic_hash": "5aa96e2c12dbfdf9d98feddc9447da5d"
+  },
+  "ui/viewmodel/DoctorsViewModel.kt": {
+    "mtime": 1794174538.2883127,
+    "seen": 1794472629.253241,
+    "ast_hash": "282183994119367b839c1a42eef3f48c",
+    "semantic_hash": "282183994119367b839c1a42eef3f48c"
+  },
+  "ui/viewmodel/HomeViewModel.kt": {
+    "mtime": 1794471733.99251,
+    "seen": 1794472629.253242,
+    "ast_hash": "69766a43c27e68daa9927eabac6d0706",
+    "semantic_hash": "69766a43c27e68daa9927eabac6d0706"
+  },
+  "ui/viewmodel/MessagesViewModel.kt": {
+    "mtime": 1794470635.862741,
+    "seen": 1794472629.2532434,
+    "ast_hash": "ec736855c61d0aaf28e213d2ef3dea2b",
+    "semantic_hash": "ec736855c61d0aaf28e213d2ef3dea2b"
+  },
+  "ui/viewmodel/NotificationsViewModel.kt": {
+    "mtime": 1794174634.101923,
+    "seen": 1794472629.2532446,
+    "ast_hash": "d47d780433147a8279ae25e0c7c574f0",
+    "semantic_hash": "d47d780433147a8279ae25e0c7c574f0"
+  },
+  "ui/viewmodel/ProfileViewModel.kt": {
+    "mtime": 1794175372.0390382,
+    "seen": 1794472629.253246,
+    "ast_hash": "a2f320132b03cd8427e90c7f1c122035",
+    "semantic_hash": "a2f320132b03cd8427e90c7f1c122035"
+  }
+}

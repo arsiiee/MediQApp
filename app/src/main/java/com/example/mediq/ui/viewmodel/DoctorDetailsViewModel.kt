@@ -56,6 +56,13 @@ class DoctorDetailsViewModel : ViewModel() {
                 }
                 val userBookedWithDoctor = thisDoctorAppointments.filter { it.patientId == patientUserId }
                 val otherBookedWithDoctor = thisDoctorAppointments.filter { it.patientId != patientUserId }
+                val nowInstant = java.time.Instant.now()
+                val activeFutureUserBookings = userBookedWithDoctor.filter { appt ->
+                    appt.status != AppointmentStatus.CANCELLED &&
+                    appt.status != AppointmentStatus.COMPLETED &&
+                    appt.status != AppointmentStatus.NO_SHOW &&
+                    runCatching { java.time.Instant.parse(appt.startsAt).isAfter(nowInstant) || java.time.Instant.parse(appt.startsAt) == nowInstant }.getOrDefault(false)
+                }
 
                 val profile = toDoctorProfile(doctor, clinicHours)
                 val schedule = buildDateSchedules(
@@ -68,7 +75,7 @@ class DoctorDetailsViewModel : ViewModel() {
                 _uiState.value = DoctorDetailsUiState.Content(
                     doctor = profile,
                     schedule = schedule,
-                    userBookings = userBookedWithDoctor
+                    userBookings = activeFutureUserBookings
                 )
             } catch (e: Exception) {
                 _uiState.value = DoctorDetailsUiState.Error(

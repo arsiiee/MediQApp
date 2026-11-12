@@ -39,6 +39,7 @@ import com.example.mediq.ui.theme.MediQOnBrand
 import com.example.mediq.ui.theme.MediQSize
 import com.example.mediq.ui.theme.MediQSpacing
 import com.example.mediq.ui.theme.MediQTextPrimary
+import com.example.mediq.ui.theme.MediQTextSecondary
 import com.example.mediq.ui.theme.MediQWarning
 
 /**
@@ -77,7 +78,11 @@ internal fun AppointmentDetailsLoaded(
         Spacer(Modifier.height(MediQSpacing.lg))
 
         Button(
-            onClick = { actions.onChatWithSecretary(booking.conversationId) },
+            onClick = {
+                if (booking.status != AppointmentStatus.Cancelled) {
+                    actions.onChatWithSecretary(booking.conversationId)
+                }
+            },
             modifier = Modifier
                 .fillMaxWidth()
                 .heightIn(min = MediQSize.minTouchTarget),
@@ -96,8 +101,9 @@ internal fun AppointmentDetailsLoaded(
             Spacer(Modifier.width(MediQSpacing.sm))
 
             Text(
-                text = "Chat with Secretary",
-                style = MaterialTheme.typography.labelLarge
+                text = if (booking.status == AppointmentStatus.Cancelled) "Chat unavailable (cancelled)" else "Chat with Secretary",
+                style = MaterialTheme.typography.labelLarge,
+                color = if (booking.status == AppointmentStatus.Cancelled) MediQTextSecondary else MediQOnBrand
             )
         }
 
@@ -129,9 +135,9 @@ internal fun AppointmentDetailsLoaded(
     if (showCancelSheet) {
         AppointmentCancelSheet(
             onDismiss = { showCancelSheet = false },
-            onConfirm = {
+            onConfirm = { reason ->
                 showCancelSheet = false
-                actions.onCancelAppointment(booking.id)
+                actions.onCancelAppointment(booking.id, reason)
             }
         )
     }

@@ -34,11 +34,15 @@ object DisplayName {
     /**
      * A readable name for a username, e.g. "kissie.apple" -> "Kissie Apple".
      *
+     * Email addresses are stripped at the @ so "jlmandahinog65115@liceo.edu.ph"
+     * becomes "Jlmandahinog65115" instead of "Jlmandahinog65115 Liceo Edu Ph".
+     *
      * Used when the account was not created on this device, so the username is
      * the only name available. Never better than the real name — it is a
      * fallback, not a guess at the patient's identity.
      */
     fun fromUsername(username: String): String = username
+        .takeWhile { it != '@' } // strip email domain
         .split('.', '_', '-', ' ')
         .filter { it.isNotBlank() }
         .joinToString(" ") { part ->

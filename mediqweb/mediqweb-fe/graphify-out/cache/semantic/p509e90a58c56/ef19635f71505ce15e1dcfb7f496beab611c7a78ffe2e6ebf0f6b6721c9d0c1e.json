@@ -1,0 +1,1 @@
+{"nodes": [{"id": "src_app_app", "label": "App Root", "file_type": "code", "source_file": "src/app/app.html", "verification": "unverified", "_origin": "semantic"}], "edges": [{"source": "src_app_app", "target": "src_app_app", "relation": "references", "confidence": "EXTRACTED", "confidence_score": 1.0, "source_file": "src/app/app.html", "_origin": "semantic"}], "hyperedges": []}

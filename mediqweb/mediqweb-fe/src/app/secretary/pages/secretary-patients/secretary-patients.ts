@@ -38,11 +38,17 @@ interface PatientRow {
   readonly name: string;
   readonly phone: string;
   readonly email: string;
+  /** ISO date, or `null` when not captured at registration. */
+  readonly dateOfBirth: string | null;
   readonly status: AccountStatus;
   /** ISO timestamp, or `null` when the patient has never been seen. */
   readonly lastVisitAt: string | null;
   /** ISO timestamp, or `null` when nothing is booked. */
   readonly nextVisitAt: string | null;
+  /** ID of the next live appointment, or `null` when nothing is booked. */
+  readonly nextVisitId: string | null;
+  /** Status of the next live appointment ('booked' | 'confirmed'), or `null`. */
+  readonly nextVisitStatus: 'booked' | 'confirmed' | null;
   readonly visitCount: number;
 }
 
@@ -73,6 +79,7 @@ export class SecretaryPatients {
 
   protected readonly columns: TableColumn<PatientRow>[] = [
     { key: 'name', header: 'Patient', sortable: true },
+    { key: 'dateOfBirth', header: 'Date of birth', sortable: true },
     { key: 'phone', header: 'Contact', hideBelow: 'md' },
     { key: 'lastVisitAt', header: 'Last visit', sortable: true },
     { key: 'nextVisitAt', header: 'Next appointment', sortable: true },
@@ -101,11 +108,14 @@ export class SecretaryPatients {
       .map((summary): PatientRow => ({
         id: summary.patient.id,
         name: summary.patient.name,
+        dateOfBirth: summary.patient.dateOfBirth,
         phone: summary.patient.phone,
         email: summary.patient.email,
         status: summary.patient.status,
         lastVisitAt: summary.lastVisit?.startsAt ?? null,
         nextVisitAt: summary.nextVisit?.startsAt ?? null,
+        nextVisitId: summary.nextVisit?.id ?? null,
+        nextVisitStatus: (summary.nextVisit?.status as 'booked' | 'confirmed' | null) ?? null,
         visitCount: summary.visitCount,
       }));
   });
@@ -128,5 +138,18 @@ export class SecretaryPatients {
 
   protected statusTone(status: AccountStatus): BadgeTone {
     return status === 'active' ? 'success' : 'neutral';
+  }
+
+  /** Cancels an appointment on this desk, with an optional reason shown to the patient. */
+  protected confirm(appointmentId: string): void {
+    this.session.confirm(appointmentId);
+  }
+
+  /** Prompts for a cancellation reason, then cancels the appointment. */
+  protected cancelWithReason(appointmentId: string): void {
+    const reason = prompt('Reason for cancelling (shown to the patient):');
+    if (reason !== null) {
+      this.session.cancel(appointmentId, reason.trim() || null);
+    }
   }
 }

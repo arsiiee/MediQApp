@@ -148,6 +148,7 @@ data class Message(
     val body: String,
     val sentAt: String,
     val readAt: String? = null,
+    val appointmentId: String? = null,
 )
 
 @Serializable

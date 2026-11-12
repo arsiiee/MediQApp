@@ -190,7 +190,11 @@ export class AdminSession {
       },
       error: (err: unknown) => {
         console.error('createStaffAccount failed:', err);
-        const serverMessage = (err as { error?: { message?: string } })?.error?.message;
+        const e = err as { message?: string; error?: { message?: string } };
+        const serverMessage =
+          e?.message ||
+          e?.error?.message ||
+          (typeof err === 'string' ? err : null);
         this.createErrorState.set(serverMessage ?? 'Failed to create account.');
         target.update((list) => list.filter((a) => a.id === ''));
       },

@@ -5,8 +5,12 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.example.mediq.ui.components.MediQPageHeader
@@ -37,15 +41,31 @@ fun DoctorDetailsScreen(
         }
     }
 
+    // Reload when returning to this screen (e.g. after booking an appointment).
+    // LaunchedEffect(doctorId) only fires when the doctor changes; this ensures
+    // freshly booked slots show as reserved on the grid.
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    DisposableEffect(lifecycle, doctorId) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME && doctorId != null) {
+                viewModel.loadDoctor(doctorId)
+            }
+        }
+        lifecycle.addObserver(observer)
+        onDispose { lifecycle.removeObserver(observer) }
+    }
+
     DoctorDetailsContent(
         state = uiState,
         actions = DoctorDetailsActions(
             onBack = { navController.popBackStack() },
-            onContinue = { dateIndex, time ->
+            onContinue = { selected, time ->
+                val dId = doctorId
+                    ?: throw RuntimeException("Doctor id missing — cannot book without a doctor")
                 navController.navigate(
                     Screen.BookingFlow.createRoute(
-                        doctorId = doctorId ?: "1",
-                        dateIndex = dateIndex,
+                        doctorId = dId,
+                        date = selected.fullDate,
                         time = time
                     )
                 )

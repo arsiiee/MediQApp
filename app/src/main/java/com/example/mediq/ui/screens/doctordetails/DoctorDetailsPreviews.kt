@@ -63,7 +63,8 @@ private fun DoctorDetailsFullDayPreview() {
         DoctorDetailsContent(
             state = DoctorDetailsUiState.Content(
                 doctor = DoctorDetailsSamples.profile,
-                schedule = DoctorDetailsSamples.scheduleWithNothingOpen()
+                schedule = DoctorDetailsSamples.scheduleWithNothingOpen(),
+                userBookings = emptyList()
             ),
             actions = DoctorDetailsActions()
         )

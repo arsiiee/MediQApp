@@ -4,27 +4,23 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.example.mediq.ui.components.MediQPageHeader
+import com.example.mediq.ui.navigation.Screen
 import com.example.mediq.ui.theme.MediQScaffoldBackground
 import com.example.mediq.ui.viewmodel.NotificationsViewModel
 
 /**
  * Notifications.
  *
- * Job: read updates. Primary action: open the related screen (handled by tap
- * on a card, not implemented in the mock).
- *
- * Each notification is also promoted to a real Android system notification via
- * [NotificationsViewModel] / [NotificationHelper], so the appointment events
- * surface in the system shade as well as the in-app list.
- *
- * Notifications are loaded from the API via [NotificationsViewModel]; sample
- * data is no longer used in the running app.
+ * Opening this screen marks in-app notifications as read in Supabase (best-effort)
+ * so unread state does not keep reappearing. Tapping a notification also marks it
+ * read and, when linked, opens the related appointment.
  */
 @Composable
 fun NotificationsScreen(navController: NavController) {
@@ -33,6 +29,13 @@ fun NotificationsScreen(navController: NavController) {
     val notifications = viewModel.notifications.collectAsState().value
     val isLoading = viewModel.isLoading.collectAsState().value
     val error = viewModel.error.collectAsState().value
+
+    // Viewing the inbox should clear unread state in the source of truth once loaded.
+    LaunchedEffect(isLoading, notifications.any { it.unread }) {
+        if (!isLoading && notifications.any { it.unread }) {
+            viewModel.markAllAsRead()
+        }
+    }
 
     val state = when {
         isLoading -> NotificationsUiState.Loading
@@ -43,7 +46,15 @@ fun NotificationsScreen(navController: NavController) {
 
     NotificationsContent(
         state = state,
-        actions = NotificationsActions(onRetry = { viewModel.loadNotifications() }),
+        actions = NotificationsActions(
+            onRetry = { viewModel.loadNotifications(markAllRead = true) },
+            onOpen = { item ->
+                viewModel.markAsRead(item.id)
+                item.appointmentId?.takeIf { it.isNotBlank() }?.let { apptId ->
+                    navController.navigate(Screen.AppointmentDetails.createRoute(apptId))
+                }
+            },
+        ),
         onBack = { navController.popBackStack() }
     )
 }
@@ -68,9 +79,15 @@ fun NotificationsContent(
 
         when (state) {
             NotificationsUiState.Loading -> NotificationsLoadingState()
-            is NotificationsUiState.Error -> NotificationsErrorState(message = state.message, onRetry = actions.onRetry)
+            is NotificationsUiState.Error -> NotificationsErrorState(
+                message = state.message,
+                onRetry = actions.onRetry
+            )
             NotificationsUiState.Empty -> NotificationsEmptyState()
-            is NotificationsUiState.Content -> NotificationsList(items = state.notifications)
+            is NotificationsUiState.Content -> NotificationsList(
+                items = state.notifications,
+                onOpen = actions.onOpen
+            )
         }
     }
 }

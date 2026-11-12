@@ -99,10 +99,7 @@ private fun FieldDivider() {
 }
 
 /**
- * Placeholder for the clinic map.
- *
- * Not interactive yet, so it announces itself as a map of the clinic rather
- * than pretending to be a tappable control.
+ * Map preview that opens ACE Medical Center CDO in Google Maps when tapped.
  */
 @Composable
 internal fun AppointmentMapPreview(
@@ -110,53 +107,17 @@ internal fun AppointmentMapPreview(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    val hasLocation = location.isNotBlank()
-
-    /** The hospital/building name only — floor and room details are for display,
-     * not for navigation. Split on the first separator (" · " or " — ") so the
-     * map goes to the building, not a room inside it. */
-    val mapLocation = location
-        .split(Regex("[ —·]"))
-        .firstOrNull { it.isNotBlank() }
-        ?.trim()
-        ?.takeIf { it.isNotBlank() }
-        ?: location
 
     Surface(
         modifier = modifier
             .fillMaxWidth()
             .clickable(
-                enabled = hasLocation,
+                enabled = true,
                 onClick = {
-                    val query = Uri.encode(mapLocation)
-                    // 1) Try Google Maps app directly (most reliable on devices that have it).
-                    val mapsAppIntent = Intent(Intent.ACTION_VIEW, Uri.parse("geo:0,0?q=$query")).apply {
-                        setPackage("com.google.android.apps.maps")
-                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    }
-                    try {
-                        context.startActivity(mapsAppIntent)
-                        return@clickable
-                    } catch (_: ActivityNotFoundException) {}
-
-                    // 2) Try any app that handles geo: (e.g. Apple Maps, Waze on some devices).
-                    val geoIntent = Intent(Intent.ACTION_VIEW, Uri.parse("geo:0,0?q=$query")).apply {
-                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    }
-                    try {
-                        context.startActivity(geoIntent)
-                        return@clickable
-                    } catch (_: ActivityNotFoundException) {}
-
-                    // 3) Fallback: Google Maps search page in a browser.
-                    // Use the plain search URL (not maps.google.com) so it stays
-                    // in the browser instead of redirecting to an intent:// scheme
-                    // that browsers can't load.
-                    val browserIntent = Intent(
-                        Intent.ACTION_VIEW,
-                        Uri.parse("https://www.google.com/maps/search/?api=1&query=$query")
-                    ).apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
-                    context.startActivity(browserIntent)
+                    val mapUrl = "https://www.google.com/maps/place/ACE+Medical+Center+CDO/@8.4802993,124.6590697,766m/data=!3m1!1e3!4m6!3m5!1s0x32fff2c6939c64f7:0xb8507c92fdbf6dec!8m2!3d8.4809264!4d124.6594349!16s%2Fg%2F11cp7r1k2m?entry=ttu&g_ep=EgoyMDI2MTEwOS4wIKXMDSoASAFQAw%3D%3D"
+                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(mapUrl))
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    context.startActivity(intent)
                 }
             ),
         shape = MaterialTheme.shapes.large,

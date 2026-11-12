@@ -1,32 +1,47 @@
 package com.example.mediq.ui.screens.doctordetails
 
+import com.example.mediq.data.model.Appointment
+
 /** One weekday the doctor holds clinic, as listed under the day strip. */
 data class ClinicHour(
     val day: String,
     val time: String
 )
 
-/** A selectable day in the strip. [date] is the day of the month. */
+/** A selectable day in the strip. [date] is the day of the month; [fullDate] is the ISO date (yyyy-MM-dd). */
 data class DateOption(
     val day: String,
-    val date: Int
+    val date: Int,
+    val fullDate: String
 )
 
-/** Whether a slot can still be booked. */
+/** Whether a slot can still be booked, and who booked it. */
 enum class TimeSlotStatus {
     AVAILABLE,
     RESERVED,
-    BLOCKED
+    BLOCKED,
+    /** Slot booked by the current patient — shown as "yours" on the grid. */
+    USER_BOOKED
 }
 
-/** One day on the strip plus the status of every slot on it. */
+/** One bookable/displayed slot in a day, generated from the doctor's clinic hours. */
+data class TimeSlotOption(
+    val time: String,
+    val status: TimeSlotStatus
+)
+
+/** One day on the strip plus the slots generated for it from clinic hours. */
 data class DateSchedule(
     val option: DateOption,
-    val statuses: Map<String, TimeSlotStatus>
+    val slots: List<TimeSlotOption>
 ) {
     /** Slots on this day that can still be booked. Derived, never hand-written. */
     val openSlots: Int
-        get() = statuses.count { it.value == TimeSlotStatus.AVAILABLE }
+        get() = slots.count { it.status == TimeSlotStatus.AVAILABLE }
+
+    /** Compatibility lookup by displayed time label. */
+    val statuses: Map<String, TimeSlotStatus>
+        get() = slots.associate { it.time to it.status }
 }
 
 /** The doctor as the detail screen renders them. */
@@ -64,7 +79,9 @@ sealed interface DoctorDetailsUiState {
     /** Profile and schedule loaded. */
     data class Content(
         val doctor: DoctorProfile,
-        val schedule: List<DateSchedule>
+        val schedule: List<DateSchedule>,
+        /** The current patient's existing bookings with this doctor. */
+        val userBookings: List<Appointment>
     ) : DoctorDetailsUiState {
 
         /** True while at least one day on the strip has a bookable slot. */
@@ -82,5 +99,6 @@ sealed interface DoctorDetailsUiState {
 data class DoctorDetailsActions(
     val onBack: () -> Unit = {},
     val onRetry: () -> Unit = {},
-    val onContinue: (dateIndex: Int, time: String) -> Unit = { _, _ -> }
+    /** [selected] is the day the patient picked from the schedule strip. */
+    val onContinue: (selected: DateOption, time: String) -> Unit = { _, _ -> }
 )

@@ -51,6 +51,7 @@ data class DoctorAvailability(
     val name: String,
     val specialty: String,
     val location: String,
+    val openSlotCount: Int = 0,
 )
 
 /** Everything the home screen renders. */

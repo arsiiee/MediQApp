@@ -36,8 +36,8 @@ function toPatientAccount(row: any): PatientAccount {
     id: row.user_id,
     name: row.full_name ?? '',
     email: row.email ?? '',
-    phone: row.email ?? '',
-    dateOfBirth: '',
+    phone: row.mobile_number ?? row.email ?? '',
+    dateOfBirth: row.date_of_birth ?? '',
     status: row.status,
     registeredOn: row.created_at ?? '',
   };
@@ -172,9 +172,14 @@ export class HttpAdminGateway {
             ).pipe(
               map((fnResult: any) => {
                 if (fnResult.error) {
-                  throw new Error(fnResult.error.message ?? 'Failed to create account');
+                  const msg = fnResult.error?.message ?? fnResult.error?.toString?.() ?? 'Failed to create account';
+                  const ctxMsg = (fnResult.error as any)?.context?.body
+                    ? (() => { try { return JSON.parse((fnResult.error as any).context.body)?.error; } catch { return null; } })()
+                    : null;
+                  throw new Error(ctxMsg || msg);
                 }
-                const { userId, role: createdRole } = fnResult;
+                const payload = fnResult.data ?? fnResult;
+                const userId = payload?.userId ?? payload?.user?.id ?? '';
                 return {
                   id: userId,
                   name: draft.name,

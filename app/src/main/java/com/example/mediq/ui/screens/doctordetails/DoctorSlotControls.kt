@@ -49,8 +49,7 @@ import com.example.mediq.ui.theme.MediQTextSecondary
 /** A row of the slot grid. Short rows keep their alignment with empty weight. */
 @Composable
 internal fun TimeSlotRow(
-    slots: List<String>,
-    statuses: Map<String, TimeSlotStatus>,
+    slots: List<TimeSlotOption>,
     selectedTime: String?,
     onSelect: (String) -> Unit,
     modifier: Modifier = Modifier
@@ -59,11 +58,11 @@ internal fun TimeSlotRow(
         modifier = modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(MediQSpacing.sm)
     ) {
-        slots.forEach { time ->
+        slots.forEach { slot ->
             TimeSlotButton(
-                time = time,
-                status = statuses[time] ?: TimeSlotStatus.RESERVED,
-                isSelected = selectedTime == time,
+                time = slot.time,
+                status = slot.status,
+                isSelected = selectedTime == slot.time,
                 onSelect = onSelect,
                 modifier = Modifier.weight(1f)
             )
@@ -92,15 +91,18 @@ internal fun TimeSlotButton(
     modifier: Modifier = Modifier
 ) {
     val available = status == TimeSlotStatus.AVAILABLE
+    val isUserBooked = status == TimeSlotStatus.USER_BOOKED
     val background = when {
         isSelected -> MediQGreen
         available -> MediQSuccessContainer
+        isUserBooked -> MediQNeutralContainer
         status == TimeSlotStatus.BLOCKED -> MediQErrorContainer
         else -> MediQNeutralContainer
     }
     val content = when {
         isSelected -> MediQOnBrand
         available -> MediQGreen
+        isUserBooked -> MediQTextSecondary
         status == TimeSlotStatus.BLOCKED -> MediQError
         else -> MediQTextSecondary
     }
@@ -108,6 +110,7 @@ internal fun TimeSlotButton(
         TimeSlotStatus.AVAILABLE -> "available"
         TimeSlotStatus.RESERVED -> "reserved"
         TimeSlotStatus.BLOCKED -> "blocked"
+        TimeSlotStatus.USER_BOOKED -> "booked by you"
     }
 
     Box(
@@ -139,7 +142,7 @@ internal fun TimeSlotButton(
         contentAlignment = Alignment.Center
     ) {
         Text(
-            text = time,
+            text = if (isUserBooked) "✓ $time" else time,
             style = MaterialTheme.typography.labelMedium,
             color = content,
             modifier = Modifier.padding(vertical = MediQSpacing.xs)

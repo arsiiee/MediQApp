@@ -8,9 +8,6 @@ import com.example.mediq.data.model.AppointmentStatus as ApiAppointmentStatus
 import com.example.mediq.data.model.Doctor
 import com.example.mediq.ui.session.DateTimeFormatter
 import com.example.mediq.ui.session.DisplayName
-import com.example.mediq.ui.screens.notifications.MockNotifications
-import com.example.mediq.ui.screens.notifications.NotificationItem
-import com.example.mediq.ui.screens.notifications.NotificationType
 import com.example.mediq.ui.screens.home.AppointmentStatus as HomeAppointmentStatus
 import com.example.mediq.ui.screens.home.DoctorAvailability
 import com.example.mediq.ui.screens.home.HomeUiState
@@ -57,13 +54,21 @@ class HomeViewModel : ViewModel() {
         }
     }
 
+    /** Refresh home data (called by pull-to-refresh). */
+    fun refresh() {
+        viewModelScope.launch {
+            loadHome()
+        }
+    }
+
     private suspend fun loadHome() {
         try {
             _uiState.value = HomeUiState.Loading
 
             val profile = api.getProfile()
+            val patientUserId = api.resolvePatientUserId()
             val specialties = api.getSpecializations()
-            val appointments = api.getAppointments()
+            val appointments = api.getAppointments(patientId = patientUserId)
             val doctors = loadDoctors()
 
             val patient = PatientSummary(
@@ -75,16 +80,19 @@ class HomeViewModel : ViewModel() {
 
             val nextAppointment = nextAppointment(appointments.items, doctors)
 
-            val openSlots = doctors.map { doctor ->
+            val openSlots = doctors
+            .filter { it.status == com.example.mediq.data.model.DoctorStatus.ACTIVE }
+            .map { doctor ->
                 DoctorAvailability(
                     doctorId = doctor.id,
                     name = doctor.fullName,
                     specialty = doctor.specialty,
                     location = DateTimeFormatter.formatLocation(doctor.location),
+                    openSlotCount = 0,
                 )
             }
 
-            val unreadCount = MockNotifications.count { it.unread }
+            val unreadCount = api.getNotifications(unread = true).size
 
             _uiState.value = HomeUiState.Content(
                 patient = patient,

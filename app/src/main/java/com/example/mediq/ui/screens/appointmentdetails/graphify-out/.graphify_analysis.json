@@ -1,0 +1,252 @@
+{
+  "communities": {
+    "0": [
+      "activitynotfoundexception",
+      "alignment",
+      "appointmentinfocard",
+      "appointmentinfocard_appointmentinfocard",
+      "appointmentinfocard_appointmentmappreview",
+      "appointmentinfocard_detailfield",
+      "appointmentinfocard_fielddivider",
+      "appointmentinfocard_kt_appointmentbooking",
+      "appointmentinfocard_kt_composable",
+      "appointmentinfocard_kt_modifier",
+      "borderstroke",
+      "clickable",
+      "horizontaldivider",
+      "icons",
+      "intent",
+      "localcontext",
+      "map",
+      "mediqborder",
+      "mediqdivider",
+      "mediqlightgreen",
+      "row",
+      "surface",
+      "uri",
+      "width"
+    ],
+    "1": [
+      "appointmentdetailsloaded",
+      "appointmentdetailsloaded_appointmentdetailsloaded",
+      "appointmentdetailsloaded_currentstatusrow",
+      "appointmentdetailsloaded_kt_appointmentbooking",
+      "appointmentdetailsloaded_kt_composable",
+      "appointmentdetailsloaded_kt_modifier",
+      "appointmentstatus",
+      "buttondefaults",
+      "chatbubbleoutline",
+      "heightin",
+      "mediqerrorborder",
+      "mediqgreen",
+      "mediqonbrand",
+      "mediqsize",
+      "mediqwarning",
+      "mutablestateof",
+      "outlinedbutton",
+      "rememberscrollstate",
+      "setvalue",
+      "size",
+      "verticalscroll"
+    ],
+    "2": [
+      "appointmentdetailsstates",
+      "appointmentdetailsstates_appointmentdetailserrorstate",
+      "appointmentdetailsstates_appointmentdetailsloadingstate",
+      "appointmentdetailsstates_kt_composable",
+      "appointmentdetailsstates_skeletonbar",
+      "arrangement",
+      "box",
+      "clearandsetsemantics",
+      "clip",
+      "cloudoff",
+      "contentdescription",
+      "dp",
+      "height",
+      "icon",
+      "mediqneutralcontainer",
+      "mediqradius",
+      "mediqspacing",
+      "roundedcornershape",
+      "semantics",
+      "spacer",
+      "textalign"
+    ],
+    "3": [
+      "appointmentcancellationstore",
+      "appointmentdetailsscreen",
+      "appointmentdetailsscreen_appointmentdetailscontent",
+      "appointmentdetailsscreen_appointmentdetailsscreen",
+      "appointmentdetailsscreen_kt_composable",
+      "appointmentdetailsscreen_kt_modifier",
+      "appointmentsviewmodel",
+      "background",
+      "collectasstate",
+      "column",
+      "fillmaxsize",
+      "getvalue",
+      "launchedeffect",
+      "mediqpageheader",
+      "mediqscaffoldbackground",
+      "navcontroller",
+      "screen",
+      "viewmodel"
+    ],
+    "4": [
+      "appointmentdetailspreviews",
+      "appointmentdetailspreviews_appointmentnotfoundpreview",
+      "appointmentdetailspreviews_kt_composable",
+      "appointmentdetailssamples",
+      "appointmentdetailssamples_appointmentdetailssamples",
+      "appointmentdetailssamples_appointmentdetailssamples_forid",
+      "appointmentdetailsuistate_appointmentdetailsactions",
+      "appointmentdetailsuistate_appointmentdetailsuistate",
+      "appointmentdetailsuistate_content",
+      "appointmentdetailsuistate_error",
+      "appointmentdetailsuistate_kt_appointmentbooking",
+      "appointmentdetailsuistate_kt_appointmentdetailsuistate",
+      "appointmentdetailsuistate_loading",
+      "appointmentssamples",
+      "mediqtheme",
+      "preview"
+    ],
+    "5": [
+      "appointmentcancelsheet",
+      "appointmentcancelsheet_appointmentcancelsheet",
+      "appointmentcancelsheet_kt_composable",
+      "button",
+      "fillmaxwidth",
+      "materialtheme",
+      "mediqbackground",
+      "mediqerror",
+      "mediqerrorcontainer",
+      "mediqtextprimary",
+      "mediqtextsecondary",
+      "modifier",
+      "padding",
+      "remember",
+      "text"
+    ]
+  },
+  "cohesion": {
+    "0": 0.11594202898550725,
+    "1": 0.12380952380952381,
+    "2": 0.11904761904761904,
+    "3": 0.1503267973856209,
+    "4": 0.16666666666666666,
+    "5": 0.14285714285714285
+  },
+  "gods": [
+    {
+      "id": "appointmentdetailsloaded_appointmentdetailsloaded",
+      "label": "AppointmentDetailsLoaded()",
+      "degree": 10
+    },
+    {
+      "id": "appointmentdetailsscreen_appointmentdetailscontent",
+      "label": "AppointmentDetailsContent()",
+      "degree": 10
+    },
+    {
+      "id": "appointmentdetailsuistate_appointmentdetailsuistate",
+      "label": "AppointmentDetailsUiState",
+      "degree": 7
+    },
+    {
+      "id": "appointmentinfocard_appointmentinfocard",
+      "label": "AppointmentInfoCard()",
+      "degree": 7
+    },
+    {
+      "id": "appointmentdetailspreviews_appointmentnotfoundpreview",
+      "label": "AppointmentNotFoundPreview()",
+      "degree": 6
+    },
+    {
+      "id": "appointmentdetailsscreen_appointmentdetailsscreen",
+      "label": "AppointmentDetailsScreen()",
+      "degree": 5
+    },
+    {
+      "id": "appointmentdetailsloaded_currentstatusrow",
+      "label": "CurrentStatusRow()",
+      "degree": 4
+    },
+    {
+      "id": "appointmentdetailsstates_appointmentdetailsloadingstate",
+      "label": "AppointmentDetailsLoadingState()",
+      "degree": 4
+    },
+    {
+      "id": "appointmentdetailsstates_skeletonbar",
+      "label": "SkeletonBar()",
+      "degree": 4
+    },
+    {
+      "id": "appointmentdetailsuistate_appointmentdetailsactions",
+      "label": "AppointmentDetailsActions",
+      "degree": 4
+    }
+  ],
+  "surprises": [
+    {
+      "source": "AppointmentDetailsLoaded()",
+      "target": "AppointmentCancelSheet()",
+      "source_files": [
+        "AppointmentDetailsLoaded.kt",
+        "AppointmentCancelSheet.kt"
+      ],
+      "confidence": "INFERRED",
+      "relation": "calls",
+      "why": "inferred connection - not explicitly stated in source; bridges separate communities"
+    },
+    {
+      "source": "AppointmentDetailsLoaded()",
+      "target": "AppointmentInfoCard()",
+      "source_files": [
+        "AppointmentDetailsLoaded.kt",
+        "AppointmentInfoCard.kt"
+      ],
+      "confidence": "INFERRED",
+      "relation": "calls",
+      "why": "inferred connection - not explicitly stated in source; bridges separate communities"
+    },
+    {
+      "source": "AppointmentDetailsLoaded()",
+      "target": "AppointmentMapPreview()",
+      "source_files": [
+        "AppointmentDetailsLoaded.kt",
+        "AppointmentInfoCard.kt"
+      ],
+      "confidence": "INFERRED",
+      "relation": "calls",
+      "why": "inferred connection - not explicitly stated in source; bridges separate communities"
+    },
+    {
+      "source": "AppointmentDetailsContent()",
+      "target": "AppointmentDetailsLoaded()",
+      "source_files": [
+        "AppointmentDetailsScreen.kt",
+        "AppointmentDetailsLoaded.kt"
+      ],
+      "confidence": "INFERRED",
+      "relation": "calls",
+      "why": "inferred connection - not explicitly stated in source; bridges separate communities"
+    },
+    {
+      "source": "AppointmentNotFoundPreview()",
+      "target": "AppointmentDetailsContent()",
+      "source_files": [
+        "AppointmentDetailsPreviews.kt",
+        "AppointmentDetailsScreen.kt"
+      ],
+      "confidence": "INFERRED",
+      "relation": "calls",
+      "why": "inferred connection - not explicitly stated in source; bridges separate communities"
+    }
+  ],
+  "tokens": {
+    "input": 0,
+    "output": 0
+  }
+}

@@ -1,4 +1,4 @@
-import { Injectable, computed, signal, inject } from '@angular/core';
+﻿import { Injectable, computed, signal, inject } from '@angular/core';
 import type { AccountStatus } from '../shared/domain/account-status';
 import { HttpPatientGateway } from '../core/api/http-patient-gateway';
 import type { UserProfile } from '../core/api/models';
@@ -11,7 +11,7 @@ import {
   startOfDay,
   usableBlocks,
 } from './doctor.dates';
-import { switchMap, map } from 'rxjs';
+import { catchError, map, of, switchMap } from 'rxjs';
 import type {
   Appointment,
   AppointmentStatus,
@@ -28,23 +28,16 @@ import type {
 export type DatedAvailabilityRefusal =
   'invalid-date' | 'in-the-past' | 'bad-session' | 'overlapping-sessions';
 
-/** A status that ends an appointment's life, so it can no longer be acted on. */
 const CLOSED_STATUSES: readonly AppointmentStatus[] = ['completed', 'cancelled', 'no-show'];
-
-/** Statuses that mean the patient is expected to turn up. */
 const LIVE_STATUSES: readonly AppointmentStatus[] = ['booked', 'confirmed'];
 
 const byStart = (a: Appointment, b: Appointment): number => a.startsAt.localeCompare(b.startsAt);
-
-/** Most recent first, for a record of what has already happened. */
 const byStartNewest = (a: Appointment, b: Appointment): number => byStart(b, a);
 
-/** Minutes across a set of sessions, ignoring any block that cannot be used. */
 function sumMinutes(blocks: readonly ScheduleBlock[]): number {
   return blocks.reduce((total, block) => total + (blockMinutes(block) ?? 0), 0);
 }
 
-/** Whether two sessions in a day claim the same time. */
 function sessionsOverlap(sessions: readonly ScheduleBlock[]): boolean {
   return sessions.some((block, i) =>
     sessions.slice(i + 1).some((other) => {
@@ -59,6 +52,7 @@ function sessionsOverlap(sessions: readonly ScheduleBlock[]): boolean {
 
 const EMPTY_PROFILE: DoctorProfile = {
   id: '',
+  doctorId: '',
   name: '',
   email: '',
   specialization: '',
@@ -67,56 +61,82 @@ const EMPTY_PROFILE: DoctorProfile = {
   bio: '',
 };
 
-/**
- * Doctor session backed by the real Ktor API.
- *
- * Fetches profile, appointments, schedule and dated availability on init,
- * keeps them in signals, and every page keeps working exactly as before
- * because all the computeds and mutation methods have the same shape —
- * they just read/write API-backed signals instead of in-memory fixtures.
- *
- * Mutations go to the API first and update signals optimistically, so the
- * UI stays responsive while the server confirms.
- */
+function normId(value: string | null | undefined): string | null {
+  if (value == null) return null;
+  const s = String(value).trim();
+  return s ? s.toLowerCase() : null;
+}
+
 @Injectable()
 export class DoctorSession {
   private readonly gateway = inject(HttpPatientGateway);
 
-  private readonly profileState = signal<DoctorProfile>(EMPTY_PROFILE);
+  private readonly profileState = signal<DoctorProfile>({ ...EMPTY_PROFILE, doctorId: '' });
   private readonly appointmentState = signal<Appointment[]>([]);
   private readonly patientState = signal<Patient[]>([]);
   private readonly scheduleState = signal<ScheduleDay[]>([]);
   private readonly datedAvailabilityState = signal<DatedAvailability[]>([]);
+  private readonly doctorRefIdsState = signal<string[]>([]);
+  private readonly knownDoctorRowsState = signal<{ id?: string | null; userId?: string | null }[]>([]);
+  private readonly identityResolvedState = signal(false);
 
-  /**
-   * The area's single clock.
-   *
-   * A signal rather than `new Date()` inside the computeds: a `computed` that
-   * read the wall clock would be correct only for the first read and cached
-   * forever after, so an app left open across midnight would keep showing
-   * yesterday.
-   */
   readonly now = signal(new Date());
 
-  /**
-   * The signed-in doctor's id.
-   *
-   * Resolved from the profile the auth service holds. While it is missing the
-   * session reads as empty rather than inventing an id.
-   */
-  readonly doctorId = computed(() => this.profileState().id ?? null);
-
+  readonly doctorId = computed(() => this.profileState().doctorId ?? null);
+  readonly doctorUsersId = computed(() => this.profileState().id ?? null);
   readonly profile = computed(() => this.profileState());
 
-  /** The signed-in doctor's appointments, soonest first. */
-  readonly appointments = computed(() => this.appointmentState().sort(byStart));
+  private addDoctorRefs(...values: Array<string | null | undefined>): void {
+    const merged = new Set(
+      [...this.doctorRefIdsState(), ...values]
+        .map((v) => (v == null ? '' : String(v).trim()))
+        .filter((v) => v.length > 0),
+    );
+    this.doctorRefIdsState.set(Array.from(merged));
+  }
 
-  /** The appointments still to happen: booked and confirmed, soonest first. */
+  private isOwnDoctorAppointment(appointment: Appointment): boolean {
+    const refs = new Set(this.doctorRefIdsState().map(normId).filter(Boolean) as string[]);
+    const apptDoctor = normId((appointment as any).doctorId);
+    if (!apptDoctor) return false;
+
+    // Before doctor identity is resolved, avoid dropping RLS-returned rows.
+    // (Hosted data uses mixed doctor ID forms; secretary sees via desk scoping.)
+    if (!this.identityResolvedState() || refs.size === 0) return true;
+
+    if (refs.has(apptDoctor)) return true;
+
+    // Secretary-style fallback: match if any known doctor record bridges the IDs.
+    for (const d of this.knownDoctorRowsState()) {
+      const did = normId(d.id);
+      const duid = normId(d.userId);
+      const recordIds = [did, duid].filter(Boolean) as string[];
+      if (!recordIds.length) continue;
+      const refsHitDoctor = recordIds.some((x) => refs.has(x));
+      const apptHitsDoctor = recordIds.includes(apptDoctor);
+      if (refsHitDoctor && apptHitsDoctor) return true;
+    }
+
+    // Last resort: accept if the appointment's doctor_id is a known doctor record
+    // and we have not yet established a conflicting doctor identity beyond refs.
+    // This keeps single-doctor dashboard usable when linkage is partially broken.
+    for (const d of this.knownDoctorRowsState()) {
+      const recordIds = [normId(d.id), normId(d.userId)].filter(Boolean) as string[];
+      if (recordIds.includes(apptDoctor)) return true;
+    }
+    return false;
+  }
+
+  readonly appointments = computed(() =>
+    this.appointmentState()
+      .filter((a) => !this.identityResolvedState() || this.isOwnDoctorAppointment(a))
+      .sort(byStart),
+  );
+
   readonly openAppointments = computed(() =>
     this.appointments().filter((appointment) => LIVE_STATUSES.includes(appointment.status)),
   );
 
-  /** Today's slice of the working list, so the day reads as a plan. */
   readonly todaysAppointments = computed(() => {
     const now = this.now();
     return this.openAppointments().filter((appointment) =>
@@ -124,7 +144,6 @@ export class DoctorSession {
     );
   });
 
-  /** Visits this doctor has already recorded: completed and no-show, newest first. */
   readonly visitHistory = computed(() =>
     this.appointments()
       .filter(
@@ -133,7 +152,6 @@ export class DoctorSession {
       .sort(byStartNewest),
   );
 
-  /** The next appointment still to happen, or `null` when the list is clear. */
   readonly nextAppointment = computed(() => {
     const now = this.now().getTime();
     return (
@@ -145,12 +163,10 @@ export class DoctorSession {
     );
   });
 
-  /** Booked but not yet confirmed — the queue that needs a decision. */
   readonly awaitingConfirmation = computed(() =>
     this.appointments().filter((appointment) => appointment.status === 'booked'),
   );
 
-  /** Consultations that happened in the seven days up to `now`. */
   readonly completedThisWeek = computed(() => {
     const since = startOfDay(this.now()).getTime() - 6 * 24 * 60 * 60 * 1000;
     return this.appointments().filter(
@@ -159,15 +175,19 @@ export class DoctorSession {
     );
   });
 
-  /** Patients this doctor has seen or is due to see. */
   readonly patients = computed<PatientSummary[]>(() => {
     const mine = this.appointments();
     const now = this.now().getTime();
 
     return this.patientState()
       .map((patient): PatientSummary | null => {
+        const pid = normId(patient.id);
+        const puid = normId((patient as any).usersId);
         const history = mine
-          .filter((appointment) => appointment.patientId === patient.id)
+          .filter((appointment) => {
+            const ap = normId(appointment.patientId);
+            return !!ap && (ap === pid || (puid && ap === puid));
+          })
           .sort(byStart);
         if (!history.length) return null;
 
@@ -197,58 +217,49 @@ export class DoctorSession {
     [...this.scheduleState()].sort((a, b) => a.dayOfWeek - b.dayOfWeek),
   );
 
-  /** Days the doctor publishes any hours for, for the schedule summary. */
   readonly workingDayCount = computed(
     () => this.scheduleState().filter((day) => day.sessions.length > 0).length,
   );
 
-  /** Minutes the doctor publishes per week, for the schedule summary. */
   readonly weeklyMinutes = computed(() =>
     this.scheduleState().reduce((total, day) => total + sumMinutes(day.sessions), 0),
   );
 
-  /** Patient lookup that tolerates a bad route param instead of throwing. */
+  readonly datedAvailability = computed(() =>
+    [...this.datedAvailabilityState()].sort((a, b) => a.date.localeCompare(b.date)),
+  );
+
   patientById(id: string): Patient | null {
-    return this.patientState().find((patient) => patient.id === id) ?? null;
-  }
-
-  /**
-   * A patient, but only once this doctor has a relationship with them.
-   *
-   * The list pages derive from appointments, so they cannot leak. A details page
-   * addressed by `/doctor/patients/:id` could: the id is a URL, and a URL can
-   * be typed. Resolving through the same relationship check means the boundary
-   * lives in one place, and an id the doctor has no business seeing resolves to
-   * the same "not found" as a nonsense one.
-   */
-  patientForDoctor(id: string): Patient | null {
-    if (!id) return null;
-    const known = this.appointments().some((appointment) => appointment.patientId === id);
-    return known ? this.patientById(id) : null;
-  }
-
-  /** A patient's appointments with this doctor, soonest first. */
-  appointmentsForPatient(patientId: string): Appointment[] {
-    return this.appointments().filter(
-      (appointment) => appointment.patientId === patientId && appointment.status !== 'cancelled',
+    const needle = normId(id);
+    if (!needle) return null;
+    return (
+      this.patientState().find(
+        (patient) => normId(patient.id) === needle || normId((patient as any).usersId) === needle,
+      ) ?? null
     );
   }
 
-  /** Name for a table cell, so a missing patient never renders as `undefined`. */
+  patientForDoctor(id: string): Patient | null {
+    if (!id) return null;
+    const needle = normId(id);
+    const known = this.appointments().some((appointment) => normId(appointment.patientId) === needle);
+    return known ? this.patientById(id) : null;
+  }
+
+  appointmentsForPatient(patientId: string): Appointment[] {
+    const needle = normId(patientId);
+    return this.appointments().filter(
+      (appointment) => normId(appointment.patientId) === needle && appointment.status !== 'cancelled',
+    );
+  }
+
   patientName(patientId: string): string {
     return this.patientById(patientId)?.name ?? 'Unknown patient';
   }
 
-  /**
-   * Records what happened at a visit the doctor has now seen.
-   *
-   * The Doctor area's entire authority over an appointment, and deliberately the
-   * only lever this store offers over one. Refuses an appointment that is not
-   * `confirmed`, because that step belongs to the front desk.
-   */
   recordOutcome(id: string, outcome: VisitOutcome): boolean {
     const current = this.appointmentState().find(
-      (appointment) => appointment.id === id && appointment.doctorId === this.doctorId(),
+      (appointment) => appointment.id === id && this.isOwnDoctorAppointment(appointment),
     );
     if (!current || current.status !== 'confirmed') return false;
 
@@ -260,7 +271,6 @@ export class DoctorSession {
 
     this.gateway.recordAppointmentOutcome(id, outcome).subscribe({
       error: () => {
-        // Roll back optimistically if the server rejects it.
         this.appointmentState.update((appointments) =>
           appointments.map((appointment) =>
             appointment.id === id ? { ...appointment, status: 'confirmed' } : appointment,
@@ -271,15 +281,9 @@ export class DoctorSession {
     return true;
   }
 
-  /**
-   * Confirms a booking, moving it from `booked` to `confirmed`.
-   *
-   * Refuses an appointment that is not `booked` — only a booking can be
-   * confirmed, and a confirmed appointment is already past that step.
-   */
   confirmAppointment(id: string): boolean {
     const current = this.appointmentState().find(
-      (appointment) => appointment.id === id && appointment.doctorId === this.doctorId(),
+      (appointment) => appointment.id === id && this.isOwnDoctorAppointment(appointment),
     );
     if (!current || current.status !== 'booked') return false;
 
@@ -290,8 +294,46 @@ export class DoctorSession {
     );
 
     this.gateway.confirmAppointment(id).subscribe({
+      next: () => {
+        // Best-effort side effects: in-app notification and push. These must not
+        // change the confirm result; delivery depends on RPC/RLS/token availability.
+        const patient = this.patientById(current.patientId);
+        const patientUserId = String(
+          (patient as any)?.usersId ?? (patient as any)?.id ?? current.patientId ?? '',
+        ).trim();
+        const doctorName = String(this.profileState().name ?? '').trim() || 'your doctor';
+        const doctorDisplay =
+          doctorName === 'your doctor' || /^Dr\.?/i.test(doctorName)
+            ? doctorName
+            : `Dr. ${doctorName}`;
+        if (!patientUserId) return;
+
+        this.gateway.sendNotification(
+          patientUserId,
+          'CONFIRMED',
+          'Appointment confirmed',
+          `Your appointment with ${doctorDisplay} has been confirmed.`,
+          id,
+        ).subscribe({ error: () => {} });
+
+        this.gateway.getPatientFcmToken(patientUserId).subscribe({
+          next: (fcmToken) => {
+            if (fcmToken) {
+              this.gateway
+                .sendPushNotification(
+                  fcmToken,
+                  'Appointment confirmed',
+                  `Your appointment with ${doctorDisplay} has been confirmed.`,
+                  'mediq://appointments',
+                  id,
+                )
+                .subscribe({ error: () => {} });
+            }
+          },
+          error: () => {},
+        });
+      },
       error: () => {
-        // Roll back optimistically if the server rejects it.
         this.appointmentState.update((appointments) =>
           appointments.map((appointment) =>
             appointment.id === id ? { ...appointment, status: 'booked' } : appointment,
@@ -302,9 +344,6 @@ export class DoctorSession {
     return true;
   }
 
-  /**
-   * Replaces the published availability with a saved week.
-   */
   saveSchedule(days: readonly ScheduleDay[]): void {
     this.scheduleState.set(
       days.map((day) => ({ dayOfWeek: day.dayOfWeek, sessions: usableBlocks(day.sessions) })),
@@ -312,25 +351,14 @@ export class DoctorSession {
 
     this.gateway.saveDoctorSchedule(this.doctorId() ?? '', this.scheduleState()).subscribe({
       error: () => {
-        // Roll back: re-fetch from server on error.
         this.gateway.getDoctorSchedule(this.doctorId() ?? '').subscribe({
-          next: (days) => this.scheduleState.set(days),
+          next: (nextDays) => this.scheduleState.set(nextDays),
           error: () => {},
         });
       },
     });
   }
 
-  /**
-   * Dated overrides, soonest first.
-   */
-  readonly datedAvailability = computed(() =>
-    [...this.datedAvailabilityState()].sort((a, b) => a.date.localeCompare(b.date)),
-  );
-
-  /**
-   * The sessions in force on one date, in clock order.
-   */
   sessionsOn(date: Date): readonly ScheduleBlock[] {
     const key = dayKey(date);
     const override = this.datedAvailabilityState().find((entry) => entry.date === key);
@@ -338,9 +366,6 @@ export class DoctorSession {
     return usableBlocks(override ? override.sessions : (weekly?.sessions ?? []));
   }
 
-  /**
-   * Whether an appointment may be booked into a session.
-   */
   fitsInSession(date: Date, startMinutes: number, durationMinutes: number): boolean {
     const endMinutes = startMinutes + durationMinutes;
     return this.sessionsOn(date).some((block) => {
@@ -351,9 +376,6 @@ export class DoctorSession {
     });
   }
 
-  /**
-   * Publishes one dated override.
-   */
   saveDatedAvailability(entry: DatedAvailability): DatedAvailabilityRefusal | null {
     const date = parseDayKey(entry.date);
     if (!date) return 'invalid-date';
@@ -377,21 +399,14 @@ export class DoctorSession {
     return null;
   }
 
-  /**
-   * Withdraws a dated override, putting that date back on the weekly pattern.
-   */
   clearDatedAvailability(date: string): boolean {
     const before = this.datedAvailabilityState().length;
     this.datedAvailabilityState.update((entries) => entries.filter((e) => e.date !== date));
 
     this.gateway
-      .saveDoctorAvailability(this.doctorId() ?? '', {
-        date,
-        sessions: [],
-      })
+      .saveDoctorAvailability(this.doctorId() ?? '', { date, sessions: [] })
       .subscribe({
         error: () => {
-          // Re-fetch to restore previous state.
           this.gateway.getDoctorAvailability(this.doctorId() ?? '').subscribe({
             next: (entries) => this.datedAvailabilityState.set(entries),
             error: () => {},
@@ -401,9 +416,6 @@ export class DoctorSession {
     return this.datedAvailabilityState().length !== before;
   }
 
-  /**
-   * Applies the fields the Profile page is allowed to change.
-   */
   updateProfile(draft: ProfileDraft): void {
     this.profileState.update((profile) => {
       if (!profile) return profile;
@@ -420,67 +432,138 @@ export class DoctorSession {
     });
   }
 
-  // ---------------------------------------------------------------------------
-  // Initial load from the API
-  // ---------------------------------------------------------------------------
   constructor() {
-    // Profile first — everything else needs the doctor id.
-    this.gateway.getProfile().pipe(
-      switchMap((profile) =>
-        this.gateway.getDoctor(profile.id).pipe(
-          map((doctor) => ({ profile, doctor })),
-        ),
-      ),
-    ).subscribe({
-      next: ({ profile, doctor }) => {
-        this.profileState.set({
-          id: profile.id,
-          name: profile.fullName,
-          email: profile.email ?? '',
-          specialization: doctor.specialty,
-          licenseNumber: doctor.licenseNumber,
-          joinedOn: profile.joinedOn ?? '',
-          bio: doctor.bio,
-        });
-      },
-      error: () => {
-        // Doctor record may not exist yet; fall back to profile-only data.
-        this.gateway.getProfile().subscribe({
-          next: (profile) => {
-            this.profileState.set({
-              id: profile.id,
-              name: profile.fullName,
-              email: profile.email ?? '',
-              specialization: '',
-              licenseNumber: '',
-              joinedOn: profile.joinedOn ?? '',
-              bio: '',
-            });
-          },
+    const resolveDoctorAliases = (seeds: Array<string | null | undefined>) => {
+      const uniq = Array.from(
+        new Set(seeds.map((s) => (s == null ? '' : String(s).trim())).filter(Boolean)),
+      );
+      for (const seed of uniq) {
+        (this.gateway as any).doctorIdAliases?.(seed)?.subscribe({
+          next: (ids: string[]) => this.addDoctorRefs(seed, ...(ids ?? [])),
           error: () => {},
         });
-      },
-    });
+      }
+      this.gateway.getDoctors({ limit: 200 }).subscribe({
+        next: (paged: any) => {
+          const items = (paged?.items ?? []) as Array<{ id?: string; userId?: string }>;
+          this.knownDoctorRowsState.set(items.map((d) => ({ id: d?.id ?? null, userId: d?.userId ?? null })));
+          const refSet = new Set(this.doctorRefIdsState().map(normId).filter(Boolean) as string[]);
+          for (const d of items) {
+            const ids = [d?.id, d?.userId].filter(Boolean).map((v) => String(v));
+            if (ids.some((id) => refSet.has(normId(id) as string))) this.addDoctorRefs(...ids);
+          }
+          this.identityResolvedState.set(true);
+        },
+        error: () => this.identityResolvedState.set(true),
+      });
+      setTimeout(() => this.identityResolvedState.set(true), 2500);
+    };
 
-    // Appointments for this doctor — filtered server-side by doctorId.
+    this.gateway
+      .getProfile()
+      .pipe(
+        switchMap((profile) =>
+          this.gateway.getDoctor(profile.id).pipe(
+            map((doctor) => ({ profile, doctor: doctor as any })),
+            catchError(() => of({ profile, doctor: null as any })),
+          ),
+        ),
+        catchError(() => of(null as any)),
+      )
+      .subscribe({
+        next: (resolved) => {
+          if (!resolved) {
+            this.identityResolvedState.set(true);
+            return;
+          }
+          const { profile, doctor } = resolved;
+          const refs = [profile.id, doctor?.id, doctor?.userId].filter(Boolean) as string[];
+          this.doctorRefIdsState.set(refs);
+          this.profileState.set({
+            id: profile.id,
+            doctorId: doctor?.id ?? '',
+            name: profile.fullName || doctor?.fullName || '',
+            email: profile.email ?? '',
+            specialization: doctor?.specialty ?? '',
+            licenseNumber: doctor?.licenseNumber ?? '',
+            joinedOn: profile.joinedOn ?? '',
+            bio: doctor?.bio ?? '',
+          });
+          const scheduleId = doctor?.id || doctor?.userId || profile.id;
+          if (scheduleId) {
+            this.gateway.getDoctorSchedule(scheduleId).subscribe({ next: (days) => this.scheduleState.set(days), error: () => {} });
+            this.gateway.getDoctorAvailability(scheduleId).subscribe({ next: (entries) => this.datedAvailabilityState.set(entries), error: () => {} });
+          }
+          resolveDoctorAliases(refs.length ? refs : [profile.id]);
+          if (!doctor) {
+            // still try to resolve doctor identity even if initial lookup failed
+            this.gateway.getDoctor(profile.id).subscribe({
+              next: (d2: any) => {
+                if (d2) this.addDoctorRefs(profile.id, d2.id, d2.userId);
+              },
+              error: () => {},
+            });
+          }
+        },
+        error: () => {
+          this.gateway.getProfile().subscribe({
+            next: (profile) => {
+              this.doctorRefIdsState.set([profile.id]);
+              this.profileState.set({
+                id: profile.id,
+                doctorId: '',
+                name: profile.fullName,
+                email: profile.email ?? '',
+                specialization: '',
+                licenseNumber: '',
+                joinedOn: profile.joinedOn ?? '',
+                bio: '',
+              });
+              this.gateway.getDoctor(profile.id).subscribe({
+                next: (doctor: any) => {
+                  if (!doctor) {
+                    resolveDoctorAliases([profile.id]);
+                    return;
+                  }
+                  this.addDoctorRefs(profile.id, doctor.id, doctor.userId);
+                  this.profileState.update((p) => ({
+                    ...p,
+                    doctorId: doctor.id ?? p.doctorId,
+                    specialization: doctor.specialty ?? p.specialization,
+                    licenseNumber: doctor.licenseNumber ?? p.licenseNumber,
+                    bio: doctor.bio ?? p.bio,
+                  }));
+                  const scheduleId = doctor.id || doctor.userId || profile.id;
+                  this.gateway.getDoctorSchedule(scheduleId).subscribe({ next: (days) => this.scheduleState.set(days), error: () => {} });
+                  this.gateway.getDoctorAvailability(scheduleId).subscribe({ next: (entries) => this.datedAvailabilityState.set(entries), error: () => {} });
+                  resolveDoctorAliases([profile.id, doctor.id, doctor.userId].filter(Boolean));
+                },
+                error: () => resolveDoctorAliases([profile.id]),
+              });
+            },
+            error: () => this.identityResolvedState.set(true),
+          });
+        },
+      });
+
     this.gateway.getDoctorAppointments().subscribe({
       next: (paged) => this.appointmentState.set((paged.items ?? []) as unknown as Appointment[]),
       error: () => {},
     });
 
-    // Patients with appointments for this doctor.
     this.gateway.getPatients().subscribe({
       next: (profiles: UserProfile[]) =>
         this.patientState.set(
-          profiles.map((p) => ({
+          profiles.map((p: any) => ({
             id: p.id,
-            name: p.fullName,
+            usersId: p.usersId ?? p.id,
+            name: p.fullName ?? p.name ?? '',
             email: p.email ?? '',
-            phone: p.mobileNumber ?? '',
-            dateOfBirth: p.dateOfBirth,
-            address: '',
-            registeredOn: p.dateOfBirth,
-            status: p.status as AccountStatus,
+            phone: p.mobileNumber ?? p.phone ?? '',
+            dateOfBirth: p.dateOfBirth ?? '',
+            address: p.address ?? '',
+            registeredOn: p.joinedOn ?? p.dateOfBirth ?? '',
+            status: (p.status ?? 'active') as AccountStatus,
           })) as Patient[],
         ),
       error: () => {},

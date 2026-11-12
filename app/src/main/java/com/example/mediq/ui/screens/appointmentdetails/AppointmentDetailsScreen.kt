@@ -7,7 +7,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.example.mediq.ui.components.MediQPageHeader
 import com.example.mediq.ui.navigation.Screen
@@ -15,7 +18,7 @@ import com.example.mediq.ui.screens.appointments.AppointmentCancellationStore
 import com.example.mediq.ui.screens.appointments.AppointmentStatus
 import com.example.mediq.ui.theme.MediQScaffoldBackground
 import com.example.mediq.ui.viewmodel.AppointmentsViewModel
-import androidx.lifecycle.viewmodel.compose.viewModel
+import kotlinx.coroutines.launch
 
 private const val CANCELLED_ID_KEY = "cancelled_appointment_id"
 
@@ -32,6 +35,8 @@ fun AppointmentDetailsScreen(
 
     val doctorName = booking?.doctor
 
+    val scope = rememberCoroutineScope()
+
     LaunchedEffect(appointmentId) {
         if (appointmentId != null) {
             viewModel.loadAppointment(appointmentId)
@@ -40,7 +45,7 @@ fun AppointmentDetailsScreen(
 
     val state = when {
         isLoading && booking == null -> AppointmentDetailsUiState.Loading
-        error != null && booking == null -> AppointmentDetailsUiState.Error(error.orEmpty())
+        error != null -> AppointmentDetailsUiState.Error(error.orEmpty())
         booking != null -> {
             val current = booking!!
             val cancelled = cancelledIds.contains(appointmentId ?: "") || current.status == AppointmentStatus.Cancelled
@@ -49,13 +54,21 @@ fun AppointmentDetailsScreen(
             } else {
                 AppointmentDetailsUiState.Content(current)
             }
-        } else -> AppointmentDetailsUiState.Error("This appointment is no longer in your records.")
+        }
+        else -> AppointmentDetailsUiState.Error("This appointment is no longer in your records.")
     }
+
+    val context = androidx.compose.ui.platform.LocalContext.current
 
     AppointmentDetailsContent(
         state = state,
         actions = AppointmentDetailsActions(
             onBack = { navController.popBackStack() },
+            onRetry = {
+                if (appointmentId != null) {
+                    viewModel.loadAppointment(appointmentId)
+                }
+            },
             onChatWithSecretary = { conversationId ->
                 if (booking?.status != AppointmentStatus.Cancelled) {
                     val appointmentTime = booking?.let { b ->
@@ -73,13 +86,21 @@ fun AppointmentDetailsScreen(
                 }
             },
             onCancelAppointment = { id, reason ->
-                viewModel.cancelAppointment(id, reason)
-                AppointmentCancellationStore.cancel(id)
-                navController.previousBackStackEntry
-                    ?.savedStateHandle
-                    ?.set(CANCELLED_ID_KEY, id)
-
-                navController.popBackStack()
+                scope.launch {
+                    android.util.Log.d("MediQBookingDiag", "UI cancel requested id=$id reasonLen=${reason.length}")
+                    val ok = viewModel.cancelAppointment(id, reason)
+                    if (ok) {
+                        android.widget.Toast.makeText(context, "Appointment cancelled", android.widget.Toast.LENGTH_SHORT).show()
+                        AppointmentCancellationStore.cancel(id)
+                        navController.previousBackStackEntry
+                            ?.savedStateHandle
+                            ?.set(CANCELLED_ID_KEY, id)
+                        navController.popBackStack()
+                    } else {
+                        val msg = viewModel.error.value ?: "Failed to cancel appointment"
+                        android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_LONG).show()
+                    }
+                }
             }
         )
     )

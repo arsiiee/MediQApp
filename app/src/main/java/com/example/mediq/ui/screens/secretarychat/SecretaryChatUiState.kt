@@ -11,13 +11,16 @@ sealed interface ChatUiState {
     data class Content(
         val conversationId: String,
         val secretaryName: String,
-        val role: String? = null,
-        val location: String? = null,
+        val doctorName: String? = null,
+        val appointmentDate: String = "",
+        val appointmentTime: String = "",
+        val isAppointmentPast: Boolean = false,
         val messages: List<ChatMessage>
     ) : ChatUiState
 }
 
 data class ChatActions(
     val onBack: () -> Unit = {},
-    val onSend: (String) -> Unit = {}
+    val onSend: (String) -> Unit = {},
+    val onDeleteConversation: (() -> Unit)? = {}
 )

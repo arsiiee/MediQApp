@@ -76,6 +76,7 @@ export interface Message {
   body: string;
   sentAt: string;
   readAt?: string | null;
+  appointmentId?: string | null;
 }
 
 export interface Specialization {

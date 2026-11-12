@@ -13,11 +13,13 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 /**
- * Holds the patient's notifications loaded from the API and promotes each one
- * to a real Android system notification so the appointment events surface in
- * the system shade as well as the in-app list.
+ * Holds the patient's notifications loaded from the API and promotes unread ones
+ * to real Android system notifications. Marks items read in Supabase when opened/viewed
+ * so unread state does not keep reappearing.
  */
 class NotificationsViewModel(private val context: Context) : ViewModel() {
 
@@ -31,31 +33,115 @@ class NotificationsViewModel(private val context: Context) : ViewModel() {
     val error: StateFlow<String?> = _error.asStateFlow()
 
     private val api = SupabaseApiService()
+    /** IDs currently posted as system notifications (capped to recent unread max). */
+    private val postedSystemNotificationIds = mutableSetOf<String>()
+    private val systemNotificationMutex = Mutex()
+    @Volatile private var markAllInFlight = false
 
     init {
         viewModelScope.launch {
             // Channel must exist before any notification is posted.
             NotificationHelper.init(context)
-            loadNotifications()
+            loadNotifications(markAllRead = false)
         }
     }
 
-    /** Loads the patient's real notifications from the API. */
-    fun loadNotifications() {
+    /** Loads notifications from the API. Optionally marks all as read after load. */
+    fun loadNotifications(markAllRead: Boolean = false) {
         viewModelScope.launch {
             _isLoading.value = true
             _error.value = null
             try {
                 val apiNotifications = api.getNotifications()
-                _notifications.value = apiNotifications.map { toNotificationItem(it) }
-                // Post each notification as a real Android system notification so
-                // appointment events surface in the system shade as well as the
-                // in-app list.
-                NotificationHelper.notifyAll(context, _notifications.value)
+                val items = apiNotifications.map { toNotificationItem(it) }
+                _notifications.value = items
+
+                syncSystemNotifications(items)
+
+                if (markAllRead && items.any { it.unread }) {
+                    markAllAsReadOptimistic()
+                }
             } catch (e: Exception) {
                 _error.value = e.message ?: "Failed to load notifications"
             } finally {
                 _isLoading.value = false
+            }
+        }
+    }
+
+    /**
+     * Posts system notifications for up to [NotificationHelper.MAX_SYSTEM_NOTIFICATIONS] most recent
+     * unread items (API returns created_at.desc). Cancels only overflow/unread-outside-cap slots;
+     * does not mark overflow items as read. Reconciles tracked posted IDs so items can re-enter cap.
+     */
+    private suspend fun syncSystemNotifications(items: List<NotificationItem>) {
+        val allowedUnread = items.asSequence()
+            .filter { it.unread }
+            .take(NotificationHelper.MAX_SYSTEM_NOTIFICATIONS)
+            .toList()
+        val allowedIds = allowedUnread.map { it.id }.toSet()
+
+        val toPost = mutableListOf<NotificationItem>()
+        val toCancel = mutableListOf<String>()
+        systemNotificationMutex.withLock {
+            // Post newly allowed unread items not currently shown.
+            allowedUnread.filter { postedSystemNotificationIds.add(it.id) }.forEach { toPost += it }
+            // Cancel only slots that are no longer allowed (overflow/read/removed from current set).
+            postedSystemNotificationIds.filter { it !in allowedIds }.forEach { toCancel += it }
+            toCancel.forEach { postedSystemNotificationIds.remove(it) }
+        }
+
+        if (toPost.isNotEmpty()) {
+            NotificationHelper.notifyUnread(context, toPost)
+        }
+        toCancel.forEach { NotificationHelper.cancel(context, it) }
+    }
+
+    /** Marks a single notification as read (persisted in Supabase) and updates UI. */
+    fun markAsRead(id: String) {
+        val wasUnread = _notifications.value.any { it.id == id && it.unread }
+        if (!wasUnread) return
+
+        _notifications.value = _notifications.value.map {
+            if (it.id == id) it.copy(unread = false) else it
+        }
+        viewModelScope.launch {
+            systemNotificationMutex.withLock { postedSystemNotificationIds.remove(id) }
+        }
+        NotificationHelper.cancel(context, id)
+
+        viewModelScope.launch {
+            try {
+                api.markNotificationRead(id)
+            } catch (_: Exception) {
+                // Keep UI responsive; reload can reconcile if needed.
+            }
+        }
+    }
+
+    /** Marks all notifications as read (persisted in Supabase). Safe to call from screen open. */
+    fun markAllAsRead() {
+        if (markAllInFlight) return
+        if (_notifications.value.none { it.unread }) return
+        markAllAsReadOptimistic()
+    }
+
+    private fun markAllAsReadOptimistic() {
+        markAllInFlight = true
+        val unreadIds = _notifications.value.filter { it.unread }.map { it.id }
+        _notifications.value = _notifications.value.map { if (it.unread) it.copy(unread = false) else it }
+        viewModelScope.launch {
+            systemNotificationMutex.withLock { postedSystemNotificationIds.removeAll(unreadIds.toSet()) }
+        }
+        unreadIds.forEach { NotificationHelper.cancel(context, it) }
+
+        viewModelScope.launch {
+            try {
+                api.markAllNotificationsRead()
+            } catch (_: Exception) {
+                // Best-effort; user can re-open to retry.
+            } finally {
+                markAllInFlight = false
             }
         }
     }
@@ -67,7 +153,10 @@ class NotificationsViewModel(private val context: Context) : ViewModel() {
             title = api.title,
             message = api.body,
             time = api.createdAt,
-            unread = !api.isRead
+            unread = !api.isRead,
+            appointmentId = api.data?.get("appointmentId")
+                ?: api.data?.get("appointment_id")
+                ?: api.data?.get("id")
         )
 
     private fun toUiType(type: ApiNotificationType): NotificationType = when (type) {

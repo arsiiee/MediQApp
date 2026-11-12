@@ -18,14 +18,14 @@ class AuthValidationTest {
 
     @Test
     fun `a name and a complete number are accepted`() {
-        val errors = AuthValidation.validateDetails("Kissie Ann Apple", "kissie@example.com", "+63 917 555 0142")
+        val errors = AuthValidation.validateDetails("Kissie Ann Apple", "kissie@example.com", "+63 917 555 0142", "")
 
         assertTrue(errors.isClean)
     }
 
     @Test
     fun `an empty form flags name and email`() {
-        val errors = AuthValidation.validateDetails("", "", "")
+        val errors = AuthValidation.validateDetails("", "", "", "")
 
         assertEquals("Enter your full name", errors.fullName)
         assertEquals("Enter your email address", errors.email)

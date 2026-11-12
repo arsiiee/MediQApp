@@ -1,0 +1,251 @@
+{
+  "communities": {
+    "0": [
+      "alertdialog",
+      "alignment",
+      "background",
+      "button",
+      "chatviewmodel",
+      "collectasstate",
+      "datetimeformatter",
+      "fillmaxsize",
+      "getvalue",
+      "ime",
+      "instant",
+      "launchedeffect",
+      "materialtheme",
+      "mediqerror",
+      "mediqscaffoldbackground",
+      "mutablestateof",
+      "navcontroller",
+      "navigationbars",
+      "remember",
+      "screen",
+      "secretarychatscreen",
+      "secretarychatscreen_kt_composable",
+      "secretarychatscreen_secretarychatscreen",
+      "union",
+      "viewmodel",
+      "windowinsets",
+      "windowinsetspadding"
+    ],
+    "1": [
+      "chatinput",
+      "chatinput_chatcancellednotice",
+      "chatinput_chaterrorstate",
+      "chatinput_chatinput",
+      "chatinput_chatloadingstate",
+      "chatinput_chatmessagelist",
+      "chatinput_chatpastappointmentnotice",
+      "chatinput_kt_chatmessage",
+      "chatinput_kt_composable",
+      "chatinput_kt_modifier",
+      "heightin",
+      "icons",
+      "items",
+      "lazycolumn",
+      "mediqtextplaceholder",
+      "mediqwarning",
+      "mediqwarningcontainer",
+      "outlinedtextfield",
+      "outlinedtextfielddefaults",
+      "paddingvalues",
+      "roundedcornershape",
+      "secretarychatscreen_kt_modifier",
+      "secretarychatscreen_secretarychatcontent",
+      "send",
+      "setvalue",
+      "textbutton",
+      "width"
+    ],
+    "2": [
+      "arrowback",
+      "chatheader",
+      "chatheader_chatheader",
+      "chatheader_chatnotice",
+      "chatheader_kt_composable",
+      "chatheader_kt_modifier",
+      "circleshape",
+      "clip",
+      "column",
+      "delete",
+      "dp",
+      "fillmaxwidth",
+      "fontweight",
+      "icon",
+      "iconbutton",
+      "mediqavatarbrandtile",
+      "mediqdarkgreen",
+      "mediqheadercontrol",
+      "mediqsize",
+      "mediqspacing",
+      "mediqtextsecondary",
+      "padding",
+      "textalign",
+      "textoverflow"
+    ],
+    "3": [
+      "arrangement",
+      "box",
+      "chatbubble",
+      "chatbubble_chatbubble",
+      "chatbubble_formatmessagetime",
+      "chatbubble_kt_chatmessage",
+      "chatbubble_kt_composable",
+      "chatbubble_kt_modifier",
+      "clickable",
+      "height",
+      "locale",
+      "mediqbackground",
+      "mediqgreen",
+      "mediqonbrand",
+      "mediqradius",
+      "mediqtextprimary",
+      "row",
+      "simpledateformat",
+      "size",
+      "spacer",
+      "surface",
+      "text",
+      "widthin"
+    ],
+    "4": [
+      "mediqtheme",
+      "mockconversations",
+      "mockmessagesfor",
+      "preview",
+      "secretarychatpreviews",
+      "secretarychatpreviews_chatkathleenpreview",
+      "secretarychatpreviews_kt_composable",
+      "secretarychatsamples",
+      "secretarychatsamples_secretarychatsamples",
+      "secretarychatuistate",
+      "secretarychatuistate_chatactions",
+      "secretarychatuistate_chatuistate",
+      "secretarychatuistate_content",
+      "secretarychatuistate_error",
+      "secretarychatuistate_kt_chatmessage",
+      "secretarychatuistate_loading"
+    ]
+  },
+  "cohesion": {
+    "0": 0.08262108262108261,
+    "1": 0.11396011396011396,
+    "2": 0.09782608695652174,
+    "3": 0.10276679841897234,
+    "4": 0.15
+  },
+  "gods": [
+    {
+      "id": "secretarychatscreen_secretarychatcontent",
+      "label": "SecretaryChatContent()",
+      "degree": 15
+    },
+    {
+      "id": "chatbubble_chatbubble",
+      "label": "ChatBubble()",
+      "degree": 6
+    },
+    {
+      "id": "chatinput_chatmessagelist",
+      "label": "ChatMessageList()",
+      "degree": 6
+    },
+    {
+      "id": "secretarychatuistate_chatuistate",
+      "label": "ChatUiState",
+      "degree": 6
+    },
+    {
+      "id": "secretarychatpreviews_chatkathleenpreview",
+      "label": "ChatKathleenPreview()",
+      "degree": 5
+    },
+    {
+      "id": "secretarychatscreen_secretarychatscreen",
+      "label": "SecretaryChatScreen()",
+      "degree": 5
+    },
+    {
+      "id": "chatheader_chatheader",
+      "label": "ChatHeader()",
+      "degree": 4
+    },
+    {
+      "id": "chatheader_chatnotice",
+      "label": "ChatNotice()",
+      "degree": 4
+    },
+    {
+      "id": "chatinput_chatinput",
+      "label": "ChatInput()",
+      "degree": 4
+    },
+    {
+      "id": "chatinput_chatloadingstate",
+      "label": "ChatLoadingState()",
+      "degree": 3
+    }
+  ],
+  "surprises": [
+    {
+      "source": "ChatMessageList()",
+      "target": "ChatBubble()",
+      "source_files": [
+        "ChatInput.kt",
+        "ChatBubble.kt"
+      ],
+      "confidence": "INFERRED",
+      "relation": "calls",
+      "why": "inferred connection - not explicitly stated in source; bridges separate communities"
+    },
+    {
+      "source": "SecretaryChatContent()",
+      "target": "ChatHeader()",
+      "source_files": [
+        "SecretaryChatScreen.kt",
+        "ChatHeader.kt"
+      ],
+      "confidence": "INFERRED",
+      "relation": "calls",
+      "why": "inferred connection - not explicitly stated in source; bridges separate communities"
+    },
+    {
+      "source": "SecretaryChatContent()",
+      "target": "ChatNotice()",
+      "source_files": [
+        "SecretaryChatScreen.kt",
+        "ChatHeader.kt"
+      ],
+      "confidence": "INFERRED",
+      "relation": "calls",
+      "why": "inferred connection - not explicitly stated in source; bridges separate communities"
+    },
+    {
+      "source": "ChatKathleenPreview()",
+      "target": "SecretaryChatContent()",
+      "source_files": [
+        "SecretaryChatPreviews.kt",
+        "SecretaryChatScreen.kt"
+      ],
+      "confidence": "INFERRED",
+      "relation": "calls",
+      "why": "inferred connection - not explicitly stated in source; bridges separate communities"
+    },
+    {
+      "source": "SecretaryChatContent()",
+      "target": "ChatMessageList()",
+      "source_files": [
+        "SecretaryChatScreen.kt",
+        "ChatInput.kt"
+      ],
+      "confidence": "INFERRED",
+      "relation": "calls",
+      "why": "inferred connection - not explicitly stated in source"
+    }
+  ],
+  "tokens": {
+    "input": 0,
+    "output": 0
+  }
+}

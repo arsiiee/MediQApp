@@ -63,6 +63,8 @@ export interface Appointment {
 
 export interface Patient {
   readonly id: string;
+  /** The Ktor users.id used as patient_id in appointments (may differ from profiles.user_id). */
+  readonly usersId: string;
   readonly name: string;
   readonly email: string;
   readonly phone: string;
@@ -114,14 +116,19 @@ export interface DoctorSummary {
   readonly nextAvailable: string | null;
 }
 
+/** One continuous consulting window within a day. */
+export interface ScheduleSession {
+  /** `HH:MM` on a 24-hour clock, e.g. `09:00`. */
+  readonly startTime: string;
+  readonly endTime: string;
+}
+
 /** One day of the repeating weekly availability a doctor publishes. */
 export interface ScheduleDay {
   /** 0 = Sunday … 6 = Saturday, matching `Date.prototype.getDay()`. */
   readonly dayOfWeek: number;
-  readonly enabled: boolean;
-  /** `HH:MM` on a 24-hour clock, e.g. `09:00`. */
-  readonly startTime: string;
-  readonly endTime: string;
+  /** In clock order. Empty means the doctor does not work that day. */
+  readonly sessions: readonly ScheduleSession[];
 }
 
 export interface SecretaryProfile {
@@ -164,20 +171,11 @@ export interface ConversationMessage {
   readonly sentAt: string;
   readonly body: string;
   /**
-   * Whether the signed-in Secretary wrote it.
-   *
-   * Part of the message rather than a comparison against the session's id, so a
-   * thread still reads correctly when it is handed to somebody else — a real API
-   * would send an author role per message and the screen would not change.
+   * Optional appointment this message is about, so a chat can surface the
+   * relevant slot without a separate lookup.
    */
+  readonly appointmentId: string | null;
   readonly fromSecretary: boolean;
-  /**
-   * When the thread was opened, or `null` while the message is still unread.
-   *
-   * A timestamp rather than a boolean so a real API can return a server-side
-   * read receipt without this shape changing, and so "unread since" is available
-   * for free if the list ever needs to say it.
-   */
   readonly readAt: string | null;
 }
 

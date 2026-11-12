@@ -7,28 +7,29 @@ import type { Conversation } from '../../secretary/secretary.models';
 import type { ConversationMessage } from '../../secretary/secretary.models';
 
 function toConversationMessage(m: Message): ConversationMessage {
+  const role = (m.authorRole ?? '').toLowerCase();
   return {
     id: m.id,
     conversationId: m.conversationId,
     sentAt: m.sentAt,
     body: m.body,
     appointmentId: m.appointmentId ?? null,
-    fromSecretary: m.authorRole === 'secretary',
+    fromSecretary: role === 'secretary' || role === 'admin',
     readAt: m.readAt ?? null,
   };
 }
 
 function toProfile(row: any): UserProfile {
   return {
-    id: row.user_id,
-    username: row.username,
-    fullName: row.full_name ?? '',
+    id: row.user_id ?? row.id,
+    username: row.username ?? '',
+    fullName: row.full_name ?? row.fullName ?? '',
     email: row.email ?? '',
-    mobileNumber: row.email ?? '',
-    dateOfBirth: '',
+    mobileNumber: row.mobile_number ?? row.mobileNumber ?? '',
+    dateOfBirth: row.date_of_birth ?? row.dateOfBirth ?? '',
     role: (row.role ?? 'patient') as UserProfile['role'],
     status: row.status ?? 'ACTIVE',
-    assignedDoctorId: row.assigned_doctor_id,
+    assignedDoctorId: row.assigned_doctor_id ?? row.assignedDoctorId,
   };
 }
 
@@ -53,6 +54,7 @@ function toMessage(row: any): Message {
     body: row.body,
     sentAt: row.sent_at,
     readAt: row.read_at ?? undefined,
+    appointmentId: row.appointment_id ?? row.appointmentId ?? null,
   };
 }
 

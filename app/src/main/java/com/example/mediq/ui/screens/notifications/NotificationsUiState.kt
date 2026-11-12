@@ -15,7 +15,8 @@ enum class NotificationType {
     CONFIRMED,
     REMINDER,
     RESCHEDULED,
-    CANCELLED
+    CANCELLED,
+    NO_SHOW
 }
 
 data class NotificationItem(
@@ -24,7 +25,9 @@ data class NotificationItem(
     val title: String,
     val message: String,
     val time: String,
-    val unread: Boolean
+    val unread: Boolean,
+    /** Optional deep-link context (e.g. appointmentId) extracted from notification data. */
+    val appointmentId: String? = null,
 )
 
 val MockNotifications = listOf(
@@ -64,7 +67,7 @@ val MockNotifications = listOf(
 
 /** The icon data for each notification type. */
 data class NotificationIcon(
-    val icon: androidx.compose.ui.graphics.vector.ImageVector,
+    val icon: ImageVector,
     val container: androidx.compose.ui.graphics.Color,
     val tint: androidx.compose.ui.graphics.Color
 )
@@ -90,7 +93,12 @@ val NotificationIcons = mapOf(
         icon = Icons.Filled.Cancel,
         container = com.example.mediq.ui.theme.MediQErrorContainer,
         tint = com.example.mediq.ui.theme.MediQError
-    )
+    ),
+    NotificationType.NO_SHOW to NotificationIcon(
+        icon = Icons.Filled.Cancel,
+        container = com.example.mediq.ui.theme.MediQErrorContainer,
+        tint = com.example.mediq.ui.theme.MediQError
+    ),
 )
 
 sealed interface NotificationsUiState {
@@ -101,5 +109,6 @@ sealed interface NotificationsUiState {
 }
 
 data class NotificationsActions(
-    val onRetry: () -> Unit = {}
+    val onRetry: () -> Unit = {},
+    val onOpen: (NotificationItem) -> Unit = {},
 )

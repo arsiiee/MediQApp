@@ -182,7 +182,7 @@ export class SecretaryAppointments {
     this.session.confirm(appointment.id).subscribe((outcome) => {
       switch (outcome.kind) {
         case 'confirmed':
-          this.toasts.success('Appointment confirmed', `${name} is expected.`);
+          this.toasts.success('Appointment confirmed', `${name}'s appointment is confirmed.`);
           return;
         case 'already-confirmed':
           this.toasts.info('Already confirmed', `${name} was confirmed a moment ago.`);
@@ -190,13 +190,13 @@ export class SecretaryAppointments {
         case 'not-confirmable':
           this.toasts.error(
             'Not confirmed',
-            `That appointment is now ${outcome.currentStatus ?? 'unavailable'}, so it cannot be confirmed.`,
+            `${name}'s appointment is now ${outcome.currentStatus ?? 'unavailable'}, so it cannot be confirmed.`,
           );
           return;
         case 'failed':
           this.toasts.error(
             'Not confirmed',
-            outcome.message || 'The appointment could not be confirmed. Please try again.',
+            outcome.message || `${name}'s appointment could not be confirmed. Please try again.`,
           );
           return;
       }

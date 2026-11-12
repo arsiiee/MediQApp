@@ -82,6 +82,8 @@ SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $$
 BEGIN
+    -- p_patient_id accepted for client compatibility; cancellation is
+    -- permissive in dev/transitional mode (no auth.uid dependency).
     PERFORM public.cancel_appointment(p_appointment_id, p_cancel_reason);
 END;
 $$;

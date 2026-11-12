@@ -26,17 +26,11 @@ class MainActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Restore the signed-in account (if any) before drawing the first
-        // screen, so closing and reopening the app keeps the session.
-        MediQSession.init(applicationContext)
-        SupabaseClient.accessToken = MediQSession.accessToken
-        SupabaseClient.refreshToken = MediQSession.refreshToken
-        SupabaseClient.authUserId = MediQSession.authUserId
-        android.widget.Toast.makeText(
-            this,
-            if (MediQSession.user.value != null) "Restored: ${MediQSession.user.value?.username}" else "No session restored",
-            android.widget.Toast.LENGTH_LONG
-        ).show()
+        // Bind session storage without auto-restoring a previous sign-in.
+        MediQSession.init(applicationContext, restoreSession = false)
+        SupabaseClient.accessToken = null
+        SupabaseClient.refreshToken = null
+        SupabaseClient.authUserId = null
 
         val startDestination = Screen.SignIn.route
 

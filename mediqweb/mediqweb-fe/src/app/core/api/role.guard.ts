@@ -2,6 +2,7 @@ import { inject } from '@angular/core';
 import { CanActivateFn, Router } from '@angular/router';
 import { AuthService } from './auth.service';
 import type { UserRole } from './models';
+import { map, take } from 'rxjs/operators';
 
 /**
  * Factory for role-based route guards.
@@ -18,8 +19,17 @@ export const roleGuard =
   () => {
     const auth = inject(AuthService);
     const router = inject(Router);
-    if (auth.profile?.role === allowedRole) {
-      return true;
-    }
-    return router.createUrlTree(['/login']);
+    return auth.initialized$.pipe(
+      take(1),
+      map(() => {
+        const profile = auth.profile;
+        console.log('[RoleGuard] allowedRole:', allowedRole, 'profile:', profile?.id ?? 'null', 'profile?.role:', profile?.role ?? 'null');
+        if (profile?.role === allowedRole) {
+          console.log('[RoleGuard] ALLOW');
+          return true;
+        }
+        console.log('[RoleGuard] REDIRECT_TO_LOGIN');
+        return router.createUrlTree(['/login']);
+      })
+    );
   };

@@ -1,7 +1,8 @@
 -- Purpose: Remove ambiguous book_appointment overloads (causing PostgREST HTTP 300)
 --          and restore a single canonical RPC with same-day duplicate guard,
 --          doctor-conflict checks, role-aware patient resolution, and
---          availability validation compatible with clinic_hours/availabilities.
+--          availability validation compatible with clinic_hours/availabilities
+--          across doctor-id domains (doctors.id vs doctors.user_id).
 --          Safe to apply via `supabase db query --linked --file ...`.
 
 BEGIN;
@@ -43,6 +44,8 @@ DECLARE
     v_starts_at TIMESTAMP;
     v_duration_interval INTERVAL;
     v_dow INTEGER;
+    v_doctor_doc_id VARCHAR;
+    v_doctor_user_id VARCHAR;
 BEGIN
     v_role := mediq_current_role();
 
@@ -72,6 +75,16 @@ BEGIN
         END IF;
     END IF;
 
+    -- Resolve doctor identifiers across domains (doctors.id vs doctors.user_id/users/auth).
+    SELECT d.id, d.user_id
+      INTO v_doctor_doc_id, v_doctor_user_id
+    FROM doctors d
+    WHERE d.id = p_doctor_id OR d.user_id = p_doctor_id
+    LIMIT 1;
+
+    v_doctor_doc_id := COALESCE(v_doctor_doc_id, p_doctor_id);
+    v_doctor_user_id := COALESCE(v_doctor_user_id, p_doctor_id);
+
     IF EXISTS (
         SELECT 1
         FROM appointments
@@ -84,10 +97,10 @@ BEGIN
 
     SELECT COUNT(*) INTO v_conflict
     FROM appointments
-    WHERE doctor_id = p_doctor_id
+    WHERE doctor_id IN (p_doctor_id, v_doctor_doc_id, v_doctor_user_id)
       AND status <> 'CANCELLED'
       AND starts_at < v_starts_at + v_duration_interval
-      AND starts_at + v_duration_interval > v_starts_at;
+      AND starts_at + (COALESCE(duration_minutes, p_duration_minutes) || ' minutes')::interval > v_starts_at;
 
     IF v_conflict > 0 THEN
         RAISE EXCEPTION 'Doctor already has an appointment at that time';
@@ -95,15 +108,17 @@ BEGIN
 
     v_dow := EXTRACT(DOW FROM v_starts_at)::integer;
 
+    -- Check dated availability overrides first (supports varchar or date storage).
     SELECT COUNT(*) INTO v_avail
     FROM availabilities
-    WHERE doctor_id = p_doctor_id
-      AND date = v_starts_at::date;
+    WHERE doctor_id IN (p_doctor_id, v_doctor_doc_id, v_doctor_user_id)
+      AND date::date = v_starts_at::date;
 
+    -- Fall back to weekly clinic hours.
     IF v_avail = 0 THEN
         SELECT COUNT(*) INTO v_avail
         FROM clinic_hours
-        WHERE doctor_id = p_doctor_id
+        WHERE doctor_id IN (p_doctor_id, v_doctor_doc_id, v_doctor_user_id)
           AND day_of_week = v_dow
           AND COALESCE(is_closed, false) = false;
     END IF;
@@ -112,8 +127,10 @@ BEGIN
         RAISE EXCEPTION 'Doctor is not available on that date';
     END IF;
 
+    -- Store the canonical doctor user id when available to keep appointment
+    -- records consistent with user-based flows; fall back to provided id.
     INSERT INTO appointments (id, patient_id, doctor_id, starts_at, duration_minutes, status, reason, created_at, updated_at)
-    VALUES (v_new_id, v_patient_id, p_doctor_id, v_starts_at, p_duration_minutes, 'BOOKED', p_reason, NOW(), NOW());
+    VALUES (v_new_id, v_patient_id, COALESCE(v_doctor_user_id, p_doctor_id), v_starts_at, p_duration_minutes, 'BOOKED', p_reason, NOW(), NOW());
 
     RETURN v_new_id;
 END;

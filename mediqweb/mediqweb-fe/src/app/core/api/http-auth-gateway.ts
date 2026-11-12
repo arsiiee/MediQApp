@@ -3,6 +3,21 @@ import { from, map, Observable, switchMap } from 'rxjs';
 import { AuthSession, UserProfile } from './models';
 import { SupabaseService } from './supabase.service';
 
+function mapProfile(p: any): UserProfile {
+  return {
+    id: p.user_id ?? p.id,
+    username: p.username ?? '',
+    fullName: p.full_name ?? p.fullName ?? '',
+    email: p.email ?? '',
+    mobileNumber: p.mobile_number ?? p.mobileNumber ?? p.email ?? '',
+    dateOfBirth: p.date_of_birth ?? p.dateOfBirth ?? '',
+    role: ((p.role ?? 'patient') as string).toLowerCase() as UserProfile['role'],
+    status: p.status ?? 'ACTIVE',
+    joinedOn: p.created_at ?? p.joinedOn ?? '',
+    assignedDoctorId: p.assigned_doctor_id ?? p.assignedDoctorId ?? null,
+  };
+}
+
 @Injectable({ providedIn: 'root' })
 export class HttpAuthGateway {
   private supabase = inject(SupabaseService);
@@ -26,23 +41,12 @@ export class HttpAuthGateway {
                 if (profileResult.error || !profileResult.data) {
                   throw new Error('Profile not found');
                 }
-                const p = profileResult.data;
                 const session: AuthSession = {
                   accessToken: result.data.session?.access_token ?? '',
                   expiresAt: result.data.session?.expires_at ?? '',
                   refreshToken: result.data.session?.refresh_token ?? '',
                   refreshExpiresAt: '',
-                  profile: {
-                    id: p.user_id,
-                    username: p.username,
-                    fullName: p.full_name ?? '',
-                    email: p.email ?? '',
-                    mobileNumber: p.email ?? '',
-                    dateOfBirth: '',
-                    role: ((p.role ?? 'patient') as string).toLowerCase() as UserProfile['role'],
-                    status: p.status ?? 'ACTIVE',
-                    joinedOn: p.created_at ?? '',
-                  },
+                  profile: mapProfile(profileResult.data),
                 };
                 return session;
               }),
@@ -70,18 +74,7 @@ export class HttpAuthGateway {
             if (profileResult.error || !profileResult.data) {
               throw new Error('Profile not found');
             }
-            const p = profileResult.data;
-            return {
-              id: p.user_id,
-              username: p.username,
-              fullName: p.full_name ?? '',
-              email: p.email ?? '',
-              mobileNumber: p.email ?? '',
-              dateOfBirth: '',
-              role: ((p.role ?? 'patient') as string).toLowerCase() as UserProfile['role'],
-              status: p.status ?? 'ACTIVE',
-              joinedOn: p.created_at ?? '',
-            } as UserProfile;
+            return mapProfile(profileResult.data);
           }),
         );
       }),

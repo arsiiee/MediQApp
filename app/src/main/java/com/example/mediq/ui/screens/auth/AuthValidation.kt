@@ -12,11 +12,12 @@ package com.example.mediq.ui.screens.auth
 data class DetailsErrors(
     val fullName: String?,
     val email: String?,
-    val phoneNumber: String?
+    val phoneNumber: String?,
+    val dateOfBirth: String?,
 ) {
     /** True when nothing on this step needs the patient's attention. */
     val isClean: Boolean
-        get() = fullName == null && email == null && phoneNumber == null
+        get() = fullName == null && email == null && phoneNumber == null && dateOfBirth == null
 }
 
 /** Errors under each field of the credentials step. */
@@ -55,15 +56,55 @@ object AuthValidation {
     private val USERNAME_ALLOWED = Regex("^[A-Za-z0-9._]+$")
     private val EMAIL_ALLOWED = Regex("^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$")
 
-    fun validateDetails(fullName: String, email: String, phoneNumber: String) = DetailsErrors(
+    fun validateDetails(fullName: String, email: String, phoneNumber: String, dateOfBirth: String) = DetailsErrors(
         fullName = when {
             fullName.isBlank() -> "Enter your full name"
             fullName.trim().length < MIN_NAME_LENGTH -> "Enter your full name"
             else -> null
         },
         email = validateEmail(email),
-        phoneNumber = validatePhoneNumberOptional(phoneNumber)
+        phoneNumber = validatePhoneNumberOptional(phoneNumber),
+        dateOfBirth = validateDateOfBirthOptional(dateOfBirth)
     )
+
+    fun validateDateOfBirthOptional(value: String): String? {
+        if (value.isBlank()) return null
+        val match = Regex("^(\\d{4})-(\\d{2})-(\\d{2})$").matchEntire(value.trim())
+            ?: return "Enter a valid date of birth"
+        val year = match.groupValues[1].toIntOrNull() ?: return "Enter a valid date of birth"
+        val month = match.groupValues[2].toIntOrNull() ?: return "Enter a valid date of birth"
+        val day = match.groupValues[3].toIntOrNull() ?: return "Enter a valid date of birth"
+        val cal = java.util.Calendar.getInstance().apply {
+            isLenient = false
+            set(java.util.Calendar.YEAR, year)
+            set(java.util.Calendar.MONTH, month - 1)
+            set(java.util.Calendar.DAY_OF_MONTH, day)
+            set(java.util.Calendar.HOUR_OF_DAY, 0)
+            set(java.util.Calendar.MINUTE, 0)
+            set(java.util.Calendar.SECOND, 0)
+            set(java.util.Calendar.MILLISECOND, 0)
+        }
+        return try {
+            cal.time
+            if (cal.get(java.util.Calendar.YEAR) != year ||
+                cal.get(java.util.Calendar.MONTH) != month - 1 ||
+                cal.get(java.util.Calendar.DAY_OF_MONTH) != day
+            ) return "Enter a valid date of birth"
+            val today = java.util.Calendar.getInstance().apply {
+                set(java.util.Calendar.HOUR_OF_DAY, 0)
+                set(java.util.Calendar.MINUTE, 0)
+                set(java.util.Calendar.SECOND, 0)
+                set(java.util.Calendar.MILLISECOND, 0)
+            }
+            when {
+                cal.after(today) -> "Date of birth cannot be in the future"
+                year < 1900 -> "Enter a valid date of birth"
+                else -> null
+            }
+        } catch (_: Exception) {
+            "Enter a valid date of birth"
+        }
+    }
 
     fun validateEmail(value: String): String? = when {
         value.isBlank() -> "Enter your email address"
