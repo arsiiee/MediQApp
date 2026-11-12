@@ -111,11 +111,15 @@ class AppointmentsViewModel : ViewModel() {
         _error.value = null
         return try {
             val patientUserId = api.resolvePatientUserId()
-                ?: throw RuntimeException("Could not resolve patient id")
+            android.util.Log.d("MediQBookingDiag", "AppointmentsViewModel.cancelAppointment id=$id resolvedPatientId=$patientUserId")
+            if (patientUserId.isNullOrBlank()) {
+                throw RuntimeException("Could not resolve patient id")
+            }
             api.cancelAppointment(id, patientUserId, reason)
             loadAppointments()
             true
         } catch (e: Exception) {
+            android.util.Log.e("MediQBookingDiag", "AppointmentsViewModel.cancelAppointment failed: ${e.message}", e)
             _error.value = e.message ?: "Failed to cancel appointment"
             false
         }

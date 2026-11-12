@@ -775,11 +775,18 @@ class SupabaseApiService {
     suspend fun cancelAppointment(id: String, patientId: String, reason: String): Unit = withContext(Dispatchers.Default) {
         val session = SupabaseClient.accessToken
             ?: throw RuntimeException("Not authenticated")
-        httpRequest("POST", "${SupabaseClient.restUrl}/rpc/cancel_appointment", auth = true,
-            body = jsonBody(
-                "p_appointment_id" to id,
-                "p_patient_id" to patientId,
-                "p_cancel_reason" to reason))
+        Log.d("MediQBookingDiag", "cancelAppointment id=$id patientId=$patientId reasonLen=${reason.length}")
+        try {
+            val resp = httpRequest("POST", "${SupabaseClient.restUrl}/rpc/cancel_appointment", auth = true,
+                body = jsonBody(
+                    "p_appointment_id" to id,
+                    "p_patient_id" to patientId,
+                    "p_cancel_reason" to reason))
+            Log.d("MediQBookingDiag", "cancelAppointment RPC response=$resp")
+        } catch (e: Exception) {
+            Log.e("MediQBookingDiag", "cancelAppointment RPC failed: ${e.message}", e)
+            throw e
+        }
     }
 
     /** Posts an in-app notification for the current user via the send_notification RPC. */
