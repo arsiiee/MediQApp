@@ -1,11 +1,12 @@
 ﻿-- Allow patients to cancel their own appointments (including confirmed ones).
--- Robust version: resolves actor via mediq_resolve_user_id() and matches
--- against appointment patient_id directly, with role-based fallback.
+-- Robust version: accepts p_patient_id explicitly so it works without auth.uid()
+-- (transitional Ktor-auth sessions where Supabase auth.uid() returns NULL).
 
 BEGIN;
 
 CREATE OR REPLACE FUNCTION public.cancel_appointment(
     p_appointment_id VARCHAR,
+    p_patient_id VARCHAR,
     p_cancel_reason TEXT DEFAULT NULL
 )
 RETURNS VOID
@@ -14,15 +15,13 @@ SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $$
 DECLARE
-    v_role VARCHAR;
     v_patient_id VARCHAR;
     v_doctor_id VARCHAR;
     v_doctor_name VARCHAR;
     v_status VARCHAR;
-    v_actor_user_id VARCHAR;
+    v_role VARCHAR;
 BEGIN
     v_role := mediq_current_role();
-    v_actor_user_id := mediq_resolve_user_id();
 
     SELECT patient_id, doctor_id, status
       INTO v_patient_id, v_doctor_id, v_status
@@ -44,11 +43,11 @@ BEGIN
     SELECT full_name INTO v_doctor_name
     FROM users WHERE id = v_doctor_id;
 
-    -- Patient cancels their own appointment: match patient_id to resolved actor id
-    IF v_patient_id = v_actor_user_id THEN
+    -- Patient cancels their own appointment: explicit patient_id match
+    IF v_patient_id = p_patient_id THEN
         NULL;
     -- Doctor cancels their own appointment
-    ELSIF v_role = 'DOCTOR' AND v_doctor_id = v_actor_user_id THEN
+    ELSIF v_role = 'DOCTOR' AND v_doctor_id = mediq_resolve_user_id() THEN
         NULL;
     -- Secretary/admin can cancel any appointment
     ELSIF v_role IN ('SECRETARY', 'ADMIN') THEN
@@ -84,6 +83,6 @@ BEGIN
 END;
 $$;
 
-GRANT EXECUTE ON FUNCTION public.cancel_appointment(VARCHAR, TEXT) TO authenticated, anon;
+GRANT EXECUTE ON FUNCTION public.cancel_appointment(VARCHAR, VARCHAR, TEXT) TO authenticated, anon;
 
 COMMIT;

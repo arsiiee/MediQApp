@@ -15,6 +15,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import java.time.Clock
+import java.time.Instant
 import java.util.concurrent.TimeUnit
 
 class AppointmentsViewModel : ViewModel() {
@@ -52,15 +54,32 @@ class AppointmentsViewModel : ViewModel() {
             _isLoading.value = true
             _error.value = null
             try {
-                val result = api.getAppointments()
+                // Resolve users.id from auth_user_id so appointments are filtered
+                // by the correct patient_id, regardless of RLS policy configuration.
+                val patientUserId = api.resolvePatientUserId()
+                android.util.Log.d("MediQBookingDiag", "AppointmentsViewModel.loadAppointments patientUserId=$patientUserId")
+                val result = api.getAppointments(patientId = patientUserId)
                 val doctors = loadDoctors()
-                val conversations = api.getConversations()
-                val all = result.items.map { toBooking(it, doctors, conversations) }
-                // Keep only the most recent 6 upcoming appointments for the upcoming tab
-                val upcoming = all
-                    .filter { it.status == AppointmentStatus.Confirmed || it.status == AppointmentStatus.AwaitingConfirmation }
-                    .take(6)
-                val history = all.filter { it.status != AppointmentStatus.Confirmed && it.status != AppointmentStatus.AwaitingConfirmation }
+                // getConversations can fail if the profiles/users lookup is blocked by RLS;
+                // degrade gracefully to an empty list rather than crashing the screen.
+                val conversations = try {
+                    api.getConversations()
+                } catch (e: Exception) {
+                    emptyList()
+                }
+                val now = Clock.systemDefaultZone().instant()
+                val pairs = result.items.map { apiItem -> apiItem to toBooking(apiItem, doctors, conversations) }
+                val upcoming = pairs
+                    .filter { (apiItem, booking) ->
+                        (booking.status == AppointmentStatus.Confirmed || booking.status == AppointmentStatus.AwaitingConfirmation) &&
+                            runCatching { !DateTimeFormatter.instant(apiItem.startsAt).isBefore(now) }.getOrDefault(false)
+                    }
+                    .map { it.second }
+                val upcomingIds = upcoming.map { it.id }.toSet()
+                // Everything not currently upcoming (past, cancelled, completed, no-show, or past booked/confirmed)
+                // belongs in history so appointments never disappear from the page.
+                val history = pairs.map { it.second }.filter { it.id !in upcomingIds }
+                android.util.Log.d("MediQBookingDiag", "AppointmentsViewModel mapped all=${pairs.size} upcoming=${upcoming.size} history=${history.size} now=$now")
                 _appointments.value = upcoming + history
             } catch (e: Exception) {
                 _error.value = e.message ?: "Failed to load appointments"
@@ -88,14 +107,17 @@ class AppointmentsViewModel : ViewModel() {
         }
     }
 
-    fun cancelAppointment(id: String) {
-        viewModelScope.launch {
-            try {
-                api.cancelAppointment(id)
-                loadAppointments()
-            } catch (e: Exception) {
-                _error.value = e.message ?: "Failed to cancel appointment"
-            }
+    suspend fun cancelAppointment(id: String, reason: String): Boolean {
+        _error.value = null
+        return try {
+            val patientUserId = api.resolvePatientUserId()
+                ?: throw RuntimeException("Could not resolve patient id")
+            api.cancelAppointment(id, patientUserId, reason)
+            loadAppointments()
+            true
+        } catch (e: Exception) {
+            _error.value = e.message ?: "Failed to cancel appointment"
+            false
         }
     }
 

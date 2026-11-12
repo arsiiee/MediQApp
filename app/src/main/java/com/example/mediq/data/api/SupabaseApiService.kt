@@ -772,11 +772,14 @@ class SupabaseApiService {
             body = jsonBody("p_appointment_id" to id))
     }
 
-    suspend fun cancelAppointment(id: String, reason: String): Unit = withContext(Dispatchers.Default) {
+    suspend fun cancelAppointment(id: String, patientId: String, reason: String): Unit = withContext(Dispatchers.Default) {
         val session = SupabaseClient.accessToken
             ?: throw RuntimeException("Not authenticated")
         httpRequest("POST", "${SupabaseClient.restUrl}/rpc/cancel_appointment", auth = true,
-            body = jsonBody("p_appointment_id" to id, "p_cancel_reason" to reason))
+            body = jsonBody(
+                "p_appointment_id" to id,
+                "p_patient_id" to patientId,
+                "p_cancel_reason" to reason))
     }
 
     /** Posts an in-app notification for the current user via the send_notification RPC. */
