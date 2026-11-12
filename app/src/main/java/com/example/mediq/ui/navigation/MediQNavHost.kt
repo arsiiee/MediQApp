@@ -22,13 +22,10 @@ import com.example.mediq.ui.screens.doctordetails.DoctorDetailsScreen
 import com.example.mediq.ui.screens.doctors.DoctorsScreen
 import com.example.mediq.ui.screens.home.HomeScreen
 import com.example.mediq.ui.screens.messages.MessagesScreen
-import com.example.mediq.ui.screens.messages.MockConversations
 import com.example.mediq.ui.screens.notifications.NotificationsScreen
 import com.example.mediq.ui.screens.profile.EditProfileScreen
 import com.example.mediq.ui.screens.profile.ProfileScreen
-import com.example.mediq.ui.screens.secretarychat.ChatUiState
 import com.example.mediq.ui.screens.secretarychat.SecretaryChatScreen
-import com.example.mediq.ui.screens.secretarychat.SecretaryChatSamples
 
 @Composable
 fun MediQNavHost(navController: NavHostController, startDestination: String = Screen.SignIn.route) {
@@ -62,20 +59,33 @@ fun MediQNavHost(navController: NavHostController, startDestination: String = Sc
                     ?.getString("conversationId")
                     ?: "maria_secretary"
 
-            // Resolve the secretary's identity from the sample conversation so
-            // the header shows name, role, and location instead of defaults.
-            val content = (when (conversationId) {
-                "maria_secretary" -> SecretaryChatSamples.maria
-                "kathleen_secretary" -> SecretaryChatSamples.kathleen
-                else -> null
-            }) as? ChatUiState.Content
+            val secretaryName =
+                backStackEntry.arguments
+                    ?.getString("secretaryName")
+                    ?: "Clinic"
+
+            val doctorName =
+                backStackEntry.arguments
+                    ?.getString("doctorName")
+                    ?: "Doctor"
+
+            val appointmentDate =
+                backStackEntry.arguments
+                    ?.getString("appointmentDate")
+                    ?: ""
+
+            val appointmentTime =
+                backStackEntry.arguments
+                    ?.getString("appointmentTime")
+                    ?: ""
 
             SecretaryChatScreen(
                 navController = navController,
                 conversationId = conversationId,
-                secretaryName = content?.secretaryName ?: "Secretary",
-                role = content?.role,
-                location = content?.location,
+                secretaryName = secretaryName,
+                doctorName = doctorName,
+                appointmentDate = appointmentDate,
+                appointmentTime = appointmentTime,
             )
         }
         composable(Screen.Profile.route) { ProfileScreen(navController) }
@@ -93,11 +103,9 @@ fun MediQNavHost(navController: NavHostController, startDestination: String = Sc
             val doctorId =
                 backStackEntry.arguments?.getString("doctorId")
 
-            val dateIndex =
-                backStackEntry.arguments
-                    ?.getString("dateIndex")
-                    ?.toIntOrNull()
-                    ?: 0
+            val date =
+                backStackEntry.arguments?.getString("date")
+                    ?: ""
 
             val time =
                 backStackEntry.arguments
@@ -107,27 +115,48 @@ fun MediQNavHost(navController: NavHostController, startDestination: String = Sc
             BookingFlowScreen(
                 navController = navController,
                 doctorId = doctorId,
-                dateIndex = dateIndex,
+                date = date,
                 selectedTime = time
             )
         }
         composable(Screen.BookingSuccess.route) { backStackEntry ->
 
-            val dateIndex =
-                backStackEntry.arguments
-                    ?.getString("dateIndex")
-                    ?.toIntOrNull()
-                    ?: 0
+            val date =
+                backStackEntry.arguments?.getString("date") ?: ""
 
             val time =
                 backStackEntry.arguments
                     ?.getString("time")
                     ?: ""
 
+            val doctorName =
+                backStackEntry.arguments
+                    ?.getString("doctorName")
+                    ?: ""
+
+            val specialty =
+                backStackEntry.arguments
+                    ?.getString("specialty")
+                    ?: ""
+
+            val location =
+                backStackEntry.arguments
+                    ?.getString("location")
+                    ?: ""
+
+            val dateLabel =
+                backStackEntry.arguments
+                    ?.getString("dateLabel")
+                    ?: ""
+
             BookingSuccessScreen(
                 navController = navController,
-                dateIndex = dateIndex,
-                selectedTime = time
+                date = date,
+                selectedTime = time,
+                doctorName = doctorName,
+                specialty = specialty,
+                location = location,
+                dateLabel = dateLabel
             )
         }
         composable(Screen.AppointmentDetails.route) { backStackEntry ->

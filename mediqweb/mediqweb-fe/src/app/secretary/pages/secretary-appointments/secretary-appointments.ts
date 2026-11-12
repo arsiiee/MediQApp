@@ -81,14 +81,29 @@ export class SecretaryAppointments {
 
   protected readonly statusOptions = STATUS_ITEMS;
 
+  /** Whether any appointment can be confirmed or cancelled — used to hide the
+   *  Actions column entirely when there is nothing actionable on screen. */
+  protected readonly hasActions = computed(() =>
+    this.appointments().some((a) => this.canConfirm(a) || this.canCancel(a)),
+  );
+
   protected readonly columns: TableColumn<Appointment>[] = [
     { key: 'startsAt', header: 'When', sortable: true },
     { key: 'patientId', header: 'Patient' },
     { key: 'reason', header: 'Reason', hideBelow: 'lg' },
     { key: 'durationMinutes', header: 'Length', hideBelow: 'lg' },
     { key: 'status', header: 'Status', sortable: true },
-    { key: 'actions', header: 'Actions', align: 'end' },
   ];
+
+  /** Columns with the Actions column appended only when something is actionable. */
+  protected readonly columnsWithActions = computed(() =>
+    this.hasActions()
+      ? [
+          ...this.columns,
+          { key: 'actions', header: 'Actions', align: 'end' as const },
+        ]
+      : this.columns,
+  );
 
   protected readonly appointments = computed(() => {
     const term = this.query().trim().toLowerCase();
@@ -159,34 +174,33 @@ export class SecretaryAppointments {
   /**
    * Confirms a booked appointment.
    *
-   * Taken straight from the store's answer rather than assumed: a `false` here means
-   * the appointment was not `booked` when the store looked, and saying "confirmed"
-   * anyway would be a lie on screen. The store refusing is also what keeps this
-   * honest if the rules are ever tightened.
-   *
-   * The two refusals are reported differently, because they are not the same
-   * problem. A double-click on Confirm is the ordinary way this happens — the row
-   * the handler was given is already stale by the second click — and answering
-   * "it may have changed" for that would send a Secretary looking for a problem
-   * they caused by being impatient. Only an appointment that is now something
-   * *other* than confirmed is genuinely a change worth reporting.
+   * Reports the actual outcome from the API: success, a harmless double-confirm,
+   * a state/rule refusal, or a failed request (with rollback handled in session).
    */
   protected confirm(appointment: Appointment): void {
     const name = this.patientName(appointment);
-    if (!this.session.confirm(appointment.id)) {
-      const current = this.session.appointments().find((a) => a.id === appointment.id);
-      if (current?.status === 'confirmed') {
-        // A double-click, the ordinary way this happens: not an error.
-        this.toasts.info('Already confirmed', `${name} was confirmed a moment ago.`);
-      } else {
-        this.toasts.error(
-          'Not confirmed',
-          `That appointment is now ${current?.status ?? 'gone'}, so it cannot be confirmed.`,
-        );
+    this.session.confirm(appointment.id).subscribe((outcome) => {
+      switch (outcome.kind) {
+        case 'confirmed':
+          this.toasts.success('Appointment confirmed', `${name} is expected.`);
+          return;
+        case 'already-confirmed':
+          this.toasts.info('Already confirmed', `${name} was confirmed a moment ago.`);
+          return;
+        case 'not-confirmable':
+          this.toasts.error(
+            'Not confirmed',
+            `That appointment is now ${outcome.currentStatus ?? 'unavailable'}, so it cannot be confirmed.`,
+          );
+          return;
+        case 'failed':
+          this.toasts.error(
+            'Not confirmed',
+            outcome.message || 'The appointment could not be confirmed. Please try again.',
+          );
+          return;
       }
-      return;
-    }
-    this.toasts.success('Appointment confirmed', `${name} is expected.`);
+    });
   }
 
   protected requestCancel(appointment: Appointment): void {
@@ -200,16 +214,27 @@ export class SecretaryAppointments {
   protected confirmCancel(): void {
     const appointment = this.confirmCancelFor();
     if (!appointment) return;
-    const changed = this.session.cancel(appointment.id);
     this.confirmCancelFor.set(null);
+    const name = this.patientName(appointment);
 
-    if (changed) {
-      this.toasts.warning(
-        'Appointment cancelled',
-        `${this.patientName(appointment)} will not be seen. The visit stays in the history.`,
-      );
-    } else {
-      this.toasts.error('Not cancelled', 'That appointment could not be updated.');
-    }
+    this.session.cancel(appointment.id).subscribe((outcome) => {
+      switch (outcome.kind) {
+        case 'cancelled':
+          this.toasts.warning(
+            'Appointment cancelled',
+            `${name} will not be seen. The visit stays in the history.`,
+          );
+          return;
+        case 'not-cancellable':
+          this.toasts.error('Not cancelled', 'That appointment could not be updated.');
+          return;
+        case 'failed':
+          this.toasts.error(
+            'Not cancelled',
+            outcome.message || 'The appointment could not be cancelled. Please try again.',
+          );
+          return;
+      }
+    });
   }
 }

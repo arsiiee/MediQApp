@@ -22,9 +22,15 @@ sealed class Screen(val route: String) {
     object EditProfile : Screen("edit_profile")
 
     // Message Chat
-    object MessageChat : Screen("message_chat/{conversationId}") {
-        fun createRoute(conversationId: String) =
-            "message_chat/$conversationId"
+    object MessageChat : Screen("message_chat/{conversationId}/{secretaryName}/{doctorName}/{appointmentDate}/{appointmentTime}") {
+        fun createRoute(
+            conversationId: String,
+            secretaryName: String,
+            doctorName: String,
+            appointmentDate: String,
+            appointmentTime: String,
+        ) =
+            "message_chat/$conversationId/${android.net.Uri.encode(secretaryName)}/${android.net.Uri.encode(doctorName)}/${android.net.Uri.encode(appointmentDate)}/${android.net.Uri.encode(appointmentTime)}"
     }
 
     // Detail Screens
@@ -33,19 +39,23 @@ sealed class Screen(val route: String) {
             "doctor_details/$doctorId"
     }
 
-    object BookingFlow : Screen("booking_flow/{doctorId}/{dateIndex}/{time}") {
+    object BookingFlow : Screen("booking_flow/{doctorId}/{date}/{time}") {
         fun createRoute(
             doctorId: String,
-            dateIndex: Int,
+            date: String,
             time: String
-        ) = "booking_flow/$doctorId/$dateIndex/${android.net.Uri.encode(time)}"
+        ) = "booking_flow/$doctorId/${android.net.Uri.encode(date)}/${android.net.Uri.encode(time)}"
     }
 
-    object BookingSuccess : Screen("booking_success/{dateIndex}/{time}") {
+    object BookingSuccess : Screen("booking_success/{date}/{time}/{doctorName}/{specialty}/{location}/{dateLabel}") {
         fun createRoute(
-            dateIndex: Int,
-            time: String
-        ) = "booking_success/$dateIndex/${android.net.Uri.encode(time)}"
+            date: String,
+            time: String,
+            doctorName: String,
+            specialty: String,
+            location: String,
+            dateLabel: String
+        ) = "booking_success/${android.net.Uri.encode(date)}/${android.net.Uri.encode(time)}/${android.net.Uri.encode(doctorName)}/${android.net.Uri.encode(specialty)}/${android.net.Uri.encode(location)}/${android.net.Uri.encode(dateLabel)}"
     }
 
     object AppointmentDetails : Screen("appointment_details/{appointmentId}") {

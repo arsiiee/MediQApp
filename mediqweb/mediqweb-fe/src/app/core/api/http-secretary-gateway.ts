@@ -1,7 +1,8 @@
 import { Injectable, inject } from '@angular/core';
-import { from, map, Observable, switchMap } from 'rxjs';
+import { from, map, Observable, of, switchMap } from 'rxjs';
 import { UserProfile, Appointment, MessageThread, Message, Doctor } from './models';
 import { SupabaseService } from './supabase.service';
+import { environment } from '../../../environments/environment';
 import type { Conversation } from '../../secretary/secretary.models';
 import type { ConversationMessage } from '../../secretary/secretary.models';
 
@@ -11,6 +12,7 @@ function toConversationMessage(m: Message): ConversationMessage {
     conversationId: m.conversationId,
     sentAt: m.sentAt,
     body: m.body,
+    appointmentId: m.appointmentId ?? null,
     fromSecretary: m.authorRole === 'secretary',
     readAt: m.readAt ?? null,
   };
@@ -78,19 +80,21 @@ export class HttpSecretaryGateway {
   private supabase = inject(SupabaseService);
 
   getAppointments(): Observable<Appointment[]> {
-    return from((this.supabase as any).from('appointments').select('*')).pipe(
-      map((r: any) => {
-        if (r.error) {
-          throw new Error(r.error?.message ?? 'Failed to load appointments');
-        }
-        return (r.data ?? []).map((a: any) => ({
+    return (from(
+      (this.supabase as any)
+        .from('appointments')
+        .select('*')
+        .then((r: any): any[] => r.data ?? []),
+    ) as Observable<any[]>).pipe(
+      map((data: any[]) => {
+        return data.map((a: any) => ({
           id: a.id,
           patientId: a.patient_id,
           doctorId: a.doctor_id,
           startsAt: a.starts_at,
           durationMinutes: a.duration_minutes,
-          status: a.status,
-          reason: a.reason,
+          status: String(a.status ?? '').toLowerCase(),
+          reason: a.reason ?? '',
           createdAt: a.created_at,
           updatedAt: a.updated_at,
         }));
@@ -108,13 +112,96 @@ export class HttpSecretaryGateway {
     );
   }
 
-  cancelAppointment(id: string): Observable<void> {
-    return from((this.supabase as any).rpc('cancel_appointment', { p_appointment_id: id })).pipe(
+  cancelAppointment(id: string, reason: string | null = null): Observable<void> {
+    return from(
+      (this.supabase as any).rpc('cancel_appointment', {
+        p_appointment_id: id,
+        p_cancel_reason: reason,
+      }),
+    ).pipe(
       map((r: any) => {
         if (r.error) {
           throw new Error(r.error?.message ?? 'Failed to cancel');
         }
       }),
+    );
+  }
+
+  sendNotification(
+    userId: string,
+    type: string,
+    title: string,
+    body: string,
+    data: string | null = null,
+  ): Observable<void> {
+    return from(
+      (this.supabase as any).rpc('send_notification', {
+        p_user_id: userId,
+        p_type: type,
+        p_title: title,
+        p_body: body,
+        p_data: data,
+      }),
+    ).pipe(
+      map((r: any) => {
+        if (r.error) {
+          throw new Error(r.error?.message ?? 'Failed to send notification');
+        }
+      }),
+    );
+  }
+
+  /** Send an FCM push notification via the Edge Function. Returns void on success. */
+  sendPushNotification(
+    fcmToken: string,
+    title: string,
+    body: string,
+    clickAction: string | null = null,
+    appointmentId: string | null = null,
+  ): Observable<void> {
+    const url = `${environment.supabaseUrl}/functions/v1/send-push`;
+    return from(this.supabase.getAccessToken()).pipe(
+      switchMap((accessToken) =>
+        from(
+          fetch(url, {
+            method: 'POST',
+            headers: {
+              ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              fcm_token: fcmToken,
+              title,
+              body,
+              click_action: clickAction,
+              appointment_id: appointmentId,
+            }),
+          }),
+        ),
+      ),
+      switchMap((resp: Response) => {
+        if (!resp.ok) {
+          return from(resp.text()).pipe(
+            map((text) => {
+              throw new Error(text || `send-push failed (${resp.status})`);
+            }),
+          );
+        }
+        return from(Promise.resolve());
+      }),
+    );
+  }
+
+  /** Look up a patient's FCM token from their profile. */
+  getPatientFcmToken(userId: string): Observable<string | null> {
+    return from(
+      (this.supabase as any)
+        .from('profiles')
+        .select('fcm_token')
+        .eq('user_id', userId)
+        .maybeSingle(),
+    ).pipe(
+      map((r: any) => (r.error ? null : (r.data?.fcm_token ?? null))),
     );
   }
 
@@ -144,15 +231,30 @@ export class HttpSecretaryGateway {
         }
         return from(
           (this.supabase as any)
-            .from('message_threads')
-            .select('*')
-            .or(`patient_id.eq.${result.data.user.id},doctor_id.eq.${result.data.user.id}`),
+            .from('users')
+            .select('assigned_doctor_id')
+            .eq('auth_user_id', result.data.user.id)
+            .single(),
         ).pipe(
-          map((r: any) => {
-            if (r.error) {
-              throw new Error(r.error?.message ?? 'Failed to load threads');
+          switchMap((userResult: any) => {
+            if (userResult.error || !userResult.data) {
+              throw new Error('User not found');
             }
-            return (r.data ?? []).map(toThread);
+            const doctorId = userResult.data.assigned_doctor_id;
+            if (!doctorId) {
+              return of([]);
+            }
+            return (from(
+                (this.supabase as any)
+                    .from('message_threads')
+                    .select('*')
+                    .eq('doctor_id', doctorId)
+                    .then((r: any): any[] => r.data ?? []),
+            ) as Observable<any[]>).pipe(
+                map((data: any[]) => {
+                    return data.map(toThread);
+                }),
+            );
           }),
         );
       }),
@@ -201,22 +303,125 @@ export class HttpSecretaryGateway {
         if (result.error || !result.data?.user) {
           throw new Error('Not authenticated');
         }
+        const authUserId = result.data.user.id;
+        // Try 1: users table via auth_user_id bridge (Ktor domain model)
         return from(
           (this.supabase as any)
-            .from('profiles')
-            .select('*')
-            .eq('user_id', result.data.user.id)
+            .from('users')
+            .select('assigned_doctor_id, username')
+            .eq('auth_user_id', authUserId)
             .single(),
         ).pipe(
-          switchMap((profileResult: any) => {
-            if (profileResult.error || !profileResult.data) {
-              throw new Error('Profile not found');
+          switchMap((userResult: any) => {
+            if (userResult.error || !userResult.data || !userResult.data.assigned_doctor_id) {
+              // Try 2: profiles table assigned_doctor_id
+              return from(
+                (this.supabase as any)
+                  .from('profiles')
+                  .select('assigned_doctor_id')
+                  .eq('user_id', authUserId)
+                  .single(),
+              ).pipe(
+                switchMap((profileResult: any) => {
+                  if (
+                    profileResult.error ||
+                    !profileResult.data ||
+                    !profileResult.data.assigned_doctor_id
+                  ) {
+                    // Try 3: profiles username → users assigned_doctor_id
+                    return from(
+                      (this.supabase as any)
+                        .from('profiles')
+                        .select('username')
+                        .eq('user_id', authUserId)
+                        .single(),
+                    ).pipe(
+                      switchMap((profResult: any) => {
+                        if (profResult.error || !profResult.data || !profResult.data.username) {
+                          // Try 4: doctors table directly by user_id
+                          return from(
+                            (this.supabase as any)
+                              .from('doctors')
+                              .select('*')
+                              .eq('user_id', authUserId)
+                              .maybeSingle(),
+                          ).pipe(
+                            map((r: any) => {
+                              if (r.error) {
+                                throw new Error(r.error?.message ?? 'Doctor not found');
+                              }
+                              if (!r.data) {
+                                return null;
+                              }
+                              return toDoctor(r.data);
+                            }),
+                          );
+                        }
+                        return from(
+                          (this.supabase as any)
+                            .from('users')
+                            .select('assigned_doctor_id')
+                            .eq('username', profResult.data.username)
+                            .single(),
+                        ).pipe(
+                          switchMap((uResult: any) => {
+                            if (
+                              uResult.error ||
+                              !uResult.data ||
+                              !uResult.data.assigned_doctor_id
+                            ) {
+                              return of(null as Doctor | null);
+                            }
+                            const doctorId = uResult.data.assigned_doctor_id;
+                            return from(
+                              (this.supabase as any)
+                                .from('doctors')
+                                .select('*')
+                                .eq('user_id', doctorId)
+                                .maybeSingle(),
+                            ).pipe(
+                              map((r: any) => {
+                                if (r.error) {
+                                  throw new Error(r.error?.message ?? 'Doctor not found');
+                                }
+                                if (!r.data) {
+                                  return null;
+                                }
+                                return toDoctor(r.data);
+                              }),
+                            );
+                          }),
+                        );
+                      }),
+                    );
+                  }
+                  const doctorId = profileResult.data.assigned_doctor_id;
+                  return from(
+                    (this.supabase as any)
+                      .from('doctors')
+                      .select('*')
+                      .eq('user_id', doctorId)
+                      .maybeSingle(),
+                  ).pipe(
+                    map((r: any) => {
+                      if (r.error) {
+                        throw new Error(r.error?.message ?? 'Doctor not found');
+                      }
+                      if (!r.data) {
+                        return null;
+                      }
+                      return toDoctor(r.data);
+                    }),
+                  );
+                }),
+              );
             }
+            const assignedDoctorId = userResult.data.assigned_doctor_id;
             return from(
               (this.supabase as any)
                 .from('doctors')
                 .select('*')
-                .eq('user_id', profileResult.data.assigned_doctor_id)
+                .eq('user_id', assignedDoctorId)
                 .maybeSingle(),
             ).pipe(
               map((r: any) => {
@@ -243,17 +448,26 @@ export class HttpSecretaryGateway {
         if (r.error) {
           throw new Error(r.error?.message ?? 'Failed to load schedule');
         }
-        return (r.data ?? []).map((d: any) => ({
-          dayOfWeek: d.day_of_week,
-          startTime: d.start_time,
-          endTime: d.end_time,
-          isClosed: d.is_closed,
-        }));
+        return (r.data ?? [])
+          .filter((d: any) => !d.is_closed && d.start_time && d.end_time)
+          .map((d: any) => ({
+            dayOfWeek: Number(d.day_of_week),
+            startTime: String(d.start_time).slice(0, 5),
+            endTime: String(d.end_time).slice(0, 5),
+          }))
+          .sort(
+            (a: any, b: any) =>
+              a.dayOfWeek - b.dayOfWeek || a.startTime.localeCompare(b.startTime),
+          );
       }),
     );
   }
 
-  sendMessage(conversationId: string, body: string): Observable<ConversationMessage> {
+  sendMessage(
+    conversationId: string,
+    body: string,
+    appointmentId: string | null = null,
+  ): Observable<ConversationMessage> {
     return from(this.supabase.getUser()).pipe(
       switchMap((result: any) => {
         if (result.error || !result.data?.user) {
@@ -263,6 +477,7 @@ export class HttpSecretaryGateway {
           (this.supabase as any).rpc('send_message', {
             p_conversation_id: conversationId,
             p_body: body,
+            p_appointment_id: appointmentId,
           }),
         ).pipe(
           switchMap((r: any) => {

@@ -1,6 +1,7 @@
 package com.example.mediq.data.api
 
 import com.example.mediq.data.model.*
+import com.example.mediq.ui.session.MediQSession
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -10,6 +11,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.Dispatchers
+import java.util.UUID
 
 val JSON_MEDIA_TYPE = "application/json".toMediaType()
 
@@ -86,6 +88,13 @@ class SupabaseApiService {
         val response = sb.newCall(requestBuilder.build()).execute()
         val responseBody = response.body?.string() ?: ""
 
+        // OkHttp follows redirects automatically (301/302/303/307/308). For 300
+        // Multiple Choices it returns the response directly — treat any 3xx as
+        // non-fatal and return the body instead of throwing.
+        if (!response.isSuccessful && response.code !in 300..308) {
+            throw RuntimeException("HTTP ${response.code}: $responseBody")
+        }
+
         // On 401, try refreshing the access token once and retrying
         if (response.code == 401 && auth && SupabaseClient.refreshToken != null) {
             val refreshBody = jsonBody(
@@ -123,9 +132,6 @@ class SupabaseApiService {
             }
         }
 
-        if (!response.isSuccessful) {
-            throw RuntimeException("HTTP ${response.code}: $responseBody")
-        }
         return@withContext responseBody
     }
 
@@ -454,14 +460,25 @@ class SupabaseApiService {
     // Appointments
     // ========================================================================
 
+    /** Resolves the current user's users.id from auth_user_id, used for patient_id filtering. */
+    suspend fun resolvePatientUserId(): String? = withContext(Dispatchers.Default) {
+        val session = SupabaseClient.accessToken
+            ?: return@withContext null
+        val authUserId = getCurrentUserId(session)
+        val userBody = fetchJson("${SupabaseClient.restUrl}/users?select=id&auth_user_id=eq.$authUserId", session)
+        val userArr = JSONArray(userBody)
+        return@withContext if (userArr.length() > 0) userArr.getJSONObject(0).getString("id") else null
+    }
+
     suspend fun getAppointments(
+        patientId: String? = null,
         status: AppointmentStatus? = null,
         from: String? = null,
         to: String? = null,
         limit: Int = 50,
         offset: Int = 0,
     ): Paged<Appointment> = withContext(Dispatchers.Default) {
-        val cacheKey = "appointments:$status:$from:$to:$limit:$offset"
+        val cacheKey = "appointments:$patientId:$status:$from:$to:$limit:$offset"
         val now = System.currentTimeMillis()
 
         val cached = Companion.appointmentsCache[cacheKey]
@@ -472,6 +489,7 @@ class SupabaseApiService {
         val session = SupabaseClient.accessToken
             ?: throw RuntimeException("Not authenticated")
         var url = "${SupabaseClient.restUrl}/appointments?select=*&limit=$limit&offset=$offset"
+        if (patientId != null) url += "&patient_id=eq.$patientId"
         if (status != null) url += "&status=eq.${status.name}"
         if (from != null) url += "&starts_at=gte.$from"
         if (to != null) url += "&starts_at=lte.$to"
@@ -488,17 +506,48 @@ class SupabaseApiService {
     suspend fun createAppointment(request: BookingRequest): Appointment = withContext(Dispatchers.Default) {
         val session = SupabaseClient.accessToken
             ?: throw RuntimeException("Not authenticated")
-        val body = httpRequest("POST", "${SupabaseClient.restUrl}/rpc/book_appointment", auth = true,
+
+        // Resolve users.id from auth_user_id and doctors.user_id for RPC and response mapping.
+        val patientUserBody = fetchJson("${SupabaseClient.restUrl}/users?select=id&auth_user_id=eq.${request.patientId}", session)
+        val patientUserArr = JSONArray(patientUserBody)
+        val patientUserId = if (patientUserArr.length() > 0) patientUserArr.getJSONObject(0).getString("id") else request.patientId
+        val doctorUserBody = fetchJson("${SupabaseClient.restUrl}/doctors?select=user_id&id=eq.${request.doctorId}", session)
+        val doctorUserArr = JSONArray(doctorUserBody)
+        val doctorUserId = if (doctorUserArr.length() > 0) doctorUserArr.getJSONObject(0).getString("user_id") else request.doctorId
+
+        val response = httpRequest("POST", "${SupabaseClient.restUrl}/rpc/book_appointment", auth = true,
             body = jsonBody(
-                "p_patient_id" to request.patientId,
-                "p_doctor_id" to request.doctorId,
+                "p_patient_id" to patientUserId,
+                "p_doctor_id" to doctorUserId,
                 "p_starts_at" to request.startsAt,
                 "p_duration_minutes" to request.durationMinutes,
                 "p_reason" to request.reason,
             ))
-        val arr = JSONArray(body)
-        val appointmentId = arr.getJSONObject(0).getString("id")
-        return@withContext getAppointment(appointmentId)
+
+        Companion.appointmentsCache.clear()
+
+        val appointmentId = runCatching {
+            JSONArray(response).optString(0, response.trim().trim('"'))
+        }.getOrDefault(response.trim().trim('"'))
+
+        return@withContext if (appointmentId.isNotBlank() && appointmentId != "null") {
+            runCatching { getAppointment(appointmentId) }.getOrElse {
+                val now = java.time.Instant.now().toString()
+                Appointment(
+                    id = appointmentId,
+                    patientId = patientUserId,
+                    doctorId = doctorUserId,
+                    startsAt = request.startsAt,
+                    durationMinutes = request.durationMinutes,
+                    status = AppointmentStatus.BOOKED,
+                    reason = request.reason,
+                    createdAt = now,
+                    updatedAt = now,
+                )
+            }
+        } else {
+            throw RuntimeException("Booking failed")
+        }
     }
 
     suspend fun getAppointment(id: String): Appointment = withContext(Dispatchers.Default) {
@@ -518,6 +567,7 @@ class SupabaseApiService {
         val session = SupabaseClient.accessToken
             ?: throw RuntimeException("Not authenticated")
         val authUserId = getCurrentUserId(session)
+            ?: return@withContext emptyList()
         // Resolve the users.id from auth_user_id, because message_threads stores
         // users.id (not auth.users.id) in patient_id/doctor_id.
         val userBody = fetchJson("${SupabaseClient.restUrl}/users?select=id&auth_user_id=eq.$authUserId", session)
@@ -538,11 +588,11 @@ class SupabaseApiService {
         return@withContext arr.map { parseMessage(it) }
     }
 
-    suspend fun sendMessage(conversationId: String, bodyText: String): Message = withContext(Dispatchers.Default) {
+    suspend fun sendMessage(conversationId: String, bodyText: String, appointmentId: String? = null): Message = withContext(Dispatchers.Default) {
         val session = SupabaseClient.accessToken
             ?: throw RuntimeException("Not authenticated")
         httpRequest("POST", "${SupabaseClient.restUrl}/rpc/send_message", auth = true,
-            body = jsonBody("p_conversation_id" to conversationId, "p_body" to bodyText))
+            body = jsonBody("p_conversation_id" to conversationId, "p_body" to bodyText, "p_appointment_id" to appointmentId))
         val messages = getMessages(conversationId)
         return@withContext messages.lastOrNull()
             ?: throw RuntimeException("Message sent but not found")
@@ -553,6 +603,19 @@ class SupabaseApiService {
             ?: throw RuntimeException("Not authenticated")
         httpRequest("PATCH", "${SupabaseClient.restUrl}/message_threads?id=eq.$conversationId", auth = true,
             body = jsonBody("unread_count" to 0, "awaiting_action" to false))
+    }
+
+    suspend fun deleteMessage(messageId: String) = withContext(Dispatchers.Default) {
+        val session = SupabaseClient.accessToken
+            ?: throw RuntimeException("Not authenticated")
+        httpRequest("DELETE", "${SupabaseClient.restUrl}/messages?id=eq.$messageId", auth = true)
+    }
+
+    suspend fun deleteConversation(conversationId: String) = withContext(Dispatchers.Default) {
+        val session = SupabaseClient.accessToken
+            ?: throw RuntimeException("Not authenticated")
+        httpRequest("DELETE", "${SupabaseClient.restUrl}/messages?conversation_id=eq.$conversationId", auth = true)
+        httpRequest("DELETE", "${SupabaseClient.restUrl}/message_threads?id=eq.$conversationId", auth = true)
     }
 
     // ========================================================================
@@ -670,11 +733,25 @@ class SupabaseApiService {
             body = jsonBody("p_appointment_id" to id))
     }
 
-    suspend fun cancelAppointment(id: String): Unit = withContext(Dispatchers.Default) {
+    suspend fun cancelAppointment(id: String, reason: String): Unit = withContext(Dispatchers.Default) {
         val session = SupabaseClient.accessToken
             ?: throw RuntimeException("Not authenticated")
         httpRequest("POST", "${SupabaseClient.restUrl}/rpc/cancel_appointment", auth = true,
-            body = jsonBody("p_appointment_id" to id))
+            body = jsonBody("p_appointment_id" to id, "p_cancel_reason" to reason))
+    }
+
+    /** Posts an in-app notification for the current user via the send_notification RPC. */
+    suspend fun sendNotification(userId: String, type: String, title: String, body: String, data: String? = null): Unit = withContext(Dispatchers.Default) {
+        val session = SupabaseClient.accessToken
+            ?: throw RuntimeException("Not authenticated")
+        httpRequest("POST", "${SupabaseClient.restUrl}/rpc/send_notification", auth = true,
+            body = jsonBody(
+                "p_user_id" to userId,
+                "p_type" to type,
+                "p_title" to title,
+                "p_body" to body,
+                "p_data" to data
+            ))
     }
 
     suspend fun getSecretaryPatients(): List<UserProfile> = withContext(Dispatchers.Default) {
@@ -870,14 +947,24 @@ class SupabaseApiService {
             body = obj.getString("body"),
             sentAt = obj.getString("sent_at"),
             readAt = obj.optString("read_at", null),
+            appointmentId = obj.optString("appointment_id", null),
         )
     }
 
     private fun parseNotification(obj: JSONObject): Notification {
+        val type = when (obj.optString("type", "SYSTEM").uppercase()) {
+            "CONFIRMED", "APPOINTMENT_CONFIRMED" -> NotificationType.APPOINTMENT_CONFIRMED
+            "CANCELLED", "APPOINTMENT_CANCELLED" -> NotificationType.APPOINTMENT_CANCELLED
+            "BOOKED", "APPOINTMENT_BOOKED" -> NotificationType.APPOINTMENT_BOOKED
+            "REMINDER", "APPOINTMENT_REMINDER" -> NotificationType.APPOINTMENT_REMINDER
+            "MESSAGE", "MESSAGE_RECEIVED" -> NotificationType.MESSAGE_RECEIVED
+            "SYSTEM" -> NotificationType.SYSTEM
+            else -> NotificationType.SYSTEM
+        }
         return Notification(
             id = obj.getString("id"),
             userId = obj.getString("user_id"),
-            type = NotificationType.valueOf(obj.optString("type", "SYSTEM")),
+            type = type,
             title = obj.getString("title"),
             body = obj.getString("body"),
             data = null,

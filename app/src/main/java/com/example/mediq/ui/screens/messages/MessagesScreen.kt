@@ -52,7 +52,15 @@ fun MessagesScreen(
         actions = MessagesActions(
             onOpenChat = { id ->
                 readIds = readIds + id
-                navController.navigate(Screen.MessageChat.createRoute(id))
+                val conversation = (resolvedState as? MessagesUiState.Content)?.conversations
+                    ?.find { it.id == id }
+                val secretaryName = conversation?.secretaryName ?: "Clinic"
+                val doctorName = conversation?.doctorName ?: "Doctor"
+                val appointmentTime = conversation?.appointmentTime ?: ""
+                val appointmentDate = conversation?.appointmentDate ?: ""
+                navController.navigate(
+                    Screen.MessageChat.createRoute(id, secretaryName, doctorName, appointmentDate, appointmentTime)
+                )
             }
         )
     )

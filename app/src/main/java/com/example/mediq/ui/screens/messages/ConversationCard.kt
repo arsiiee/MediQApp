@@ -79,7 +79,30 @@ internal fun ConversationCard(
                 Spacer(Modifier.height(MediQSpacing.xxs))
 
                 Text(
-                    text = conversation.preview.takeIf { it.isNotBlank() } ?: "No preview",
+                    text = conversation.doctorName,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MediQTextSecondary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+
+                val upcoming = listOfNotNull(conversation.appointmentDate, conversation.appointmentTime)
+                    .joinToString(" · ")
+                if (upcoming.isNotBlank()) {
+                    Spacer(Modifier.height(MediQSpacing.xxs))
+                    Text(
+                        text = "Upcoming: $upcoming",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MediQGreen,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+
+                Spacer(Modifier.height(MediQSpacing.xxs))
+
+                Text(
+                    text = conversation.preview.takeIf { it.isNotBlank() } ?: "No messages yet",
                     style = MaterialTheme.typography.bodySmall,
                     color = MediQTextPrimary,
                     maxLines = 1,

@@ -48,7 +48,6 @@ class NotificationsViewModel(private val context: Context) : ViewModel() {
             try {
                 val apiNotifications = api.getNotifications()
                 _notifications.value = apiNotifications.map { toNotificationItem(it) }
-                NotificationHelper.notifyAll(context, _notifications.value)
             } catch (e: Exception) {
                 _error.value = e.message ?: "Failed to load notifications"
             } finally {

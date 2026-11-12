@@ -1,8 +1,9 @@
 ﻿import { Injectable, computed, signal, inject } from '@angular/core';
 import { HttpSecretaryGateway } from '../core/api/http-secretary-gateway';
 import { AuthService } from '../core/api/auth.service';
-import { Observable, of, throwError } from 'rxjs';
-import { catchError, map } from 'rxjs/operators';
+import { SupabaseService } from '../core/api/supabase.service';
+import { Observable, from, of, throwError } from 'rxjs';
+import { catchError, map, tap } from 'rxjs/operators';
 import { isSameDay, localIso, minutesOfDay, shortDate, startOfDay } from './secretary.dates';
 import type { AccountStatus } from '../shared/domain/account-status';
 import type {
@@ -19,6 +20,27 @@ import type {
   ScheduleDay,
   SecretaryProfile,
 } from './secretary.models';
+
+/** sessionStorage key used to persist the secretary's assigned doctor id across
+ *  page reloads so the desk stays identified even when profiles.assigned_doctor_id
+ *  is NULL in Supabase or getDoctor() hasn't resolved yet. */
+const ASSIGNED_DOCTOR_KEY = 'mediq_secretary_assigned_doctor_id';
+
+function readAssignedDoctorId(): string | null {
+  try {
+    return sessionStorage.getItem(ASSIGNED_DOCTOR_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function writeAssignedDoctorId(doctorId: string): void {
+  try {
+    sessionStorage.setItem(ASSIGNED_DOCTOR_KEY, doctorId);
+  } catch {
+    // sessionStorage unavailable; silently ignore.
+  }
+}
 
 /** A proposed appointment, before it exists as one. */
 export interface BookingDraft {
@@ -42,8 +64,21 @@ export type BookingRefusal =
   | 'doctor-busy'
   | 'not-in-the-future';
 
+/** Result of confirming an appointment via the API. */
+export type ConfirmOutcome =
+  | { kind: 'confirmed' }
+  | { kind: 'already-confirmed' }
+  | { kind: 'not-confirmable'; currentStatus?: string }
+  | { kind: 'failed'; message?: string };
+
+/** Result of cancelling an appointment via the API. */
+export type CancelOutcome =
+  | { kind: 'cancelled' }
+  | { kind: 'not-cancellable' }
+  | { kind: 'failed'; message?: string };
+
 /** A status that ends an appointment's life, so it can no longer be acted on. */
-export const CLOSED_STATUSES: readonly AppointmentStatus[] = ['completed', 'cancelled', 'no-show'];
+export const CLOSED_STATUSES: readonly AppointmentStatus[] = ['cancelled', 'no-show'];
 
 /** Statuses that mean the patient is expected to turn up. */
 const LIVE_STATUSES: readonly AppointmentStatus[] = ['booked', 'confirmed'];
@@ -62,12 +97,63 @@ const EMPTY_PROFILE: SecretaryProfile = {
   assignedDoctorId: null,
 };
 
+function normalizeScheduleDays(rows: any[]): ScheduleDay[] {
+  const byDay = new Map<number, { startTime: string; endTime: string }[]>();
+  for (const row of rows ?? []) {
+    const day = Number(row?.dayOfWeek ?? row?.day_of_week ?? -1);
+    if (Number.isNaN(day) || day < 0 || day > 6) continue;
+
+    if (Array.isArray(row?.sessions)) {
+      const sessions = row.sessions
+        .map((s: any) => ({
+          startTime: String(s?.startTime ?? s?.start_time ?? '').slice(0, 5),
+          endTime: String(s?.endTime ?? s?.end_time ?? '').slice(0, 5),
+        }))
+        .filter((s: any) => minutesOfDay(s.startTime) !== null && minutesOfDay(s.endTime) !== null);
+      if (sessions.length) {
+        byDay.set(day, [...(byDay.get(day) ?? []), ...sessions]);
+      }
+      continue;
+    }
+
+    if (row?.isClosed || row?.is_closed) continue;
+    const startTime = String(row?.startTime ?? row?.start_time ?? '').slice(0, 5);
+    const endTime = String(row?.endTime ?? row?.end_time ?? '').slice(0, 5);
+    if (minutesOfDay(startTime) === null || minutesOfDay(endTime) === null) continue;
+    byDay.set(day, [...(byDay.get(day) ?? []), { startTime, endTime }]);
+  }
+
+  return Array.from({ length: 7 }, (_, dayOfWeek) => {
+    const sessions = (byDay.get(dayOfWeek) ?? [])
+      .filter((s) => {
+        const start = minutesOfDay(s.startTime);
+        const end = minutesOfDay(s.endTime);
+        return start !== null && end !== null && end > start;
+      })
+      .sort((a, b) => a.startTime.localeCompare(b.startTime));
+    return { dayOfWeek, sessions };
+  });
+}
+
+function hasPublishedHours(days: ScheduleDay[]): boolean {
+  return days.some((d) => d.sessions.length > 0);
+}
+
+function daySessionMinutes(day: ScheduleDay): number {
+  return day.sessions.reduce((total, session) => {
+    const start = minutesOfDay(session.startTime);
+    const end = minutesOfDay(session.endTime);
+    if (start === null || end === null || end <= start) return total;
+    return total + (end - start);
+  }, 0);
+}
+
 /**
  * Secretary session backed by the real Ktor API.
  *
  * Fetches profile, appointments, patients, doctors and conversations on init,
  * keeps them in signals, and every page keeps working exactly as before because
- * all the computeds and mutation methods have the same shape â€” they just
+ * all the computeds and mutation methods have the same shape — they just
  * read/write API-backed signals instead of in-memory fixtures.
  *
  * Everything is scoped to one doctor: the one an administrator assigned this
@@ -81,6 +167,7 @@ const EMPTY_PROFILE: SecretaryProfile = {
 export class SecretarySession {
   private readonly gateway = inject(HttpSecretaryGateway);
   private readonly auth = inject(AuthService);
+  private readonly supabase = inject(SupabaseService);
 
   private readonly profileState = signal<SecretaryProfile>(EMPTY_PROFILE);
   private readonly appointmentState = signal<Appointment[]>([]);
@@ -118,9 +205,22 @@ export class SecretarySession {
 
   /**
    * Whether a record belongs to this Secretary's desk.
+   *
+   * Accepts either the doctors.id or the doctor user/auth id, because
+   * appointments store doctor_id as users/auth id while schedule/assignment may
+   * be keyed by doctors.id.
    */
   private isOnDesk(doctorId: string): boolean {
-    return this.profileState().assignedDoctorId === doctorId;
+    const deskId = this.profileState().assignedDoctorId;
+    if (!deskId) return false;
+    if (deskId === doctorId) return true;
+    const doctor = this.doctorById(deskId);
+    if (doctor && (doctor.id === doctorId || doctor.userId === doctorId)) return true;
+    const doctorForRecord = this.doctorById(doctorId);
+    if (doctorForRecord && (doctorForRecord.id === deskId || doctorForRecord.userId === deskId)) {
+      return true;
+    }
+    return false;
   }
 
   /**
@@ -161,7 +261,7 @@ export class SecretarySession {
     );
   });
 
-  /** Booked but not yet confirmed by the patient â€” the queue needing a reminder. */
+  /** Booked but not yet confirmed by the patient — the queue needing a reminder. */
   readonly awaitingConfirmation = computed(() =>
     this.appointments().filter((appointment) => appointment.status === 'booked'),
   );
@@ -195,7 +295,10 @@ export class SecretarySession {
       .filter((patient) => this.isOnDesk(patient.doctorId))
       .map((patient): PatientSummary => {
         const history = all
-          .filter((appointment) => appointment.patientId === patient.id)
+          .filter(
+            (appointment) =>
+              appointment.patientId === patient.id || appointment.patientId === patient.usersId,
+          )
           .sort(byStart);
         const past = history.filter(
           (appointment) => new Date(appointment.startsAt).getTime() < now,
@@ -223,13 +326,14 @@ export class SecretarySession {
   readonly doctors = computed<DoctorSummary[]>(() => {
     const now = this.now().getTime();
     return this.doctorState()
-      .filter((doctor) => this.isOnDesk(doctor.id))
+      .filter((doctor) => this.isOnDesk(doctor.id) || this.isOnDesk(doctor.userId))
       .map((doctor) => {
-        const days = this.schedule()[doctor.id] ?? [];
+        const days = this.scheduleFor(doctor.id);
         const weekly = days.reduce((total, day) => total + this.dayMinutes(day), 0);
         const nextLive = this.appointments()
           .filter(
             (appointment) =>
+              this.isOnDesk(appointment.doctorId) &&
               LIVE_STATUSES.includes(appointment.status) &&
               new Date(appointment.startsAt).getTime() >= now,
           )
@@ -313,25 +417,22 @@ export class SecretarySession {
   conversationSubtitle(conversation: Conversation): string {
     if (conversation.party === 'doctor') {
       const doctor = this.doctorById(conversation.partyId);
-      return doctor ? `Doctor Â· ${doctor.specialization}` : 'Doctor';
+      return doctor ? `Doctor · ${doctor.specialization}` : 'Doctor';
     }
 
     const summary = this.patients().find((entry) => entry.patient.id === conversation.partyId);
     if (!summary) return 'Patient';
 
     if (summary.nextVisit) {
-      return `Patient Â· Next visit ${shortDate(new Date(summary.nextVisit.startsAt))}`;
+      return `Patient · Next visit ${shortDate(new Date(summary.nextVisit.startsAt))}`;
     }
     return summary.visitCount
-      ? `Patient Â· ${summary.visitCount} visit${summary.visitCount === 1 ? '' : 's'}`
-      : 'Patient Â· Not yet seen';
+      ? `Patient · ${summary.visitCount} visit${summary.visitCount === 1 ? '' : 's'}`
+      : 'Patient · Not yet seen';
   }
 
   /**
    * Marks everything the other party sent in a thread as read.
-   *
-   * Optimistic: flags flip immediately, then the API call is fired and rolled
-   * back on error â€” same shape as confirm/cancel.
    */
   markConversationRead(conversationId: string): boolean {
     if (!this.conversations().some((summary) => summary.conversation.id === conversationId)) {
@@ -367,11 +468,12 @@ export class SecretarySession {
 
   /**
    * Appends a reply from the signed-in Secretary.
-   *
-   * Optimistic: the bubble appears immediately, then the API call is fired
-   * and rolled back on error â€” same shape as confirm/cancel.
    */
-  sendMessage(conversationId: string, body: string): Observable<ConversationMessage | null> {
+  sendMessage(
+    conversationId: string,
+    body: string,
+    appointmentId: string | null = null,
+  ): Observable<ConversationMessage | null> {
     const text = body.trim();
     if (!text) return of(null);
     if (!this.conversations().some((summary) => summary.conversation.id === conversationId)) {
@@ -383,15 +485,14 @@ export class SecretarySession {
       conversationId,
       sentAt: localIso(this.now()),
       body: text,
+      appointmentId,
       fromSecretary: true,
       readAt: localIso(this.now()),
     };
 
-    // Optimistic update: the bubble appears immediately, synchronously.
     this.messageState.update((messages) => [...messages, message]);
 
-    // API call: fires when the caller subscribes. On error, roll back and propagate.
-    return this.gateway.sendMessage(conversationId, text).pipe(
+    return this.gateway.sendMessage(conversationId, text, appointmentId).pipe(
       map(() => message),
       catchError((err) => {
         this.messageState.update((messages) => messages.filter((m) => m.id !== message.id));
@@ -439,8 +540,10 @@ export class SecretarySession {
    * One of this desk's patients, or `null` for an id that is not on it.
    */
   patientById(id: string): Patient | null {
-    const patient = this.patientState().find((candidate) => candidate.id === id);
-    return patient && this.isOnDesk(patient.doctorId) ? patient : null;
+    const patient =
+      this.patientState().find((candidate) => candidate.id === id) ??
+      this.patientState().find((candidate) => candidate.usersId === id);
+    return patient ?? null;
   }
 
   /**
@@ -455,7 +558,11 @@ export class SecretarySession {
    * A patient's appointments on this desk, soonest first.
    */
   appointmentsForPatient(patientId: string): Appointment[] {
-    return this.appointments().filter((appointment) => appointment.patientId === patientId);
+    return this.appointments().filter(
+      (appointment) =>
+        appointment.patientId === patientId ||
+        appointment.patientId === this.patientById(patientId)?.usersId,
+    );
   }
 
   /**
@@ -475,18 +582,16 @@ export class SecretarySession {
     return this.doctorById(doctorId)?.name ?? 'Unknown doctor';
   }
 
-  /** A doctor's published week, or an empty list rather than a throw. */
+  /** A doctor's published week, always all 7 days (0-6). Missing days are closed. */
   scheduleFor(doctorId: string): ScheduleDay[] {
-    return this.schedule()[doctorId] ?? [];
+    const existing = this.schedule()[doctorId] ?? [];
+    const byDay = new Map(existing.map((d) => [d.dayOfWeek, d]));
+    return Array.from({ length: 7 }, (_, dayOfWeek) => byDay.get(dayOfWeek) ?? { dayOfWeek, sessions: [] });
   }
 
   /** Minutes published on one day, or zero when the day is closed or invalid. */
   dayMinutes(day: ScheduleDay): number {
-    if (!day.enabled) return 0;
-    const start = minutesOfDay(day.startTime);
-    const end = minutesOfDay(day.endTime);
-    if (start === null || end === null || end <= start) return 0;
-    return end - start;
+    return daySessionMinutes(day);
   }
 
   /** Minutes a doctor publishes across the whole week. */
@@ -510,13 +615,25 @@ export class SecretarySession {
     if (startsAt.getTime() < this.now().getTime()) return 'not-in-the-future';
 
     const day = this.scheduleFor(draft.doctorId).find((d) => d.dayOfWeek === startsAt.getDay());
-    if (!day?.enabled) return 'day-closed';
+    const sessions = day?.sessions ?? [];
+    if (!sessions.length) return 'day-closed';
 
-    const open = minutesOfDay(day.startTime);
-    const close = minutesOfDay(day.endTime);
     const startMinutes = startsAt.getHours() * 60 + startsAt.getMinutes();
-    if (open === null || close === null || startMinutes < open) return 'outside-hours';
-    if (startMinutes + draft.durationMinutes > close) return 'ends-after-close';
+    const endMinutes = startMinutes + draft.durationMinutes;
+    const containingSession = sessions.find((session) => {
+      const open = minutesOfDay(session.startTime);
+      const close = minutesOfDay(session.endTime);
+      return open !== null && close !== null && startMinutes >= open && endMinutes <= close;
+    });
+
+    if (!containingSession) {
+      const startsInsideAny = sessions.some((session) => {
+        const open = minutesOfDay(session.startTime);
+        const close = minutesOfDay(session.endTime);
+        return open !== null && close !== null && startMinutes >= open && startMinutes < close;
+      });
+      return startsInsideAny ? 'ends-after-close' : 'outside-hours';
+    }
 
     const clash = this.appointments().some((appointment) => {
       if (appointment.id === ignoreId) return false;
@@ -536,52 +653,116 @@ export class SecretarySession {
 
   /**
    * Confirms a booked appointment on this desk.
+   *
+   * Returns the outcome so the caller can report what actually happened. The UI is
+   * updated optimistically and rolled back if the API call fails.
    */
-  confirm(id: string): boolean {
+  confirm(id: string): Observable<ConfirmOutcome> {
     const current = this.appointmentState().find((appointment) => appointment.id === id);
-    if (!current || !this.isOnDesk(current.doctorId)) return false;
-    if (current.status !== 'booked') return false;
+    if (!current || !this.isOnDesk(current.doctorId)) {
+      return of({ kind: 'not-confirmable', currentStatus: current?.status });
+    }
+    if (current.status === 'confirmed') {
+      return of({ kind: 'already-confirmed' });
+    }
+    if (current.status !== 'booked') {
+      return of({ kind: 'not-confirmable', currentStatus: current.status });
+    }
 
     this.appointmentState.update((appointments) =>
       appointments.map((appointment) =>
         appointment.id === id ? { ...appointment, status: 'confirmed' as const } : appointment,
       ),
     );
-    this.gateway.confirmAppointment(id).subscribe({
-      error: () => {
+
+    return this.gateway.confirmAppointment(id).pipe(
+      tap(() => {
+        // Best-effort side effects: in-app notification and push. These must not
+        // change the confirm result; delivery depends on RPC/RLS/token availability.
+        const patientUserId =
+          this.patientById(current.patientId)?.usersId || current.patientId || '';
+        const doctorName = current.doctorId
+          ? (this.doctorById(current.doctorId)?.name ?? 'your doctor')
+          : 'your doctor';
+        const doctorDisplay = doctorName === 'your doctor' || /^Dr\./i.test(doctorName) ? doctorName : `Dr. ${doctorName}`;
+        if (patientUserId) {
+          this.gateway
+            .sendNotification(
+              patientUserId,
+              'CONFIRMED',
+              'Appointment confirmed',
+              `Your appointment with ${doctorDisplay} has been confirmed.`,
+              id,
+            )
+            .subscribe({ error: () => {} });
+
+          this.gateway.getPatientFcmToken(patientUserId).subscribe({
+            next: (fcmToken) => {
+              if (fcmToken) {
+                this.gateway
+                  .sendPushNotification(
+                    fcmToken,
+                    'Appointment confirmed',
+                    `Your appointment with ${doctorDisplay} has been confirmed.`,
+                    'mediq://appointments',
+                    id,
+                  )
+                  .subscribe({ error: () => {} });
+              }
+            },
+            error: () => {},
+          });
+        }
+      }),
+      map(() => ({ kind: 'confirmed' as const })),
+      catchError((err) => {
         this.appointmentState.update((appointments) =>
           appointments.map((appointment) =>
             appointment.id === id ? { ...appointment, status: 'booked' as const } : appointment,
           ),
         );
-      },
-    });
-    return true;
+        const message =
+          err instanceof Error ? err.message : typeof err === 'string' ? err : 'Failed to confirm';
+        return of({ kind: 'failed' as const, message });
+      }),
+    );
   }
 
   /**
-   * Cancels an appointment on this desk.
+   * Cancels an appointment on this desk, with an optional reason shown to the patient.
+   *
+   * Returns the outcome so the caller can report what actually happened. The UI is
+   * updated optimistically and rolled back if the API call fails. Server-side RPC
+   * is responsible for persisting the reason and creating the in-app notification.
    */
-  cancel(id: string): boolean {
+  cancel(id: string, reason: string | null = null): Observable<CancelOutcome> {
     const current = this.appointmentState().find((appointment) => appointment.id === id);
-    if (!current || !this.isOnDesk(current.doctorId)) return false;
-    if (CLOSED_STATUSES.includes(current.status)) return false;
+    if (!current || !this.isOnDesk(current.doctorId)) {
+      return of({ kind: 'not-cancellable' });
+    }
+    if (CLOSED_STATUSES.includes(current.status)) {
+      return of({ kind: 'not-cancellable' });
+    }
 
     this.appointmentState.update((appointments) =>
       appointments.map((appointment) =>
         appointment.id === id ? { ...appointment, status: 'cancelled' as const } : appointment,
       ),
     );
-    this.gateway.cancelAppointment(id).subscribe({
-      error: () => {
+
+    return this.gateway.cancelAppointment(id, reason).pipe(
+      map(() => ({ kind: 'cancelled' as const })),
+      catchError((err) => {
         this.appointmentState.update((appointments) =>
           appointments.map((appointment) =>
             appointment.id === id ? { ...appointment, status: current.status } : appointment,
           ),
         );
-      },
-    });
-    return true;
+        const message =
+          err instanceof Error ? err.message : typeof err === 'string' ? err : 'Failed to cancel';
+        return of({ kind: 'failed' as const, message });
+      }),
+    );
   }
 
   /**
@@ -600,8 +781,8 @@ export class SecretarySession {
   // Initial load from the API
   // ---------------------------------------------------------------------------
   constructor() {
-    // Profile first â€” everything else needs assignedDoctorId.
     const p = this.auth.profile;
+    const cachedDoctorId = readAssignedDoctorId();
     if (p) {
       this.profileState.set({
         id: p.id,
@@ -609,9 +790,28 @@ export class SecretarySession {
         email: p.email ?? '',
         phone: p.mobileNumber ?? '',
         joinedOn: p.joinedOn ?? '',
-        assignedDoctorId: p.assignedDoctorId ?? null,
+        assignedDoctorId: p.assignedDoctorId ?? cachedDoctorId ?? null,
       });
+    } else if (cachedDoctorId) {
+      this.profileState.set({ ...EMPTY_PROFILE, assignedDoctorId: cachedDoctorId });
     }
+
+    this.auth.profile$.subscribe((p) => {
+      if (p) {
+        this.profileState.set({
+          id: p.id,
+          name: p.fullName,
+          email: p.email ?? '',
+          phone: p.mobileNumber ?? '',
+          joinedOn: p.joinedOn ?? '',
+          assignedDoctorId:
+            this.profileState().assignedDoctorId ??
+            p.assignedDoctorId ??
+            readAssignedDoctorId() ??
+            null,
+        });
+      }
+    });
 
     this.gateway.getAppointments().subscribe({
       next: (appointments) => this.appointmentState.set(appointments as unknown as Appointment[]),
@@ -621,21 +821,46 @@ export class SecretarySession {
     this.gateway.getPatients().subscribe({
       next: (profiles) => {
         const deskDoctorId = this.profileState().assignedDoctorId;
-        this.patientState.set(
-          profiles.map((p) => ({
-            id: p.id,
-            name: p.fullName,
-            email: p.email ?? '',
-            phone: p.mobileNumber ?? '',
-            dateOfBirth: p.dateOfBirth,
-            address: '',
-            registeredOn: p.dateOfBirth,
-            status: 'active' as AccountStatus,
-            // These patients are returned because they have appointments with
-            // this desk's doctor, so scope them to the assigned doctor id.
-            doctorId: deskDoctorId ?? '',
-          })),
-        );
+        from(
+          (this.supabase as any).from('users').select('id, email').eq('role', 'PATIENT'),
+        ).subscribe({
+          next: (userResult: any) => {
+            const usersByEmail = new Map<string, string>();
+            (userResult.data ?? []).forEach((u: any) => {
+              if (u.email) usersByEmail.set(u.email.toLowerCase(), u.id);
+            });
+            this.patientState.set(
+              profiles.map((p) => ({
+                id: p.id,
+                usersId: usersByEmail.get((p.email ?? '').toLowerCase()) ?? '',
+                name: p.fullName,
+                email: p.email ?? '',
+                phone: p.mobileNumber ?? '',
+                dateOfBirth: p.dateOfBirth,
+                address: '',
+                registeredOn: p.dateOfBirth,
+                status: 'active' as AccountStatus,
+                doctorId: deskDoctorId ?? '',
+              })),
+            );
+          },
+          error: () => {
+            this.patientState.set(
+              profiles.map((p) => ({
+                id: p.id,
+                usersId: '',
+                name: p.fullName,
+                email: p.email ?? '',
+                phone: p.mobileNumber ?? '',
+                dateOfBirth: p.dateOfBirth,
+                address: '',
+                registeredOn: p.dateOfBirth,
+                status: 'active' as AccountStatus,
+                doctorId: deskDoctorId ?? '',
+              })),
+            );
+          },
+        });
       },
       error: () => {},
     });
@@ -650,21 +875,11 @@ export class SecretarySession {
             awaitingAction: t.awaitingAction,
           })),
         );
-        this.messageState.set(
-          threads.flatMap((t) =>
-            // Threads don't carry messages in the summary endpoint; messages
-            // are loaded per-conversation when the thread is opened.
-            [],
-          ),
-        );
+        this.messageState.set([]);
       },
       error: () => {},
     });
 
-    // The assigned doctor and their published hours. Loaded once at startup so
-    // the dashboard can name the desk's doctor and the schedules page can show
-    // the week. Both come from the secretary's own profile: assignedDoctorId
-    // identifies the doctor, and the schedule endpoint publishes their hours.
     this.gateway.getDoctor().subscribe({
       next: (doctor) => {
         if (!doctor) {
@@ -684,19 +899,50 @@ export class SecretarySession {
           },
         ]);
 
-        this.gateway.getDoctorSchedule(doctor.id).subscribe({
-          next: (hours) => {
-            this.scheduleState.set({
-              [doctor.id]: hours.map((h) => ({
-                dayOfWeek: h.dayOfWeek,
-                enabled: !h.isClosed,
-                startTime: h.startTime,
-                endTime: h.endTime,
-              })),
-            });
-          },
-          error: () => {},
-        });
+        this.profileState.update((p) => ({
+          ...p,
+          assignedDoctorId: p.assignedDoctorId ?? doctor.id ?? doctor.userId,
+        }));
+        const deskDoctorId = this.profileState().assignedDoctorId ?? doctor.id ?? doctor.userId;
+        if (deskDoctorId) {
+          writeAssignedDoctorId(deskDoctorId);
+        }
+
+        this.patientState.update((patients) =>
+          patients.map((p) => ({ ...p, doctorId: deskDoctorId ?? p.doctorId })),
+        );
+
+        const applySchedule = (rows: any[]) => {
+          const normalized = normalizeScheduleDays(rows ?? []);
+          if (!hasPublishedHours(normalized) && hasPublishedHours(this.scheduleState()[doctor.id] ?? [])) {
+            return false;
+          }
+          this.scheduleState.set({ [doctor.id]: normalized });
+          return hasPublishedHours(normalized);
+        };
+
+        const scheduleDoctorId = doctor.userId || doctor.id || deskDoctorId;
+        if (scheduleDoctorId) {
+          this.gateway.getDoctorSchedule(scheduleDoctorId).subscribe({
+            next: (hours) => {
+              if (applySchedule(hours)) return;
+              if (doctor.id && doctor.id !== scheduleDoctorId) {
+                this.gateway.getDoctorSchedule(doctor.id).subscribe({
+                  next: (hours2) => applySchedule(hours2),
+                  error: () => {},
+                });
+              }
+            },
+            error: () => {
+              if (doctor.id && doctor.id !== scheduleDoctorId) {
+                this.gateway.getDoctorSchedule(doctor.id).subscribe({
+                  next: (hours2) => applySchedule(hours2),
+                  error: () => {},
+                });
+              }
+            },
+          });
+        }
       },
       error: () => {},
     });
@@ -712,5 +958,5 @@ function formatWeekHours(minutes: number): string {
 
 function oneline(body: string, limit = 110): string {
   const flat = body.replace(/\s+/g, ' ').trim();
-  return flat.length > limit ? `${flat.slice(0, limit - 1).trimEnd()}â€¦` : flat;
+  return flat.length > limit ? `${flat.slice(0, limit - 1).trimEnd()}…` : flat;
 }
