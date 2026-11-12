@@ -54,19 +54,34 @@ import com.example.mediq.ui.theme.MediQWarningContainer
  * The pieces that make up the chat screen.
  */
 
-/** The message list. */
+/** The message list with optional selection mode for deleting. */
 @Composable
 internal fun ChatMessageList(
     messages: List<ChatMessage>,
-    modifier: Modifier = Modifier
+    selectedIds: Set<String> = emptySet(),
+    onToggleSelection: (String) -> Unit = {},
+    modifier: Modifier = Modifier,
+    appointmentTime: String = ""
 ) {
     LazyColumn(
-        modifier = modifier,
-        contentPadding = PaddingValues(horizontal = MediQSpacing.sm, vertical = MediQSpacing.xs),
+        modifier = modifier
+            .fillMaxWidth(),
+        contentPadding = PaddingValues(horizontal = MediQSpacing.xs, vertical = MediQSpacing.xs),
         verticalArrangement = Arrangement.spacedBy(MediQSpacing.md)
     ) {
-        items(messages) { message ->
-            ChatBubble(message = message)
+        items(messages, key = { it.id }) { message ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = if (message.sentByPatient) Arrangement.End else Arrangement.Start
+            ) {
+                ChatBubble(
+                    message = message,
+                    selected = selectedIds.contains(message.id),
+                    onToggleSelection = { onToggleSelection(message.id) },
+                    appointmentTime = appointmentTime,
+                    modifier = Modifier.widthIn(max = MediQSize.chatBubbleMax)
+                )
+            }
         }
     }
 }
@@ -136,7 +151,7 @@ internal fun ChatInput(
     }
 }
 
-/** Loading / error states for the chat. */
+/** Loading state for the chat. */
 @Composable
 internal fun ChatLoadingState() {
     Box(
@@ -147,6 +162,7 @@ internal fun ChatLoadingState() {
     }
 }
 
+/** Error state for the chat. */
 @Composable
 internal fun ChatErrorState(message: String, onRetry: () -> Unit) {
     Box(
@@ -161,6 +177,60 @@ internal fun ChatErrorState(message: String, onRetry: () -> Unit) {
             androidx.compose.material3.Button(onClick = onRetry, modifier = Modifier.heightIn(min = MediQSize.minTouchTarget)) {
                 Text(text = "Retry", style = MaterialTheme.typography.labelLarge)
             }
+        }
+    }
+}
+
+/** Notice shown when the appointment linked to this chat has been cancelled. */
+@Composable
+internal fun ChatCancelledNotice() {
+    Box(
+        modifier = Modifier.fillMaxWidth(),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(MediQSpacing.md)
+        ) {
+            Text(
+                text = "This appointment has been cancelled.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MediQTextSecondary,
+                textAlign = TextAlign.Center
+            )
+            Text(
+                text = "You can no longer send messages in this conversation.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MediQTextSecondary,
+                textAlign = TextAlign.Center
+            )
+        }
+    }
+}
+
+/** Notice shown when the appointment is in the past and messages are blocked. */
+@Composable
+internal fun ChatPastAppointmentNotice() {
+    Box(
+        modifier = Modifier.fillMaxWidth(),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(MediQSpacing.md)
+        ) {
+            Text(
+                text = "This appointment has already passed.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MediQTextSecondary,
+                textAlign = TextAlign.Center
+            )
+            Text(
+                text = "You can no longer send messages for this appointment.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MediQTextSecondary,
+                textAlign = TextAlign.Center
+            )
         }
     }
 }
