@@ -11,6 +11,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.Dispatchers
+import android.util.Log
 import java.util.UUID
 
 val JSON_MEDIA_TYPE = "application/json".toMediaType()
@@ -88,10 +89,11 @@ class SupabaseApiService {
         val response = sb.newCall(requestBuilder.build()).execute()
         val responseBody = response.body?.string() ?: ""
 
-        // OkHttp follows redirects automatically (301/302/303/307/308). For 300
-        // Multiple Choices it returns the response directly — treat any 3xx as
-        // non-fatal and return the body instead of throwing.
-        if (!response.isSuccessful && response.code !in 300..308) {
+        // OkHttp follows redirects automatically (301/302/303/307/308). HTTP 300
+        // Multiple Choices means PostgREST could not pick a function overload —
+        // treat it as a real failure so booking errors surface instead of being
+        // mis-parsed as a booking id.
+        if (!response.isSuccessful && response.code !in 301..308) {
             throw RuntimeException("HTTP ${response.code}: $responseBody")
         }
 
@@ -465,9 +467,23 @@ class SupabaseApiService {
         val session = SupabaseClient.accessToken
             ?: return@withContext null
         val authUserId = getCurrentUserId(session)
-        val userBody = fetchJson("${SupabaseClient.restUrl}/users?select=id&auth_user_id=eq.$authUserId", session)
-        val userArr = JSONArray(userBody)
-        return@withContext if (userArr.length() > 0) userArr.getJSONObject(0).getString("id") else null
+        val byAuth = fetchJson("${SupabaseClient.restUrl}/users?select=id,auth_user_id&auth_user_id=eq.$authUserId", session)
+        val byAuthArr = JSONArray(byAuth)
+        if (byAuthArr.length() > 0) {
+            val id = byAuthArr.getJSONObject(0).getString("id")
+            Log.d("MediQBookingDiag", "resolvePatientUserId authUserId=$authUserId -> users.id=$id (auth_user_id match)")
+            return@withContext id
+        }
+        // Fallback for self-registered users where users.id == auth uid but auth_user_id is null
+        val byId = fetchJson("${SupabaseClient.restUrl}/users?select=id,auth_user_id&id=eq.$authUserId", session)
+        val byIdArr = JSONArray(byId)
+        if (byIdArr.length() > 0) {
+            val id = byIdArr.getJSONObject(0).getString("id")
+            Log.d("MediQBookingDiag", "resolvePatientUserId authUserId=$authUserId -> users.id=$id (id match fallback)")
+            return@withContext id
+        }
+        Log.w("MediQBookingDiag", "resolvePatientUserId authUserId=$authUserId -> no users row found")
+        return@withContext null
     }
 
     suspend fun getAppointments(
@@ -483,6 +499,7 @@ class SupabaseApiService {
 
         val cached = Companion.appointmentsCache[cacheKey]
         if (cached != null && now - cached.first < APPOINTMENTS_CACHE_TTL_MS) {
+            Log.d("MediQBookingDiag", "getAppointments cache hit patientId=$patientId items=${cached.second.items.size}")
             return@withContext cached.second
         }
 
@@ -493,10 +510,12 @@ class SupabaseApiService {
         if (status != null) url += "&status=eq.${status.name}"
         if (from != null) url += "&starts_at=gte.$from"
         if (to != null) url += "&starts_at=lte.$to"
+        Log.d("MediQBookingDiag", "getAppointments url=$url")
         val body = fetchJson(url, session)
         val total = extractTotalCount(url, session)
         val arr = JSONArray(body)
         val items = arr.map { parseAppointment(it) }
+        Log.d("MediQBookingDiag", "getAppointments patientId=$patientId returned=${items.size} total=$total ids=${items.take(5).map { it.id }} statuses=${items.take(5).map { it.status }}")
         val result = Paged(items = items, total = total.toLong(), limit = limit, offset = offset)
 
         Companion.appointmentsCache[cacheKey] = Pair(System.currentTimeMillis(), result)
@@ -507,31 +526,51 @@ class SupabaseApiService {
         val session = SupabaseClient.accessToken
             ?: throw RuntimeException("Not authenticated")
 
-        // Resolve users.id from auth_user_id and doctors.user_id for RPC and response mapping.
-        val patientUserBody = fetchJson("${SupabaseClient.restUrl}/users?select=id&auth_user_id=eq.${request.patientId}", session)
-        val patientUserArr = JSONArray(patientUserBody)
-        val patientUserId = if (patientUserArr.length() > 0) patientUserArr.getJSONObject(0).getString("id") else request.patientId
+        // Resolve users.id from auth_user_id/id and doctors.user_id for RPC and response mapping.
+        var patientUserId = request.patientId
+        try {
+            val patientUserBody = fetchJson("${SupabaseClient.restUrl}/users?select=id&auth_user_id=eq.${request.patientId}", session)
+            val patientUserArr = JSONArray(patientUserBody)
+            if (patientUserArr.length() > 0) {
+                patientUserId = patientUserArr.getJSONObject(0).getString("id")
+            } else {
+                val fallback = fetchJson("${SupabaseClient.restUrl}/users?select=id&id=eq.${request.patientId}", session)
+                val fallbackArr = JSONArray(fallback)
+                if (fallbackArr.length() > 0) patientUserId = fallbackArr.getJSONObject(0).getString("id")
+            }
+        } catch (e: Exception) {
+            Log.w("MediQBookingDiag", "createAppointment: patient resolve failed, using request.patientId=${request.patientId}", e)
+        }
+
         val doctorUserBody = fetchJson("${SupabaseClient.restUrl}/doctors?select=user_id&id=eq.${request.doctorId}", session)
         val doctorUserArr = JSONArray(doctorUserBody)
         val doctorUserId = if (doctorUserArr.length() > 0) doctorUserArr.getJSONObject(0).getString("user_id") else request.doctorId
 
-        val response = httpRequest("POST", "${SupabaseClient.restUrl}/rpc/book_appointment", auth = true,
-            body = jsonBody(
-                "p_patient_id" to patientUserId,
-                "p_doctor_id" to doctorUserId,
-                "p_starts_at" to request.startsAt,
-                "p_duration_minutes" to request.durationMinutes,
-                "p_reason" to request.reason,
-            ))
+        Log.d("MediQBookingDiag", "createAppointment req patient=${request.patientId} doctor=${request.doctorId} startsAt=${request.startsAt} resolved patient=$patientUserId doctor=$doctorUserId")
+        val response = try {
+            httpRequest("POST", "${SupabaseClient.restUrl}/rpc/book_appointment", auth = true,
+                body = jsonBody(
+                    "p_patient_id" to patientUserId,
+                    "p_doctor_id" to doctorUserId,
+                    "p_starts_at" to request.startsAt,
+                    "p_duration_minutes" to request.durationMinutes,
+                    "p_reason" to request.reason,
+                ))
+        } catch (e: Exception) {
+            Log.e("MediQBookingDiag", "createAppointment RPC failed: ${e.message}", e)
+            throw e
+        }
 
         Companion.appointmentsCache.clear()
 
         val appointmentId = runCatching {
             JSONArray(response).optString(0, response.trim().trim('"'))
         }.getOrDefault(response.trim().trim('"'))
+        Log.d("MediQBookingDiag", "createAppointment RPC response=$response parsedId=$appointmentId")
 
         return@withContext if (appointmentId.isNotBlank() && appointmentId != "null") {
-            runCatching { getAppointment(appointmentId) }.getOrElse {
+            runCatching { getAppointment(appointmentId) }.getOrElse { e ->
+                Log.w("MediQBookingDiag", "createAppointment: getAppointment($appointmentId) failed, returning synthetic row", e)
                 val now = java.time.Instant.now().toString()
                 Appointment(
                     id = appointmentId,
@@ -546,7 +585,7 @@ class SupabaseApiService {
                 )
             }
         } else {
-            throw RuntimeException("Booking failed")
+            throw RuntimeException("Booking failed: $response")
         }
     }
 
