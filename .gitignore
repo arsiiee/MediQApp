@@ -90,3 +90,19 @@ postgres_data/
 google-services.json
 **/google-services.json
 java_pid*.hprof
+
+# --- Repo clutter / generated / non-system ---
+graphify-out/
+**/graphify-out/
+assets/
+docs/
+agent/
+.agents/
+.claude/
+scripts/
+frontend-cmd/
+supabase_logs.json
+clinic_hours_seed.sql
+login-test.html
+CONSTRAINTS.md
+skills-lock.json
