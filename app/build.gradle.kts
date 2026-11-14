@@ -1,9 +1,24 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.google.services)
 }
+
+val localProperties = Properties().apply {
+    val file = rootProject.file("local.properties")
+    if (file.exists()) {
+        file.inputStream().use { load(it) }
+    }
+}
+
+fun secret(name: String): String =
+    (project.findProperty(name) as String?)
+        ?: localProperties.getProperty(name)
+        ?: System.getenv(name)
+        ?: ""
 
 android {
     namespace = "com.example.mediq"
@@ -20,13 +35,9 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
-        // Supabase credentials provided via gradle properties or environment at build time.
-        val supabaseUrl = (project.findProperty("SUPABASE_URL") as String?)
-            ?: System.getenv("SUPABASE_URL")
-            ?: ""
-        val supabaseAnonKey = (project.findProperty("SUPABASE_ANON_KEY") as String?)
-            ?: System.getenv("SUPABASE_ANON_KEY")
-            ?: ""
+        // Supabase credentials provided via local.properties, gradle properties, or environment.
+        val supabaseUrl = secret("SUPABASE_URL")
+        val supabaseAnonKey = secret("SUPABASE_ANON_KEY")
         buildConfigField("String", "SUPABASE_URL", "\"$supabaseUrl\"")
         buildConfigField("String", "SUPABASE_ANON_KEY", "\"$supabaseAnonKey\"")
     }
