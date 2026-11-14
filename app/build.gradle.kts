@@ -20,9 +20,15 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
-        // Supabase credentials (hardcoded in buildConfigField below)
-        buildConfigField("String", "SUPABASE_URL", "\"https://wdoyhtjpjhmagdllvd.supabase.co\"")
-        buildConfigField("String", "SUPABASE_ANON_KEY", "\"REDACTED_SUPABASE_KEY\"")
+        // Supabase credentials provided via gradle properties or environment at build time.
+        val supabaseUrl = (project.findProperty("SUPABASE_URL") as String?)
+            ?: System.getenv("SUPABASE_URL")
+            ?: ""
+        val supabaseAnonKey = (project.findProperty("SUPABASE_ANON_KEY") as String?)
+            ?: System.getenv("SUPABASE_ANON_KEY")
+            ?: ""
+        buildConfigField("String", "SUPABASE_URL", "\"$supabaseUrl\"")
+        buildConfigField("String", "SUPABASE_ANON_KEY", "\"$supabaseAnonKey\"")
     }
 
     buildTypes {
@@ -43,7 +49,7 @@ android {
 }
 
 dependencies {
-    // Networking â€” OkHttp calling Supabase REST API directly
+    // Networking — OkHttp calling Supabase REST API directly
     implementation(libs.okhttp)
     implementation(libs.okhttp.logging)
     implementation(libs.org.json)
@@ -63,6 +69,7 @@ dependencies {
 
     implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.core.ktx)
+    implementation(libs.androidx.security.crypto)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.biometric)

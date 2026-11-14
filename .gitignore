@@ -82,3 +82,11 @@ supabase/.temp/
 
 # --- Docker Local Mounts ---
 postgres_data/
+
+# --- Local secrets, service accounts, and memory dumps ---
+*firebase-adminsdk*.json
+*service-account*.json
+*.hprof
+google-services.json
+**/google-services.json
+java_pid*.hprof

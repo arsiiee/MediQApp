@@ -9,25 +9,16 @@ object SupabaseClient {
     /*
      * Supabase project connection details.
      *
-     * Debug builds: local Supabase (port 54321 via Docker). Change DEBUG_URL to match
-     * your dev machine (emulator uses 10.0.2.2).
-     *
-     * Release builds: the remote Supabase project.
-     *
-     * Override with -Dmediq.supabase.url=... and -Dmediq.supabase.anonKey=... if needed.
+     * Values come from BuildConfig (injected at build time) or JVM system properties
+     * (-Dmediq.supabase.url / -Dmediq.supabase.anonKey). Do not hardcode keys.
      */
-    private const val DEBUG_URL = "https://wdoyhtjpjhmhsegdllvd.supabase.co"
-    private const val DEBUG_ANON_KEY = "REDACTED_SUPABASE_KEY"
-
     private val SUPABASE_URL: String =
-        System.getProperty("mediq.supabase.url") ?: if (BuildConfig.DEBUG) {
-            DEBUG_URL
-        } else {
-            "https://wdoyhtjpjhmhsegdllvd.supabase.co"
-        }
+        System.getProperty("mediq.supabase.url")
+            ?: BuildConfig.SUPABASE_URL
 
     private val SUPABASE_ANON_KEY: String =
-        System.getProperty("mediq.supabase.anonKey") ?: DEBUG_ANON_KEY
+        System.getProperty("mediq.supabase.anonKey")
+            ?: BuildConfig.SUPABASE_ANON_KEY
 
     /** The OkHttp client configured for Supabase REST API calls. */
     val client: OkHttpClient = OkHttpClient.Builder()
